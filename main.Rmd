@@ -1,0 +1,23 @@
+---
+title: "main"
+output: html_document
+---
+
+
+```{r load packages}
+#---------i. Clear environment
+rm(list=ls())
+#---------ii.Load here package to enable finding script loading other package
+# MISSING Add Package loader from forecasting prokect
+
+
+```
+
+```{r}
+library(here)
+source(here("R", "load_snb_data.R"))
+```
+
+```{r}
+source(here("scripts", "01_load_data.R"))
+```

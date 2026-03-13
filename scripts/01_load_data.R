@@ -8,6 +8,8 @@ library(readr)
 library(kofdata)
 library(zoo)
 library(BFS)
+library(dplyr)
+library(RCurl)
 
 
 # -----------------------
@@ -193,12 +195,17 @@ if (!file.exists(emp_csv) && !force_redownload) {
 
 url_csv <-
   "https://www.seco.admin.ch/dam/seco/de/dokumente/Wirtschaft/Wirtschaftslage/BIP_Daten/ch_seco_gdp_csv.csv.download.csv/ch_seco_gdp.csv"  # SECO GDP CSV URL
-data_gdp <- read_csv(url_csv)                                                                   # load CSV from SECO website
+data_gdp_raw <- read_csv(url_csv)                                                                   # load CSV from SECO website
 
-data_gdp <- data_gdp %>% 
-  filter(structure %in% c("gdp","inv_constr","inv_fixed", "cons_priv","cons_gov",          # choose GDP components
+data_gdp <- data_gdp_raw %>% 
+  dplyr::filter(
+    structure %in% c("gdp","inv_constr","inv_fixed", "cons_priv","cons_gov",          # choose GDP components
                           "exp_good_ex_vm","exp_serv","imp_serv","imp_good_ex_v"),
-         type == "real", seas_adj == "cssa")  
+    type == "real",
+    seas_adj == "cssa",
+    structure == "gdp"
+    
+    )  
 
 message("GDP Data ready for analysis.")
 
