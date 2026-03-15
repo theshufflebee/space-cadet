@@ -90,6 +90,7 @@ First need to find a way to download it
 
 # Clean CPI Data
 ```{r}
+cpi_ts <- standardize_time_series_df(cpi_raw, "Datum / Date", "38687", "cpi", "%Y-%m-%d")
 
 ```
 
@@ -103,6 +104,10 @@ Decide which series to take (what date is 100)
 
 # Clean Unemployment Data
 ```{r}
+unemployment <- unemployment_raw %>%
+  filter(REGION %in% "Total")
+
+unemployment_ts <- standardize_time_series_df(unemployment, "PERIOD", "VALUE", "unemployment", "%Y-%m")
 
 ```
 
@@ -116,6 +121,22 @@ turn values in floats
 
 # Clean employment Data
 ```{r}
+emp_raw
+
+employment <- emp_raw %>%
+  filter(Division.économique %in% "5-96 Total") %>%
+  filter(Taux.d.occupation %in% "Equivalents plein temps, désaisonnalisé") %>%
+  filter(Sexe %in% "Sexe - total") 
+
+
+# Returns NAN Currently pick up here aragin later need to change function to handle quarters or at least return the initial values if the result is NAN
+employment_ts <- standardize_time_series_df(employment,
+                                            "Trimestre",
+                                            "Emplois.selon.la.division.économique..le.taux.d.occupation.et.le.sexe",
+                                            "unemployment",
+                                            "%YQ%q")
+
+
 
 ```
 
