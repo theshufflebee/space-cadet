@@ -11,7 +11,6 @@ library(BFS)
 library(dplyr)
 library(RCurl)
 
-
 # -----------------------
 # Load functions
 # -------------------------
@@ -108,6 +107,8 @@ names(reer_raw) <- c("date", "overall_cpi", "eu_cpi", "overall_ppi", "eu_ppi")
 # --- End of SNB Loading ---
 message("SNB Data ready for analysis.")
 
+
+
 # ----------------------------------------------
 # Download Data From Swiss Gov via BFS Package
 # -----------------------------------------------
@@ -138,7 +139,6 @@ if (file.exists(cpi_xlsx) && !force_redownload) {
 
 
 #================================================================================
-# Work on this Part
 
 # --- Unemployment Data ---
 
@@ -190,7 +190,7 @@ if (!file.exists(emp_csv) && !force_redownload) {
 
 
 # --------------------------------------
-# Download data from SECO (via Viktor)
+# Download GDP data from SECO (via Viktor)
 # ---------------------------------------
 
 url_csv <-

@@ -9,6 +9,7 @@ output: html_document
 rm(list=ls())
 #---------ii.Load here package to enable finding script loading other package
 # MISSING Add Package loader from forecasting prokect
+# Maybe using a pip freeze type thing (packagerat?)
 
 
 ```
@@ -16,8 +17,130 @@ rm(list=ls())
 ```{r}
 library(here)
 source(here("R", "load_snb_data.R"))
+source(here("R", "utils.R"))
 ```
 
 ```{r}
 source(here("scripts", "01_load_data.R"))
 ```
+
+# Clean Data and organzie into one dataframe
+
+General questions
+  How do I handle dates? Thinking using ym since some data is mothly, handling the missing values with Kalman filter
+  But is that good for the compute? Or even reasonable
+
+
+## Clean SNB Money market data
+```{r}
+library(tidyverse)
+
+mm_raw <- mm_data[[1]]
+
+mm_raw <- mm_data %>%
+  pluck("data") %>%
+  bind_rows()
+
+mm_raw_wide <- mm_raw %>%
+  pivot_wider(
+    names_from = "D0",
+    values_from = "Value"
+  )
+
+saron_ts <- standardize_time_series_df(mm_raw_wide, "Date", "SARON", "saron", "%Y-%m")
+libor_ts <- standardize_time_series_df(mm_raw_wide, "Date", "3M0", "3m_libor", "%Y-%m")
+
+```
+
+  
+
+# Clean SNB Gov Bond Data
+```{r}
+
+gb_raw <- gb_data[[1]]
+
+gb_raw <- gb_data %>%
+  pluck("data") %>%
+  bind_rows()
+
+gb_raw_wide <- gb_raw %>%
+  pivot_wider(
+    names_from = "D0",
+    values_from = "Value"
+)
+
+
+gb_5y_ts <- standardize_time_series_df(gb_raw_wide, "Date", "5J", "5y_bond", "%Y-%m")
+gb_10y_ts <- standardize_time_series_df(gb_raw_wide, "Date", "10J", "10y_bond", "%Y-%m")
+
+```
+
+Access data from list
+  select date and values
+  rename columns to date and gov_bond_rate_{duration}y
+  turn dates into yq
+  turn rates into floats(assurance)
+  
+  
+# Clean REER
+
+First need to find a way to download it
+
+
+
+# Clean CPI Data
+```{r}
+
+```
+
+Decide which series to take (what date is 100)
+
+  select date and values
+  rename columns to date and money_market_rate
+  turn dates into ym (can always be turned into yq later)
+  turn rates into floats(assurance)
+  
+
+# Clean Unemployment Data
+```{r}
+
+```
+
+
+select region total
+select date column annd values
+rename columns to date and unemp_rate
+turn date into ym,
+turn values in floats
+
+
+# Clean employment Data
+```{r}
+
+```
+
+Select 5-96 code (excludes agriculture) and then drop column
+select sex total and then drop column
+rename columns to date and emp_tot
+select dates and values
+turn date into yq
+turn values into floast 
+
+
+# clean GDP Data
+```{r}
+
+```
+
+Values already selected in download -> move here and do that in cleaning
+still need to:
+  drop unnecessary columns: structure, type, seas_adj
+  rename columns to date and gdp
+  convert date into yq
+  convert values in floats
+
+
+
+
+
+
