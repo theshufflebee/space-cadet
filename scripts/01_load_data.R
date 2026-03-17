@@ -1,15 +1,16 @@
 # ---------------------
 # Load Libraries
 # ------------------------
-library(here)
-library(jsonlite)
-library(readxl)
-library(readr)
-library(kofdata)
-library(zoo)
-library(BFS)
-library(dplyr)
-library(RCurl)
+
+package_loader("jsonlite") # To handle json files
+package_loader("readxl")
+package_loader("readr")
+package_loader("kofdata") # To download KOF Data
+package_loader("zoo") # Handle dates
+package_loader("BFS") # Download BFS Data
+package_loader("dplyr") 
+package_loader("RCurl") # For API Calls
+
 
 # -----------------------
 # Load functions

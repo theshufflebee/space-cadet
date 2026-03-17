@@ -1,0 +1,112 @@
+---
+title: "explorer"
+output: html_document
+---
+
+```{r load packages}
+#---------i. Clear environment
+rm(list=ls())
+#---------ii.Load here package to enable finding script loading other package
+# MISSING Add Package loader from forecasting prokect
+
+
+library(BFS)
+library(kofdata)
+library(RCurl)
+library(jsonlite)
+library(tidyr)
+```
+
+```{r}
+library(here)
+source(here("R", "load_snb_data.R"))
+```
+
+```{r}
+source(here("scripts", "01_load_data.R"))
+```
+
+
+```{r}
+library(BFS)
+library(here)
+
+# 1. Define the path where you want to save the file
+# Note: BFS 'ts' files are often Excel (.xlsx), so check the extension
+dest_file <- here("data", "raw", "unemployment_canton.csv")
+
+# 2. Use bfs_download_asset with the numerical ID
+bfs_download_asset(
+  number_asset = "36453929", 
+  destfile = dest_file
+)
+
+message("File downloaded to: ", dest_file)
+
+library(readxl)
+
+unemployment_raw <- read.table(
+  dest_file, 
+  header = TRUE, 
+  sep = ",",           # Ct
+  strip.white = TRUE,   # Cleans up whitespace
+  stringsAsFactors = FALSE,
+  check.names = FALSE
+)
+
+# Preview the first few rows
+head(unemployment_raw)
+
+
+```
+
+```{r}
+library(dplyr)
+
+unemployment_filtered <- unemployment_raw %>%
+  filter(REGION == "Total", CANTON == "Total")%>%
+  select(-REGION, -CANTON, -STATUS)
+```
+
+
+```{r}
+
+# 1. Define the BFS ID for CPI
+employment_id <- "px-x-0602000000_101"
+emp_raw_path <- here("data", "raw", "employment_data.csv")
+
+# 2. Download or Load logic
+if (!file.exists(emp_raw_path) || force_redownload) {
+  message("Downloading BFS CPI Data...")
+  
+  # This returns a tidy data frame automatically
+  emp_raw <- bfs_get_data(
+    number_bfs = cpi_id, 
+    language = "fr"
+  )
+  
+  write.csv(emp_raw, emp_raw_path, row.names = FALSE)
+} else {
+  emp_raw <- read.csv(emp_raw_path)
+}
+```
+
+```{r}
+fte_emp <- emp_raw %>%
+  filter(
+    `Division économique` == "5-96 Total", # Excludes farm / agriculture payroll NOGA 1-4
+    # Using the exact string you found in your unique() check
+    `Taux d'occupation` == "Equivalents plein temps, désaisonnalisé",
+    Sexe == "Sexe - total"
+  )
+```
+
+
+```{r}
+full_bfs_catalogue <- bfs_get_catalog_tables(language = "fr")
+
+```
+
+
+
+
