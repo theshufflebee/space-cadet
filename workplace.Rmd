@@ -12,6 +12,21 @@ rm(list=ls())
 # Maybe using a pip freeze type thing (packagerat?)
 
 
+# --------- ii. Load here package to enable finding script loading other packages 
+
+# First, define a function that checks if a package is installed. 
+# If not, it installs it. Then it loads it.
+package_loader <- function(pkg) {
+  if (!require(pkg, character.only = TRUE)) {
+    message(paste("Installing missing package:", pkg))
+    install.packages(pkg, dependencies = TRUE)
+    library(pkg, character.only = TRUE)
+  }
+}
+
+# Load here package to be able to locate subsequent files
+package_loader("here")
+
 ```
 
 ```{r}
@@ -35,20 +50,14 @@ General questions
 ```{r}
 library(tidyverse)
 
-mm_raw <- mm_data[[1]]
-
-mm_raw <- mm_data %>%
-  pluck("data") %>%
-  bind_rows()
-
-mm_raw_wide <- mm_raw %>%
+mm_raw_wide <- mm_data %>%
   pivot_wider(
     names_from = "D0",
     values_from = "Value"
   )
 
-saron_ts <- standardize_time_series_df(mm_raw_wide, "Date", "SARON", "saron", "%Y-%m")
-libor_ts <- standardize_time_series_df(mm_raw_wide, "Date", "3M0", "3m_libor", "%Y-%m")
+saron_ts <- format_time_series_df(mm_raw_wide, "Date", "SARON", "saron", "%Y-%m")
+libor_ts <- format_time_series_df(mm_raw_wide, "Date", "3M0", "3m_libor", "%Y-%m")
 
 ```
 

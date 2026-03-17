@@ -1,23 +1,26 @@
-standardize_time_series_df <- function(data,           # Dataframe
-                                       date_col,       # The column with the date
-                                       value_col,      # The column with the value to keep
-                                       new_name,       # New name for the value column
-                                       date_format) {  # how the date is formated so it can properly be transformed
+format_time_series_df <- function(data,
+                                  date_col,
+                                  value_col,
+                                  new_name,
+                                  date_format) {
   
-  df <- as.data.frame(data) # convert to make sure
+  # format as dataframe
+  df <- as.data.frame(data)
   
-  # This selects the date and value column (!!sym is for the system seeing it as column)
+  # rename the columns
+  colnames(df)[colnames(df) == date_col] <- "date"
+  colnames(df)[colnames(df) == value_col] <- new_name
+  
+  # format the date as yearmonth
+  df$date <- zoo::as.yearmon(as.character(df$date), format = date_format)
+  
+  # format the value as numeric
+  df[[new_name]] <- as.numeric(df[[new_name]])
+  
+  # 3. Clean up
   df <- df %>%
-    rename(
-      date = !!sym(date_col),
-     !!sym(new_name) := !!sym(value_col)
-    ) %>%
-    mutate(
-      date = as.yearmon(date, format = date_format),
-      !!sym(new_name) := as.numeric(!!sym(new_name))
-      ) %>%
     select(date, !!sym(new_name)) %>%
-    drop_na(!!sym(new_name)) %>%
+    drop_na() %>%
     arrange(date)
   
   return(df)
