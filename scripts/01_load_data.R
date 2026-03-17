@@ -40,7 +40,6 @@ reer_json  <- file.path(raw_path, "reer_ppi_eu.json")
 ### KOF Data
 kof_master <- file.path(raw_path, "kof_consensus_master.csv")
 
-
 ### BFS Data
 cpi_asset_id <- "36483229" # ID for CPI Download
 cpi_xlsx <- file.path(raw_path, "cpi_series.xlsx") # is stored as excel file (Learned by downloading and saving wrong)
@@ -219,6 +218,7 @@ if (!file.exists(emp_csv) | do_api_call) {
 }
 
 
+message("BFS Data ready for analysis.")
 
 
 # --------------------------------------
@@ -251,19 +251,22 @@ if (!file.exists(kof_master) | do_api_call) {
   
   message("KOF Data missing. Calling KOF API...")
   
+  # Get KOF Data from KOF Package
   # As far as I can see no API Key needed, but added for easier handling if needed later
   kof_consensus_forecast <- get_collection("kof_consensus_forecast_mean", api_key = NULL, show_progress = FALSE)
   
+  # dataset is a list of time series objects. this puts them into a single time series object
+  # Merge usually takes 2 arguments, here we have multiple. ts objects and go though them one by one
   kof_merged <- do.call(merge, lapply(kof_consensus_forecast, as.zoo))
+  
+  # Transform this zoo/ts object into a dataframe
   master_kof_consensus_forecast <- data.frame(
-    date = as.yearmon(index(kof_merged)), # Converts to month (could just be quarter if needed)
-    coredata(kof_merged)                  
+    date = as.yearmon(index(kof_merged)), # Converts ts data to month (could just be quarter if needed)
+    coredata(kof_merged) # selects all data from zoo object                 
   )
   
-  kof_save_path <- here("data", "raw", "kof_consensus_master.csv")
-  if (!dir.exists(dirname(kof_save_path))) dir.create(dirname(kof_save_path), recursive = TRUE)
-  
-  write_csv(master_kof_consensus_forecast, kof_save_path)
+
+  write_csv(master_kof_consensus_forecast, kof_master)
 
 } else {
   message("Loading KOF Fata from local disk...")
@@ -277,3 +280,6 @@ master_kof_consensus_forecast <- master_kof_consensus_forecast %>%
          "ch.kof.consensus.q_qn_prices_5y.mean",
          "ch.kof.consensus.q_qn_3minterest_3m.mean",
          "ch.kof.consensus.q_qn_3minterest_12m.mean")
+
+message("KOF Data ready for analysis.")
+
