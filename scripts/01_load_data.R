@@ -29,6 +29,7 @@ reer_json  <- file.path(raw_path, "reer_ppi_eu.json")
 
 ### KOF Data
 kof_master <- file.path(raw_path, "kof_consensus_master.csv")
+kof_data_key <- "kof_consensus_forecast_mean"
 
 ### BFS Data
 cpi_asset_id <- "36483229" # ID for CPI Download
@@ -58,6 +59,12 @@ if (do_api_call) {
   
 }
 
+
+# Naming of columns
+names_snb_reer_df <- c("date", "overall_cpi", "eu_cpi", "overall_ppi", "eu_ppi")
+
+
+
 #--- Starting Data Download ---
 
 # ----------------------------------------------------------
@@ -66,57 +73,28 @@ if (do_api_call) {
 
 # --- MONEY MARKET DATA ---
 
-# if file doesn't exist or the api call is set to true download data
-if (!file.exists(mm_csv) | do_api_call) {
-  
-  message("Downloading Money Market files via SNB API...")
-  
-  # Load Money Market Data
-  load_snb_data(
-    cube = "zimoma",
-    folder = raw_path, # storage folder
-    file_name = "money_market", # file saved as name
-    from_date = from_date, # choose start date
-    to_date = to_date, # choose end date
-    ids = c('SARON', '3M0')
-    ) # Id's can be a string or a vector of strings
-}
+get_snb_data_wrapper(mm_csv, do_api_call, "zimoma", "money_market",  
+                 c('SARON', '3M0'))
 
 # Load the Data as a df
 mm_data <- read.table(mm_csv, skip=3, header = TRUE, sep=";")
 
 # Load the Metadata as a df
-mm_meta_data <- fromJSON(paste(readLines(mm_json, encoding = "UTF-8"), collapse=""))
-
-message("Money Market files Loaded")
-
+mm_meta_data <- fromJSON(paste(readLines(mm_json, encoding = "UTF
+8"), collapse=""))
 
 
-# --- GOVERNMENT BOND DATA ---
-
-# if file doesn't exist or the api call is set to true download data
-if (!file.exists(gb_csv) | do_api_call) {
-  
-  message("Downloading Money Market files via SNB API...")
-  
-  # Load Money Market Data
-  gb_data <- load_snb_data(
-    cube = "rendoblim",
-    folder = raw_path,
-    file_name = "gov_bonds",
-    from_date = from_date, # choose start date
-    to_date = to_date, # choose end date
-    ids = c("5J", "10J")
-  ) 
-}
+# --- GOVERNMENT BOND DATA --
+get_snb_data_wrapper(gb_csv, do_api_call, "rendoblim", "gov_bonds",  
+                 c("5J", "10J"))
 
 # Load the Data as a df
 gb_data <- read.table(gb_csv, skip=3, header = TRUE, sep=";")
 
 # Load the Metadata as a df
-gb_meta_data <- fromJSON(paste(readLines(gb_json, encoding = "UTF-8"), collapse=""))
+gb_meta_data <- fromJSON(paste(readLines(gb_json, encoding = "UTF
+8"), collapse=""))
 
-message("Gouvernment Bond Data files Loaded")
 
 
 # --- REER ---
@@ -126,7 +104,7 @@ message("Gouvernment Bond Data files Loaded")
 
 reer_raw <- read_excel("data/raw/snb_reer_manual_download.xlsx", sheet = 1, skip = 15)
 
-names(reer_raw) <- c("date", "overall_cpi", "eu_cpi", "overall_ppi", "eu_ppi")
+names(reer_raw) <- names_snb_reer_df
 
 # --- End of SNB Loading ---
 message("SNB Data ready for analysis.")
@@ -255,12 +233,21 @@ if (!file.exists(kof_master) | do_api_call) {
   write_csv(master_kof_consensus_forecast, kof_master)
 
 } else {
-  message("Loading KOF Fata from local disk...")
+  message("Loading KOF Data from local disk...")
   
-  # Data loaded with metadata in a list for simple inspection
+  # Data loaded loading
   master_kof_consensus_forecast <- read.table(kof_master, header = TRUE, sep = ",", check.names = FALSE)
 }
 
+download_kof_data_wrapper(file = kof_master,
+                          kof_data_key = kof_data_key,
+                          do_api_call = do_api_call)
+  
+
+master_kof_consensus_forecast <- read.table(kof_master, header = TRUE, sep = ",", check.names = FALSE)
+
+
+# Second step of selecting data
 master_kof_consensus_forecast <- master_kof_consensus_forecast %>%
   select("ch.kof.consensus.q_qn_unemp_5y.mean",
          "ch.kof.consensus.q_qn_prices_5y.mean",

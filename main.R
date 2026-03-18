@@ -29,7 +29,7 @@ source(here("scripts", "00a_install_dependencies.R"))
 #------------------------------------------------------------------------------
 # 0b. Run the Config script to get Parameters
 #------------------------------------------------------------------------------
-source(here("scripts", "00a_install_dependencies.R"))
+source(here("scripts", "00b_config.R"))
 
 
 
