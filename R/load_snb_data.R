@@ -1,13 +1,9 @@
-package_loader("RCurl") # API Call
-package_loader("jsonlite") # Handling JSON files
-package_loader("glue") # To bild API Endpoints
 
-
-load_snb_data <- function(cube = 'zimoma', # refers to the specific data set in the SNB website
+download_snb_data <- function(cube = 'zimoma', # refers to the specific data set in the SNB website
                           folder = "data", # choose storage folder must exist already
                           file_name = "name", # file saved as name
                           from_date = "2010-01", # choose start date
-                          toDate = "2016-01", # choose end date
+                          to_date = "2016-01", # choose end date
                           ids = c('SARON', '3M0'), # Id's can be a string or a vector of strings
                           file_type = 'csv') { # best choice here
   
@@ -26,7 +22,7 @@ load_snb_data <- function(cube = 'zimoma', # refers to the specific data set in 
   
   # Create the API Endpoint by inserting information into the url for data and metadata
   # Values in curly Brackets are replaced
-  api_url <- glue("https://data.snb.ch/api/cube/{cube}/data/{file_type}/en?dimSel=D0({collapsed_ids})&fromDate={from_date}&toDate={toDate}")
+  api_url <- glue("https://data.snb.ch/api/cube/{cube}/data/{file_type}/en?dimSel=D0({collapsed_ids})&fromDate={from_date}&toDate={to_date}")
   metadata_url <- glue("https://data.snb.ch/api/cube/{cube}/dimensions/en")
   
   # Download the Data directly into the folder
@@ -35,5 +31,29 @@ load_snb_data <- function(cube = 'zimoma', # refers to the specific data set in 
   # Download the Metadata directly into the folder
   download.file(metadata_url, method="curl", destfile=local_string_file_name)
   
+  return(TRUE)
 
 }
+
+
+get_snb_data_wrapper <- function(file,
+                                 force_download,
+                                 cube, 
+                                 file_name,
+                                 ids,
+                                 file_type) {
+  
+  if (!file.exists(mm_csv) | do_api_call){
+    success <- download_snb_data()
+  }
+  if(success){
+    message("Downloading", file_name, "files via SNB API")
+  } else{
+    warning("error in ", file_name )
+  }
+}
+
+
+
+
+

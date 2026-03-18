@@ -9,23 +9,29 @@ rm(list=ls())
 
 # --------- ii. Load here package to enable finding script loading other packages 
 
-# First, define a function that checks if a package is installed. 
-# If not, it installs it. Then it loads it.
-package_loader <- function(pkg) {
-  if (!require(pkg, character.only = TRUE)) {
-    message(paste("Installing missing package:", pkg))
-    install.packages(pkg, dependencies = TRUE)
-    library(pkg, character.only = TRUE)
-  }
+if (!require("here", character.only = TRUE)) {
+  message(paste("Installing missing package:", "here"))
+  install.packages("here", dependencies = TRUE)
+  library("here", character.only = TRUE)
 }
 
-# Load here package to be able to locate subsequent files
-package_loader("here")
+# Load all internal functions and
 
-
-# Load project functions
 source(here("R", "load_snb_data.R"))
 source(here("R", "utils.R"))
+
+#------------------------------------------------------------------------------
+# 0a. Run the Package Loading Script
+#------------------------------------------------------------------------------
+source(here("scripts", "00a_install_dependencies.R"))
+
+
+#------------------------------------------------------------------------------
+# 0b. Run the Config script to get Parameters
+#------------------------------------------------------------------------------
+source(here("scripts", "00a_install_dependencies.R"))
+
+
 
 #------------------------------------------------------------------------------
 # 1. Run the Data Loading Script

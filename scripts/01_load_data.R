@@ -2,16 +2,6 @@
 # Load Libraries
 # ------------------------
 
-package_loader("jsonlite") # To handle json files
-package_loader("readxl")
-package_loader("readr")
-package_loader("kofdata") # To download KOF Data
-package_loader("zoo") # Handle dates
-package_loader("BFS") # Download BFS Data
-package_loader("dplyr") 
-package_loader("RCurl") # For API Calls
-
-
 # -----------------------
 # Load functions
 # -------------------------
@@ -51,17 +41,13 @@ unemp_asset_id <- "36453929" # Id from package Catalogue
 unemp_csv <- file.path(raw_path, "unemployment_canton.csv")
 
 
+# Create folder for raw data if it doesn't exist
+if (!dir.exists(raw_path)) dir.create(raw_path) 
+
 
 # Define start and end dates for SNB Data
 from_date <- "1972-01"
 to_date <- format(Sys.Date(), "%Y-%m")
-
-# Create folder for raw data if it doesn't exist
-raw_path <- here("data", "raw")
-if (!dir.exists(raw_path)) dir.create(raw_path) 
-
-
-#force_redownload <- FALSE
 
 # Set True if you want to redownload Data
 # If there is no data, API gets called automatically
