@@ -65,22 +65,15 @@ libor_ts <- format_time_series_df(mm_raw_wide, "Date", "3M0", "3m_libor", "%Y-%m
 
 # Clean SNB Gov Bond Data
 ```{r}
-
-gb_raw <- gb_data[[1]]
-
-gb_raw <- gb_data %>%
-  pluck("data") %>%
-  bind_rows()
-
-gb_raw_wide <- gb_raw %>%
+gb_raw_wide <- gb_data %>%
   pivot_wider(
     names_from = "D0",
     values_from = "Value"
 )
 
 
-gb_5y_ts <- standardize_time_series_df(gb_raw_wide, "Date", "5J", "5y_bond", "%Y-%m")
-gb_10y_ts <- standardize_time_series_df(gb_raw_wide, "Date", "10J", "10y_bond", "%Y-%m")
+gb_5y_ts <- format_time_series_df(gb_raw_wide, "Date", "5J", "5y_bond", "%Y-%m")
+gb_10y_ts <- format_time_series_df(gb_raw_wide, "Date", "10J", "10y_bond", "%Y-%m")
 
 ```
 
@@ -99,7 +92,7 @@ First need to find a way to download it
 
 # Clean CPI Data
 ```{r}
-cpi_ts <- standardize_time_series_df(cpi_raw, "Datum / Date", "38687", "cpi", "%Y-%m-%d")
+cpi_ts <- format_time_series_df(cpi_raw, "Datum / Date", "38687", "cpi", "%Y-%m-%d")
 
 ```
 
@@ -116,7 +109,7 @@ Decide which series to take (what date is 100)
 unemployment <- unemployment_raw %>%
   filter(REGION %in% "Total")
 
-unemployment_ts <- standardize_time_series_df(unemployment, "PERIOD", "VALUE", "unemployment", "%Y-%m")
+unemployment_ts <- format_time_series_df(unemployment, "PERIOD", "VALUE", "unemployment", "%Y-%m")
 
 ```
 
@@ -139,7 +132,7 @@ employment <- emp_raw %>%
 
 
 # Returns NAN Currently pick up here aragin later need to change function to handle quarters or at least return the initial values if the result is NAN
-employment_ts <- standardize_time_series_df(employment,
+employment_ts <- format_time_series_df(employment,
                                             "Trimestre",
                                             "Emplois.selon.la.division.économique..le.taux.d.occupation.et.le.sexe",
                                             "unemployment",

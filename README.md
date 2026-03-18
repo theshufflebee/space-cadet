@@ -8,6 +8,10 @@ This is currently a work in Progress. The working parts of the project can be ru
 
 ## Libraries
 
+```         
+R version 4.3.3
+```
+
 ### Data Acquisition
 
 -   **`kofdata`**: Interface for downloading KOF Institute data.
