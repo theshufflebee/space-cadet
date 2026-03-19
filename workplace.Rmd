@@ -88,18 +88,6 @@ turn values in floats
 ```
 
 
-```{r}
-# 1. The Raw String
-quarter_str <- "1991Q3"
-
-# 2. Convert to Year-Quarter object, then to Year-Month
-# format = "%YQ%q" tells R that %Y is the year and %q is the quarter number
-clean_date <- as.yearmon(as.yearqtr(quarter_str, format = "%YQ%q"))
-
-print(clean_date)
-# Output: "Jul 1991"
-```
-
 
 
 Select 5-96 code (excludes agriculture) and then drop column

@@ -6,32 +6,6 @@
 
 # Config
 
-# KOF Ts of interest
-
-kof_cols_to_keep <- c("date",
-                      "ch.kof.consensus.q_qn_unemp_5y.mean",
-                     "ch.kof.consensus.q_qn_prices_5y.mean",
-                     "ch.kof.consensus.q_qn_3minterest_3m.mean",
-                     "ch.kof.consensus.q_qn_3minterest_12m.mean"
-)
-
-
-ts_names <- c(
-  "saron_ts",
-  "libor_ts",
-  "gb_5y_ts",
-  "gb_10y_ts", 
-  "reer_eu_ppi_ts",
-  "cpi_ts",
-  "unemployment_ts", 
-  "employment_ts",
-  "gdp_ts",
-  "kof_5y_unemp", 
-  "kof_5y_cpi",
-  "kof_3m_interest",
-  "kof_12m_interest"
-)
-
 
 # --- Format SNB Data ---
 

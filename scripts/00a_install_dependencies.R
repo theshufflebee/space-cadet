@@ -1,7 +1,15 @@
+################################################################################
+# 
+# Loading and installation of all required packages
+#
+################################################################################
 
-# --- Required Package List ---
 
-# All packages saved into a vector
+# ------------------------------------------------------------------------------
+# Required Package List
+# ------------------------------------------------------------------------------
+
+# All packages saved into a vector to load later
 required_packages <- c(
   "tidyverse",  # Includes dplyr, readr, and others
   "here",       # Project-relative paths
@@ -14,6 +22,13 @@ required_packages <- c(
   "BFS"         # Swiss Federal Statistical Office Data Access
 )
 
-# --- Execute Setup ---
+
+# ------------------------------------------------------------------------------
+# Execute installation and loading
+# ------------------------------------------------------------------------------
+
+# installs only missing packages, does not re install installed packages
 install_missing_packages(required_packages)
+
+# Loads all packages
 load_packages(required_packages)
