@@ -31,6 +31,90 @@ load_packages <- function(required_packages) {
 }
 
 
+# Generic download function
+download_url_csv <- function(url, filepath) {
+  
+  tryCatch({
+    data <- read_csv(url)
+    
+    write.csv(data, filepath)
+    
+    return(TRUE)
+    
+  }, error = function(e) {
+    
+    message("Download failed: ", e$message)
+    
+    return(FALSE)
+  })
+}
+
+# Generic Download function Wrapper
+
+download_url_csv_wrapper <- function(url, filepath, do_api_call) {
+  
+  if (!file.exists(filepath) | do_api_call) {
+    success <- download_url_csv(url, filepath)
+    
+    if (success){
+      message("Successfully downloaded file from", url)
+    } else {
+      message("Error in Downloading from", url)
+    }
+  } else {
+    message("File '", filepath, "already exists. Skipping download.")
+  }
+}
+  
+
+### BFS WRAPPER
+
+bfs_wrapper <- function(id, dest_file, do_api_call = FALSE, type = "data") {
+  
+  # Initialize success as FALSE, Update if data is downloaded
+  # BFS FUnctions are marked wit BFS:: prefix
+  success <- FALSE
+  
+  if (!file.exists(dest_file) | do_api_call) {
+    message("Fetching BFS ", type, " for ID: ", id)
+    
+    if (type == "data") {
+      
+      # bfs_get_data returns a dataframe, we want to save it
+      df <- BFS::bfs_get_data(number_bfs = id,
+                              language = "fr")
+      
+      write_csv(df, dest_file)
+      
+      success <- TRUE
+      
+    } else if (type == "asset") {
+      
+      # bfs_download_asset downloads file directly to dest_file
+      download_path <- BFS::bfs_download_asset(
+        number_asset = id, 
+        destfile = dest_file
+      )
+      
+      success <- !is.null(download_path)
+      
+    } else {
+      message("Error: type '", type, "' does not exist.")
+      
+      success <- FALSE
+    }
+    
+  } else {
+    message("Loading ", dest_file, " from Disk...")
+    
+    success <- TRUE
+  }
+  
+  return(success)
+}
+
+
+
 
 #--- Functions for Data Handling ---
 

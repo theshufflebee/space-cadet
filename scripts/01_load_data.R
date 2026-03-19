@@ -6,6 +6,8 @@
 # Load functions
 # -------------------------
 source(here("R", "load_snb_data.R"))
+source(here("R", "load_kof_data.R"))
+source(here("R", "utils.R"))
 
 # ----------------------------------------------------------
 # Data Config Section
@@ -41,6 +43,12 @@ emp_csv <- file.path(raw_path, "employment_data.csv")
 unemp_asset_id <- "36453929" # Id from package Catalogue
 unemp_csv <- file.path(raw_path, "unemployment_canton.csv")
 
+# SECO Data
+gdp_csv <- file.path(raw_path, "gdp.csv")
+url_gdp_csv <-
+  "https://www.seco.admin.ch/dam/seco/de/dokumente/Wirtschaft/Wirtschaftslage/BIP_Daten/ch_seco_gdp_csv.csv.download.csv/ch_seco_gdp.csv"  # SECO GDP CSV URL
+
+
 
 # Create folder for raw data if it doesn't exist
 if (!dir.exists(raw_path)) dir.create(raw_path) 
@@ -71,8 +79,8 @@ names_snb_reer_df <- c("date", "overall_cpi", "eu_cpi", "overall_ppi", "eu_ppi")
 # Load the SNB Data
 # ----------------------------------------------------------
 
-# --- MONEY MARKET DATA ---
 
+# --- MONEY MARKET DATA ---
 get_snb_data_wrapper(mm_csv, do_api_call, "zimoma", "money_market",  
                  c('SARON', '3M0'))
 
@@ -82,6 +90,7 @@ mm_data <- read.table(mm_csv, skip=3, header = TRUE, sep=";")
 # Load the Metadata as a df
 mm_meta_data <- fromJSON(paste(readLines(mm_json, encoding = "UTF
 8"), collapse=""))
+
 
 
 # --- GOVERNMENT BOND DATA --
@@ -106,33 +115,13 @@ reer_raw <- read_excel("data/raw/snb_reer_manual_download.xlsx", sheet = 1, skip
 
 names(reer_raw) <- names_snb_reer_df
 
-# --- End of SNB Loading ---
-message("SNB Data ready for analysis.")
-
-
-
 # ----------------------------------------------
 # Download Data From Swiss Gov via BFS Package
 # -----------------------------------------------
 
-
 # --- CPI Data ---
-
-if (!file.exists(cpi_xlsx) | do_api_call) {
+bfs_wrapper(cpi_asset_id, cpi_xlsx, do_api_call = FALSE, type = "asset")
   
-  message("Downloading CPI Data from BFS API...")
-  
-  # Download the file via BFS Package
-  bfs_download_asset(
-    number_asset = cpi_asset_id,
-    destfile = cpi_xlsx
-  )
-  
-  message("CPI Long Series downloaded to: ", cpi_xlsx)
-}
-
-message("Loading CPI Data from local disk...")
-
 # Load Excel: selected sheet number and skip after inspecting file
 cpi_raw <- read_excel(cpi_xlsx, sheet = 1, skip = 3) 
 
@@ -140,19 +129,8 @@ cpi_raw <- read_excel(cpi_xlsx, sheet = 1, skip = 3)
 # --- Unemployment Data ---
 
 # Note: BFS 'ts' files are often Excel (.xlsx), so check the extension
+bfs_wrapper(unemp_asset_id, unemp_csv, do_api_call = FALSE, type = "asset")
 
-if (!file.exists(unemp_csv) | do_api_call) {
-  
-  message("Downloading BFS Unmployment Data...") 
-
-  # load_asset with the numerical ID
-  bfs_download_asset(
-    number_asset = unemp_asset_id, 
-    destfile = unemp_csv
-    )
-
-  message("File downloaded to: ", unemp_csv)
-}
 
 
 unemployment_raw <- read.table(
@@ -167,22 +145,9 @@ unemployment_raw <- read.table(
 
 # --- Employment Data
 
-if (!file.exists(emp_csv) | do_api_call) {
-  message("Downloading BFS Employment Data...")
-  
-  # This returns a tidy data frame automatically
-  emp_raw <- bfs_get_data(
-    number_bfs = emp_asset_id, 
-    language = "fr"
-  )
-  
-  write.csv(emp_raw, emp_csv, row.names = FALSE)
-} else {
-  emp_raw <- read.csv(emp_csv)
-}
+bfs_wrapper(emp_asset_id, emp_csv, do_api_call = FALSE, type = "data")
 
-
-message("BFS Data ready for analysis.")
+emp_raw <- read.csv(emp_csv)
 
 
 # --------------------------------------
@@ -190,69 +155,25 @@ message("BFS Data ready for analysis.")
 # ---------------------------------------
 
 
-url_csv <-
-  "https://www.seco.admin.ch/dam/seco/de/dokumente/Wirtschaft/Wirtschaftslage/BIP_Daten/ch_seco_gdp_csv.csv.download.csv/ch_seco_gdp.csv"  # SECO GDP CSV URL
-data_gdp_raw <- read_csv(url_csv)                                                                   # load CSV from SECO website
+# Add Wrapper
+download_url_csv_wrapper(url = url_gdp_csv,
+                         filepath  = gdp_csv,
+                         do_api_call = do_api_call)
+  
+# Next Script
+data_gdp_raw <- read_csv(gdp_csv)                   
 
-data_gdp <- data_gdp_raw %>% 
-  dplyr::filter(
-    structure %in% c("gdp","inv_constr","inv_fixed", "cons_priv","cons_gov",          # choose GDP components
-                          "exp_good_ex_vm","exp_serv","imp_serv","imp_good_ex_v"),
-    type == "real",
-    seas_adj == "cssa",
-    structure == "gdp"
-    
-    )  
 
-message("GDP Data ready for analysis.")
 
 # ------------------------------------------
 # KOF Data
 # ------------------------------------------
 
 
-if (!file.exists(kof_master) | do_api_call) {
-  
-  message("KOF Data missing. Calling KOF API...")
-  
-  # Get KOF Data from KOF Package
-  # As far as I can see no API Key needed, but added for easier handling if needed later
-  kof_consensus_forecast <- get_collection("kof_consensus_forecast_mean", api_key = NULL, show_progress = FALSE)
-  
-  # dataset is a list of time series objects. this puts them into a single time series object
-  # Merge usually takes 2 arguments, here we have multiple. ts objects and go though them one by one
-  kof_merged <- do.call(merge, lapply(kof_consensus_forecast, as.zoo))
-  
-  # Transform this zoo/ts object into a dataframe
-  master_kof_consensus_forecast <- data.frame(
-    date = as.yearmon(index(kof_merged)), # Converts ts data to month (could just be quarter if needed)
-    coredata(kof_merged) # selects all data from zoo object                 
-  )
-  
-
-  write_csv(master_kof_consensus_forecast, kof_master)
-
-} else {
-  message("Loading KOF Data from local disk...")
-  
-  # Data loaded loading
-  master_kof_consensus_forecast <- read.table(kof_master, header = TRUE, sep = ",", check.names = FALSE)
-}
-
-download_kof_data_wrapper(file = kof_master,
+download_kof_data_wrapper(file=kof_master,
                           kof_data_key = kof_data_key,
                           do_api_call = do_api_call)
-  
+
 
 master_kof_consensus_forecast <- read.table(kof_master, header = TRUE, sep = ",", check.names = FALSE)
-
-
-# Second step of selecting data
-master_kof_consensus_forecast <- master_kof_consensus_forecast %>%
-  select("ch.kof.consensus.q_qn_unemp_5y.mean",
-         "ch.kof.consensus.q_qn_prices_5y.mean",
-         "ch.kof.consensus.q_qn_3minterest_3m.mean",
-         "ch.kof.consensus.q_qn_3minterest_12m.mean")
-
-message("KOF Data ready for analysis.")
 

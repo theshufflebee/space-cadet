@@ -15,7 +15,7 @@ download_kof_data <- function(file_path = kof_master, dataset = kof_data_key, ap
       coredata(kof_merged) # selects all data from zoo object                 
     )
     
-    write_csv(master_kof_consensus_forecast, kof_master)
+    write_csv(master_kof_consensus_forecast, file_path)
     return(TRUE)
   }, error = function(e) {
     
@@ -28,7 +28,7 @@ download_kof_data <- function(file_path = kof_master, dataset = kof_data_key, ap
 
 download_kof_data_wrapper <- function(file, kof_data_key = kof_data_key, do_api_call = FALSE) {
   
-  if (!file.exists(kof_master) | do_api_call) {
+  if (!file.exists(file) | do_api_call) {
     success <- download_kof_data(file_path = file, dataset = kof_data_key, api_key = NULL)
     
     if (success){

@@ -56,7 +56,7 @@ get_snb_data_wrapper <- function(file,
                                  ids,
                                  file_type = "csv") {
   
-  if (!file.exists(mm_csv) | do_api_call){
+  if (!file.exists(file) | do_api_call){
     success <- download_snb_data(cube,
                                  folder = raw_path, # choose storage folder must exist already
                                  file_name = file_name, # file saved as name
