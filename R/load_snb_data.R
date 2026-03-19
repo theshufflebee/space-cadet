@@ -1,16 +1,29 @@
-
+#' Function to Download Data from SNB API
+#' 
+#' This function transforms the R script on the SNB's website into a reusable function to download Data.
+#' An example dataset is available here: https://data.snb.ch/en/topics/ziredev/cube/zimoma
+#' It does download the Data directly, it does not return the Data
+#' 
+#' @param cube String. The specific data set identifier from the SNB website (e.g., 'zimoma').
+#' @param folder String. The storage directory. Must exist prior to calling the function.
+#' @param file_name String. The base name for the saved files.
+#' @param from_date String. Start date in 'YYYY-MM' format.
+#' @param to_date String. End date in 'YYYY-MM' format.
+#' @param ids (Vector of) Strings. One or more series identifiers (e.g., 'SARON').
+#' @param file_type String. The file format for the data download. Default is 'csv'.
+#' 
+#' @return Bool. An indicator: \code{TRUE} if download was successful \code{FALSE} otherwise.
+#'
+#' @importFrom glue glue
+#' @importFrom utils download.file
 download_snb_data <- function(cube = 'zimoma', # refers to the specific data set in the SNB website
                           folder = "data", # choose storage folder must exist already
                           file_name = "name", # file saved as name
                           from_date = "2010-01", # choose start date
-                          to_date = "2016-01", # choose end date
+                          to_date = "2026-01", # choose end date
                           ids = c('SARON', '3M0'), # Id's can be a string or a vector of strings
                           file_type = 'csv') { # best choice here
-  
-  # This is an adapted version from the SNB's API Calls and downloads data and metadata
-  # of a given SNB Dataset and returns a list with the data and metadata
-  # An example dataset is: https://data.snb.ch/en/topics/ziredev/cube/zimoma
-  
+
   # Prepare the ids for the api call into one string
   collapsed_ids <- paste(ids, collapse = ",")
   
@@ -47,8 +60,19 @@ download_snb_data <- function(cube = 'zimoma', # refers to the specific data set
 
 
 
-# Wrapper function that calls function above and downloads the data based on
-# If the file is 
+#' Wrapper function for download SNB Data
+#' 
+#' Wrapper function for the download_snb_data function. It checks if either the data is missing,
+#' or if there is forced download via \code{do_api_call} and downloads if either of these is the case.
+#' 
+#' @param file String. The full path to the local file to check.
+#' @param do_api_call Logical. If \code{TRUE}, forces a download even if the file exists.
+#' @param cube String. The SNB cube ID found on their website.
+#' @param file_name String. Base name for the saved file.
+#' @param ids (Vector of) Strings. The series ID(s) to fetch.
+#' @param file_type String. Format of the file (default 'csv').
+#'
+#' @return Invisibly returns the result of the download attempt.
 get_snb_data_wrapper <- function(file,
                                  do_api_call = FALSE,
                                  cube, 
@@ -79,7 +103,19 @@ get_snb_data_wrapper <- function(file,
 ####
 
 # Format to time Series
-
+#' Format SNB Time Series
+#' 
+#' Function that prepares SNB Data to get transformed with the format_time_series_df function, then applies it.
+#' 
+#' @param dataset Dataframe. The raw data downloaded from the SNB API.
+#' @param variable Sting. The ID of the specific variable to extract from the D0 column.
+#' @param variable_name String. The new name to assign to the value column.
+#' @param names_column String. The column containing variable IDs. Default is "D0".
+#' @param values_column String. The column containing the numeric values. Default is "Value".
+#'
+#' @return A processed dataframe with a \code{date} column and the renamed value column.
+#' 
+#' @importFrom tidyverse pivot_wider
 snb_api_data_to_ts <- function(dataset,
                                variable, # name in the supplied dataset
                                variable_name, # choose name for return dataset

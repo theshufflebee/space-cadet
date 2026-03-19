@@ -1,5 +1,7 @@
 ################################################################################
+#
 # Format Data into a time series df
+#
 ################################################################################
 
 
@@ -18,7 +20,7 @@ gb_5y_ts <- snb_api_data_to_ts(gb_data, "5J", "5y_bond")
 gb_10y_ts <- snb_api_data_to_ts(gb_data, "10J", "10y_bond")
 
 
-# REER DATA STILL MISSING
+# REER DATA STILL MANUAL
 
 reer_eu_ppi_ts <- format_time_series_df(reer_raw, "date", "eu_ppi", "reer_eu_ppi", "%Y-%m")
 
