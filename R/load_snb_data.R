@@ -76,4 +76,23 @@ get_snb_data_wrapper <- function(file,
 }
 
 
+####
+
+# Format to time Series
+
+snb_api_data_to_ts <- function(dataset,
+                               variable, # name in the supplied dataset
+                               variable_name, # choose name for return dataset
+                               names_column = "D0", # Defaut, may change later / in other datasets
+                               values_column = "Value") { # Default, may change later / in other datasets
+  dataset_wide <- dataset %>%
+    pivot_wider(
+      names_from = "D0",
+      values_from = "Value"
+    )
+  ts <- format_time_series_df(dataset_wide, "Date", variable, variable_name, "%Y-%m")
+  
+  return(ts)
+  
+}
 

@@ -41,49 +41,6 @@ source(here("scripts", "01_load_data.R"))
 
 # Clean Data and organzie into one dataframe
 
-General questions
-  How do I handle dates? Thinking using ym since some data is mothly, handling the missing values with Kalman filter
-  But is that good for the compute? Or even reasonable
-
-
-## Clean SNB Money market data
-```{r}
-library(tidyverse)
-
-mm_raw_wide <- mm_data %>%
-  pivot_wider(
-    names_from = "D0",
-    values_from = "Value"
-  )
-
-saron_ts <- format_time_series_df(mm_raw_wide, "Date", "SARON", "saron", "%Y-%m")
-libor_ts <- format_time_series_df(mm_raw_wide, "Date", "3M0", "3m_libor", "%Y-%m")
-
-```
-
-  
-
-# Clean SNB Gov Bond Data
-```{r}
-gb_raw_wide <- gb_data %>%
-  pivot_wider(
-    names_from = "D0",
-    values_from = "Value"
-)
-
-
-gb_5y_ts <- format_time_series_df(gb_raw_wide, "Date", "5J", "5y_bond", "%Y-%m")
-gb_10y_ts <- format_time_series_df(gb_raw_wide, "Date", "10J", "10y_bond", "%Y-%m")
-
-```
-
-Access data from list
-  select date and values
-  rename columns to date and gov_bond_rate_{duration}y
-  turn dates into yq
-  turn rates into floats(assurance)
-  
-  
 # Clean REER
 
 First need to find a way to download it
@@ -123,24 +80,27 @@ turn values in floats
 
 # Clean employment Data
 ```{r}
-emp_raw
-
-employment <- emp_raw %>%
-  filter(Division.économique %in% "5-96 Total") %>%
-  filter(Taux.d.occupation %in% "Equivalents plein temps, désaisonnalisé") %>%
-  filter(Sexe %in% "Sexe - total") 
 
 
-# Returns NAN Currently pick up here aragin later need to change function to handle quarters or at least return the initial values if the result is NAN
-employment_ts <- format_time_series_df(employment,
-                                            "Trimestre",
-                                            "Emplois.selon.la.division.économique..le.taux.d.occupation.et.le.sexe",
-                                            "unemployment",
-                                            "%YQ%q")
 
 
 
 ```
+
+
+```{r}
+# 1. The Raw String
+quarter_str <- "1991Q3"
+
+# 2. Convert to Year-Quarter object, then to Year-Month
+# format = "%YQ%q" tells R that %Y is the year and %q is the quarter number
+clean_date <- as.yearmon(as.yearqtr(quarter_str, format = "%YQ%q"))
+
+print(clean_date)
+# Output: "Jul 1991"
+```
+
+
 
 Select 5-96 code (excludes agriculture) and then drop column
 select sex total and then drop column
@@ -152,7 +112,15 @@ turn values into floast
 
 # clean GDP Data
 ```{r}
-
+data_gdp <- data_gdp_raw %>% 
+  dplyr::filter(
+    structure %in% c("gdp","inv_constr","inv_fixed", "cons_priv","cons_gov",          # choose GDP components
+                     "exp_good_ex_vm","exp_serv","imp_serv","imp_good_ex_v"),
+    type == "real",
+    seas_adj == "cssa",
+    structure == "gdp"
+    
+  )  
 ```
 
 Values already selected in download -> move here and do that in cleaning
