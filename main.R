@@ -50,4 +50,10 @@ source(here("scripts", "01_load_data.R"))
 source(here("scripts", "02_format_data.R"))
 
 
+#------------------------------------------------------------------------------
+# 3. Transform Data for analysis
+#------------------------------------------------------------------------------
+source(here("scripts", "03_trasform_data.R"))
+
+
 

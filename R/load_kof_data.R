@@ -11,6 +11,9 @@
 #' 
 #' @return Bool. Returns \code{TRUE} if download was successful and \code{FALSE} if it wasn't.
 #' 
+#' @seealso [download_kof_data_wrapper()]
+#' @seealso [https://kof.ethz.ch/]
+#' 
 #' @importFrom KOF get_collection
 #' @importFrom zoo as.zoo index coredata as.yearmon
 #' @importFrom readr write_csv
@@ -51,7 +54,7 @@ download_kof_data <- function(file_path = kof_master, dataset = kof_data_key, ap
 #' @param kof_api_key String. KOF API Key if needed.
 #' 
 #' @return None. The function doesn't return anything: It prints messages and downloads directly
-#' 
+#' @seealso [download_kof_data()]
 #' @examples
 #' \dontrun{
 #' download_kof_data_wrapper("data/kof_raw.csv", "kof_dataset_123", do_api_call = TRUE, kof_api_key = my_kof_api_key)

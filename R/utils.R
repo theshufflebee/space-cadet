@@ -51,6 +51,8 @@ load_packages <- function(required_packages) {
 #' @param filepath Where the file is stored
 #' 
 #' @return Bool. Messages indicate if download was succesfull and returns \code{TRUE} or \code{False} respectively
+#' 
+#' @seealso [download_url_csv_wrapper()]
 download_url_csv <- function(url, filepath) {
   
   tryCatch({
@@ -77,7 +79,7 @@ download_url_csv <- function(url, filepath) {
 #' @param do_api_call Bool. If \code{TRUE}, forces a download even if the file exists.
 #' 
 #' @return None. Messages indicating success.
-
+#' @seealso [download_url_csv()]
 download_url_csv_wrapper <- function(url, filepath, do_api_call) {
   
   if (!file.exists(filepath) | do_api_call) {
@@ -183,10 +185,8 @@ bfs_wrapper <- function(id, dest_file, do_api_call = FALSE, type = "data") {
 #' dynamic column naming, allowing you to pass the \code{new_name} as a simple string.
 #' 
 #' @importFrom zoo as.yearmon
-#' @importFrom dplyr select arrange %>%
+#' @importFrom dplyr select arrange
 #' @importFrom tidyr drop_na
-#' @importFrom rlang !! sym
-#' @export
 format_time_series_df <- function(data,
                                   date_col,
                                   value_col,
