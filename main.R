@@ -1,3 +1,8 @@
+################################################################################
+# 
+# Script for Running the Full Project
+#
+################################################################################
 
 #------------------------------------------------------------------------------
 # 0. Setup
@@ -15,13 +20,13 @@ if (!require("here", character.only = TRUE)) {
   library("here", character.only = TRUE)
 }
 
-# Load all internal functions and
+# Load all internal functions
 
 source(here("R", "load_snb_data.R"))
 source(here("R", "utils.R"))
 
 #------------------------------------------------------------------------------
-# 0a. Run the Package Loading Script
+# 0a. Run the Package Installation and Loading Script
 #------------------------------------------------------------------------------
 source(here("scripts", "00a_install_dependencies.R"))
 

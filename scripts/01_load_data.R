@@ -38,9 +38,21 @@ gb_meta_data <- fromJSON(paste(readLines(gb_json, encoding = "UTF
 # Currently a manual download from the website. Not sure exactly how I can get
 # it via API. Will look at it more later
 
-reer_raw <- read_excel("data/raw/snb_reer_manual_download.xlsx", sheet = 1, skip = 15)
 
-names(reer_raw) <- names_snb_reer_df
+get_snb_data_wrapper(reer_csv,
+                     do_api_call,
+                     "devwkieffid",
+                     "reer_ppi_eu",
+                     D0 = "P",
+                     D1 = "E",
+                     D2 ="I")
+
+# Load the Data as a df
+reer_raw <- read.table(reer_csv, skip=3, header = TRUE, sep=";")
+
+# Load the Metadata as a df
+reer_meta_data <- fromJSON(paste(readLines(reer_json, encoding = "UTF8"), collapse=""))
+
 
 
 

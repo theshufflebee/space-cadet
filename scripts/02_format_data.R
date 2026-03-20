@@ -5,10 +5,6 @@
 ################################################################################
 
 
-
-# Config
-
-
 # --- Format SNB Data ---
 
 saron_ts <- snb_api_data_to_ts(mm_data, "SARON", "saron")
@@ -20,9 +16,24 @@ gb_5y_ts <- snb_api_data_to_ts(gb_data, "5J", "5y_bond")
 gb_10y_ts <- snb_api_data_to_ts(gb_data, "10J", "10y_bond")
 
 
-# REER DATA STILL MANUAL
 
-reer_eu_ppi_ts <- format_time_series_df(reer_raw, "date", "eu_ppi", "reer_eu_ppi", "%Y-%m")
+# REER Data does not need that step since it is only one TS in the download
+# Its year date select enf of month obs
+
+reer_ym <- reer_raw %>%
+  select("Value", "Date")%>%
+  arrange("Date")%>%
+  mutate(date_ym = as.yearmon(Date)) %>%
+  
+  group_by(date_ym) %>%
+  
+  summarise(
+    last_value = last(Value, order_by = Date),
+    .groups = "drop"
+  )
+
+reer_eu_ppi_ts <- format_time_series_df(reer_ym, "date_ym", "last_value", "reer_eu_ppi", "%b %Y")
+
 
 # --- Format BFS Data ---
 
@@ -51,8 +62,6 @@ employment_ts <- format_time_series_df(employment,
                                        "Emplois.selon.la.division.économique..le.taux.d.occupation.et.le.sexe",
                                        "employment",
                                        "%b %Y")
-
-
 
 
 # --- GDP DATA VIKTOR ---
@@ -98,5 +107,4 @@ master_df <- ts_names %>%
 
 write_csv(master_df, "data/master.csv")
 
-
-
+message("Data formatting done")

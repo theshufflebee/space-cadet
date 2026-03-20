@@ -31,7 +31,7 @@ gb_csv   <- file.path(raw_path, "gov_bonds.csv")
 gb_json  <- file.path(raw_path, "gov_bonds_metadata.json")
 
 reer_csv   <- file.path(raw_path, "reer_ppi_eu.csv")
-reer_json  <- file.path(raw_path, "reer_ppi_eu.json")
+reer_json  <- file.path(raw_path, "reer_ppi_eu_metadata.json")
 
 ### KOF Data
 kof_master <- file.path(raw_path, "kof_consensus_master.csv")
@@ -64,7 +64,7 @@ to_date <- format(Sys.Date(), "%Y-%m")
 
 # Set True if you want to re-download Data
 # If there is no data, API gets called automatically
-do_api_call <- FALSE
+do_api_call <- TRUE
 
 if (do_api_call) {
   message("do_api_call set to TRUE. Redownloading all files")
