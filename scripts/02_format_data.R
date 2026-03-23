@@ -18,7 +18,7 @@ gb_10y_ts <- snb_api_data_to_ts(gb_data, "10J", "10y_bond")
 
 
 # REER Data does not need that step since it is only one TS in the download
-# Its year date select enf of month obs
+# Its year date select end of month obs
 
 reer_ym <- reer_raw %>%
   select("Value", "Date")%>%
@@ -64,7 +64,7 @@ employment_ts <- format_time_series_df(employment,
                                        "%b %Y")
 
 
-# --- GDP DATA VIKTOR ---
+# --- GDP Data ---
 gdp_data <- data_gdp_raw %>% 
   dplyr::filter(
     structure %in% c("gdp","inv_constr","inv_fixed", "cons_priv","cons_gov",          # choose GDP components
@@ -78,8 +78,9 @@ gdp_data <- data_gdp_raw %>%
 gdp_ts <- format_time_series_df(gdp_data, "date", "value", "gdp", "%Y-%m-%d")
 
 
-####KOF DATA
-# Second step of selecting data move away later
+# --- KOF DATA ---
+# Selecting columns defined in config.R
+
 kof_spf_df <- master_kof_consensus_forecast %>%
   select(all_of(kof_cols_to_keep))
 
@@ -98,11 +99,13 @@ kof_12m_interest <- format_time_series_df(kof_spf_df, "date", kof_cols_to_keep[5
 
 
 master_df <- ts_names %>%
-  # mget() looks for objects in your environment matching the strings and loads as list of lists
   
+  # mget looks for objects in the environment matching the strings and loads as list of lists
   mget(envir = .GlobalEnv) %>%
-
+  
+  # transform into a dataframe
   reduce(full_join, by = "date") %>%
+  
   arrange(date)
 
 write_csv(master_df, "data/master.csv")

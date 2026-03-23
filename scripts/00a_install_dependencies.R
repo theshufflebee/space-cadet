@@ -19,8 +19,8 @@ required_packages <- c(
   "readxl",     # Excel imports
   "kofdata",    # Swiss KOF Data Access
   "zoo",        # Time series / Date handling
-  "BFS" ,        # Swiss Federal Statistical Office Data Access
-  "roxygen2"
+  "BFS" ,       # Swiss Federal Statistical Office Data Access
+  "roxygen2"    # For Documentation
 )
 
 

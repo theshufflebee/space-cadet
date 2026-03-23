@@ -20,6 +20,8 @@ source(here("R", "utils.R"))
 # sources. Finally we handle the date range for downloads and if we want to
 # force a re-download of all data
 
+# --- Set Paths / create folders ---
+
 # Set Raw Data Path
 raw_path <- here("data", "raw")
 
@@ -58,23 +60,24 @@ master_df_path <- here("data")
 # Create folder for raw data if it doesn't exist
 if (!dir.exists(raw_path)) dir.create(raw_path) 
 
+
+# --- Define Parameters ---
+
 # Define start and end dates for SNB Data
 from_date <- "1972-01"
 to_date <- format(Sys.Date(), "%Y-%m")
 
 # Set True if you want to re-download Data
 # If there is no data, API gets called automatically
-do_api_call <- TRUE
+do_api_call <- FALSE
 
 if (do_api_call) {
   message("do_api_call set to TRUE. Redownloading all files")
   
 }
 
-# Naming of df's, variables ect...
 
-# Naming of columns
-names_snb_reer_df <- c("date", "overall_cpi", "eu_cpi", "overall_ppi", "eu_ppi")
+# --- Names of Data to keep ---
 
 # KOF data series we need for this project
 kof_cols_to_keep <- c("date",
