@@ -153,8 +153,8 @@ snb_api_data_to_ts <- function(dataset,
                                values_column = "Value") { # Default, may change later / in other datasets
   dataset_wide <- dataset %>%
     pivot_wider(
-      names_from = "D0",
-      values_from = "Value"
+      names_from = names_column,
+      values_from = values_column
     )
   ts <- format_time_series_df(dataset_wide, "Date", variable, variable_name, "%Y-%m")
   

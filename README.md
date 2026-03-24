@@ -4,7 +4,7 @@ This repo contains all the code related to my Masters Thesis at CREA at HEC Laus
 
 ## How to run
 
-This is currently a work in Progress. The working parts of the project can be run through the main.R script in the repo root. As of 20.03.2026 it runs only until script 02 and it isn't complete yet.
+This is currently a work in Progress. The working parts of the project can be run through the main.R script in the repo root. As of 20.03.2026 it runs only until script 02 and it isn't complete yet. Open the .rproj file with R Studio and run the main script via source("main.R")
 
 ## Libraries
 
