@@ -54,9 +54,9 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
   rho_tp1_t = matrix(0,T,nr) # Before new obs -> forecast
   y_tp1_t   = matrix(0,T,ny) # forecast before new obs
   
-  Sigma_tt    = matrix(0,T,nr*nr) # After new obs
+  Sigma_tt    = matrix(0,T,nr*nr) # After new obs -> update
   Sigma_tp1_t = matrix(0,T,nr*nr) # Before new obs -> forecast
-  Omega_tt    = matrix(0,T,ny*ny) # After new Obs
+  Omega_tt    = matrix(0,T,ny*ny) # After new Obs -> update
   Omega_tp1_t = matrix(0,T,ny*ny) # Before new obs -> forecast
   
   #Initilize log-Likelihood:
@@ -71,51 +71,71 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     # ==========================================================================
     # Forecasting step (between t-1 and t):
     # ==========================================================================
-    # Recusrion only works for t>1 so for 0 need to start with the initial guess
+    # Recursion only works for t>1 so for 0 need to start with the initial guess
+    nu_step <- matrix(nu_t[t, ], ncol = 1)
+    
+    
     if(t==1){
-      # First we project forward the initial guess of rho_0. here both H and nu_t[1,] will be estimated
-      rho_tp1_t[1,] = nu_t[1,] + t(H %*% rho_0) # rho_0 is initial guess, calculates first obs rho, nu_t 
       
-      # Calculate the Noise, these square M and N are the shocks hitting the system
-      # Functions are defined below
-      R = Rfunction(M,rho_0)
-      Q = Qfunction(N,rho_0)
-      
+      rho <- rho_0
+      Sigma <- Sigma_0
+
     } else {
-      # After the first step we have recursions to previous values, here we tae the previous updated steps and project them forward
-      # Project state forward from t-1|t-1 to t|t-1
-      rho_tp1_t[t,] = nu_t[t,] + t(H %*% rho_tt[t-1,]) # takes state in t-1 and projects it forward to to t
-      
-      # uses the shocks to calculate uncertainty again
-      R = Rfunction(M,rho_tt[t-1,],t) # noise for obs equation
-      Q = Qfunction(N,rho_tt[t-1,],t) # Noise for state equation
+      rho <- rho_tt[t-1,]
+      Sigma <- Sigma_tt[t-1,]
     }
+      
+    # First we project forward the initial guess of rho_0. here both H and nu_t[1,] will be estimated
+    
+    # I replaced the one below with the function visible next
+    #rho_tp1_t[1,] = nu_t[1,] + t(H %*% rho_0) # rho_0 is initial guess, calculates first obs rho, nu_t 
+    rho_tp1_t[t,] <- project_state_forward(rho = rho,
+                                           H = H,
+                                           nu_t = nu_step)
+    
+    
+    # Calculate the Noise, these square M and N are the shocks hitting the system
+    # Functions are defined below
+    R = Rfunction(M, rho, t)
+    Q = Qfunction(N, rho, t)
+    
+    
     
     # Here if any latent variable is imposed to be >=0 this selects the max of 0 and the variable
     if(sum(indic_pos==1)>0){ # Some latent variables imposed to be >= 0
       rho_tp1_t[t,indic_pos==1] = pmax(rho_tp1_t[t,indic_pos==1],0)
     }
     
+    aux_Sigma_tp1_t = Q + H %*% matrix(Sigma, nr, nr) %*% t(H) # predict sigma from t-1 var of state vector
+    
+    
     # Forecast the measurement using the previously forecasted state from t-1
-    y_tp1_t[t,] = mu_t[t,] + t(G %*% rho_tp1_t[t,]) # forecast the measurement from t-1
+    # the equation below is in function
+    #y_tp1_t[t,] = mu_t[t,] + t(G %*% rho_tp1_t[t,]) # forecast the measurement from t-1
+    
+    y_tp1_t[t,] <- forecast_measurement_eq(mu_t = mu_t[t,], G = G, rho = rho)
+      
+
+    
     
     # Predict Sigma: If first step, use initial guess
     # Here Q is the uncertainty of the shocks, while Sigma is the state estimation error cov
     # We predict the uncertainty around the state here
-    if(t==1){
-      aux_Sigma_tp1_t = Q + H %*% Sigma_0 %*% t(H)
-    } else {
-      # here take sigma out of vector storage, once again unertainty arrond state + shocks in q
-      aux_Sigma_tp1_t = Q + H %*% matrix(Sigma_tt[t-1,],nr,nr) %*% t(H) # predict sigma from t-1 var of state vector
-    }
+    
+    # The equation below is repaced with the function
+    #aux_Sigma_tp1_t <- Q + H %*% Sigma %*% t(H)
+    aux_Sigma_tp1_t <- project_covariance(Q, Sigma, H)
     
     
     # Save sigma here in the storage again by turning it into a single vector
-    Sigma_tp1_t[t,] = matrix( aux_Sigma_tp1_t ,1,nr*nr)
+    Sigma_tp1_t[t,] = matrix(aux_Sigma_tp1_t, 1, nr*nr)
     
     # Omega takes the predicted uncertainty around the state and turns it into the predicted measurement error
     # Omega is innovation covariance
-    omega           = R + G %*% aux_Sigma_tp1_t %*% t(G) # sums up noise from measurements (R) and predicted state uncertainty
+    
+    # The euqation below is replaced with the following function
+    # omega = R + G %*% aux_Sigma_tp1_t %*% t(G) # sums up noise from measurements (R) and predicted state uncertainty
+    omega <- project_covariance(R, aux_Sigma_tp1_t, G)
     Omega_tp1_t[t,] = matrix(omega,1,ny*ny) # flattens the whole thing again, for storage
     
     
@@ -175,7 +195,7 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
       }
       
       # Potential reconciliation between components of rho_tt (QKF):
-      # QUadratic stuff not importat here
+      # QUadratic stuff not importat currently
       y2Bfitted  <- matrix(Y_t[t,],ncol=1)
       constant   <- matrix(mu_t[t,],ncol=1)
       Rho_tt_1   <- rho_tp1_t[t,]
@@ -208,16 +228,36 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
   return(output)
 }
 
-Rf <- function(M,RHO,t=0){  # The currently useless parameters are here for future extendability
-  return(M %*% t(M))
-}
-Qf <- function(N,RHO,t=0){
-  return(N %*% t(N))
+
+project_state_forward <- function(rho, H, nu_t) {
+  # nu_t_step should be the specific row for time t: nu_t[t, ]
+  # Ensure rho is a column vector
+  rho_pred <- (H %*% matrix(rho)) + matrix(nu_t)
+  
+  return(rho_pred)
 }
 
+forecast_measurement_eq <- function(mu_t, G, rho) {
+  
+  y_tp1_t <- (G %*% matrix(rho)) + matrix(mu_t)
+  
+  return(t(y_tp1_t))
+}
+
+
+# Currently some parameter here unseless, beacause it may get extended later
 calc_covariance <- function(SD_matrix, RHO = NULL, t = 0) {
   # Standard formula: Var = SD * SD'
   return(SD_matrix %*% t(SD_matrix))
+}
+
+
+project_covariance <- function(noise, sigma_base, transform_matrix) {
+  
+  
+  uncertainty <- noise + transform_matrix %*% sigma_base %*% t(transform_matrix)
+  
+  return(uncertainty)
 }
 
 
@@ -250,7 +290,7 @@ kalman_smoother <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,indic_pos=0,
   #R = M%*%t(M)
   #Q = N%*%t(N)
   
-  #Initilize output matrices:
+  #Initialize output matrices:
   rho_tT       <- matrix(0,TT,nr)
   rho_tT[TT,]   <- rho_tt[TT,]
   Sigma_tT     <- matrix(0,TT,nr*nr)
