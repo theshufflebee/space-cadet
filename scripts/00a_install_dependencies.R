@@ -11,6 +11,7 @@
 
 # All packages saved into a vector to load later
 required_packages <- c(
+  "MASS",        # For Matrix inversion in Kalman filter
   "tidyverse",  # Includes dplyr, readr, and others
   "here",       # Project-relative paths
   "RCurl",      # API network calls
@@ -20,7 +21,10 @@ required_packages <- c(
   "kofdata",    # Swiss KOF Data Access
   "zoo",        # Time series / Date handling
   "BFS" ,       # Swiss Federal Statistical Office Data Access
-  "roxygen2"    # For Documentation
+  "roxygen2",    # For Documentation
+  "readr",
+  "optimx"      # For optimizing in the Kalman Filter
+  
 )
 
 
@@ -33,3 +37,7 @@ install_missing_packages(required_packages)
 
 # Loads all packages
 load_packages(required_packages)
+
+
+# Set choice of functions:
+select <- dplyr::select

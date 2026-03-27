@@ -51,9 +51,8 @@ source(here("scripts", "02_format_data.R"))
 
 
 #------------------------------------------------------------------------------
-# 3. Transform Data for analysis
+# 3. Prepare Data for analysis
 #------------------------------------------------------------------------------
-source(here("scripts", "03_trasform_data.R"))
-
+source(here("scripts", "03_transform_data.R"))
 
 

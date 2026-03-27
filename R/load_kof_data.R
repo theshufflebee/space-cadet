@@ -14,7 +14,7 @@
 #' @seealso [download_kof_data_wrapper()]
 #' @seealso [https://kof.ethz.ch/]
 #' 
-#' @importFrom KOF get_collection
+#' @importFrom kofdata get_collection
 #' @importFrom zoo as.zoo index coredata as.yearmon
 #' @importFrom readr write_csv
 download_kof_data <- function(file_path = kof_master, dataset = kof_data_key, api_key = NULL) {

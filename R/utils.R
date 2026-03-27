@@ -208,9 +208,9 @@ format_time_series_df <- function(data,
   
   # 3. Clean up
   df <- df %>%
-    select(date, !!sym(new_name)) %>%
-    drop_na() %>%
-    arrange(date)
+    dplyr::select(date, !!sym(new_name)) %>%
+    tidyr::drop_na() %>%
+    dplyr::arrange(date)
   
   return(df)
 }
