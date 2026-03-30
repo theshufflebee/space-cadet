@@ -103,7 +103,7 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     
     # Here if any latent variable is imposed to be >=0 this selects the max of 0 and the variable
     if(sum(indic_pos==1)>0){ # Some latent variables imposed to be >= 0
-      rho_tp1_t[t,indic_pos==1] = pmax(rho_tp1_t[t,indic_pos==1],0)
+      rho_tp1_t[t, indic_pos==1] = pmax(rho_tp1_t[t, indic_pos==1], 0)
     }
     
     aux_Sigma_tp1_t = Q + H %*% matrix(Sigma, nr, nr) %*% t(H) # predict sigma from t-1 var of state vector
@@ -136,7 +136,7 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     # The euqation below is replaced with the following function
     # omega = R + G %*% aux_Sigma_tp1_t %*% t(G) # sums up noise from measurements (R) and predicted state uncertainty
     omega <- project_covariance(R, aux_Sigma_tp1_t, G)
-    Omega_tp1_t[t,] = matrix(omega,1,ny*ny) # flattens the whole thing again, for storage
+    Omega_tp1_t[t,] = matrix(omega, 1, ny*ny) # flattens the whole thing again, for storage
     
     
     # ==========================================================================
@@ -145,20 +145,25 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     
     # Detect observed variables:
     # Adjust what variables you can truly update (arent NA)
-    vec_obs_indices <- which(!is.na(Y_t[t,])) # indices of observed variables
-    ny.aux <- length(c(vec_obs_indices)) # number of observed variables that arent na
-    # Resize matrices accordingly:
-    G_aux <- matrix(G[vec_obs_indices,],nrow=ny.aux) # select observed variables from G matrix
+    vec_obs_indices <- which(!is.na(Y_t[t, ])) # indices of observed variables
+    ny_aux <- length(c(vec_obs_indices)) # number of observed variables that arent na
+    
+    # Resize matrices accordingly and select the observed variables:
+    G_aux <- matrix(G[vec_obs_indices,],nrow=ny_aux) # select observed variables from G matrix
     R_aux <- R[vec_obs_indices,] # select observed variables from R matrix
     omega <- omega[vec_obs_indices,] # select observed variables same from omega
-    if(class(R_aux)[1]=="numeric"){ # safety step so it stays a matrix here
+    
+    # safety step so class of objects dont throw errors
+    if(class(R_aux)[1]=="numeric"){ 
       R_aux <- R_aux[vec_obs_indices] # second part of selection, first rows then coumns
       omega <- omega[vec_obs_indices]
     }else{
-      R_aux <- R_aux[,vec_obs_indices]
-      omega <- omega[,vec_obs_indices]
+      R_aux <- R_aux[, vec_obs_indices]
+      omega <- omega[, vec_obs_indices]
     }
-    R_aux <- matrix(R_aux,ny.aux,ny.aux)
+    
+    # resize to matrix
+    R_aux <- matrix(R_aux, ny_aux,ny_aux)
     
     # Here essentially we just computed a new auxiliary matrix that is smaller and only contains
     # rows and columns from variables that are actually observed here
@@ -168,24 +173,34 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
       
       # Calculate Kalman gain
       # aux_Sigma_tp_1 is the uncertainty around the state. we take ratio of it to the shocks in R and the var of sigma and G
-      K = aux_Sigma_tp1_t %*% t(G_aux) %*% MASS::ginv(R_aux + G_aux %*% aux_Sigma_tp1_t %*% t(G_aux))
+      # Equation below replaced by function
+      # K = aux_Sigma_tp1_t %*% t(G_aux) %*% MASS::ginv(R_aux + G_aux %*% aux_Sigma_tp1_t %*% t(G_aux))
+      
+      K = calculate_kalman_gain(aux_Sigma_tp1_t, G_aux, R_aux)
+
       
       # Calculate Forecast error when you actually observe new variables
-      lambda_t   = Y_t[t,] - y_tp1_t[t,] # forecast error
-      lambda_t <- matrix(lambda_t[vec_obs_indices],ncol=1) # reorganize forecast error
+      lambda_t   = Y_t[t, ] - y_tp1_t[t, ] # forecast error
+      
+      # reorganize forecast error into a vector
+      lambda_t <- matrix(lambda_t[vec_obs_indices], ncol=1) 
       
       # Update the state vector using the Kalmann gain. the higher it is the more you trust the updated innovation lambda_t (error)
       # The higher K the more of the forecast error or surprise is trusted
-      rho_tt[t,] = t( rho_tp1_t[t,] + K %*% lambda_t ) # new updated state vector as t is available with obs t available
+      
+      # MAYBE REPLACE HERE WITH THE FORECAST FUNCTION AS WELL
+      rho_tt[t,] = t(rho_tp1_t[t,] + K %*% lambda_t ) # new updated state vector as t is available with obs t available
       
       # Once again check if there are constraints on the states
       if(sum(indic_pos==1)>0){
         rho_tt[t,indic_pos==1] = pmax(rho_tt[t,indic_pos==1],0)
       }
       
-      #update the uncertainty arroud the state based on kalmann gain
+      #update the uncertainty around the state based on kalmann gain
       Id         = diag(1,nrow=nr,ncol=nr) # identity matrix
-      Sigma_tt[t,] = matrix( (Id - K %*% G_aux) %*% aux_Sigma_tp1_t,1,nr*nr) # updated sigma / var matrix
+      
+      # updated sigma / var matrix
+      Sigma_tt[t, ] = matrix((Id - K %*% G_aux) %*% aux_Sigma_tp1_t, 1, nr*nr) 
       
       # Computation of log-likelihood (determinant):
       if(length(c(omega))==1){
@@ -204,16 +219,16 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
       
       # Calculate log likelihood
       loglik.vector <- rbind(loglik.vector,
-                             ny.aux/2*log(2*pi) - 1/2*(log(det_omega) +
+                             ny_aux/2*log(2*pi) - 1/2*(log(det_omega) +
                                                          t(lambda_t) %*% MASS::ginv(omega) %*% lambda_t)
       )
       
       # Sum pu for what needs to be finalized
       logl <- logl + loglik.vector[t] # what needs to be optimmized
       
-    }else{ # if no update just use preditions (increases error)
-      rho_tt[t,] = t( rho_tp1_t[t,])
-      Sigma_tt[t,] = matrix( aux_Sigma_tp1_t,1,nr*nr)
+    }else{ # if no update just use predictions (increases error)
+      rho_tt[t, ] = t(rho_tp1_t[t, ])
+      Sigma_tt[t, ] = matrix(aux_Sigma_tp1_t, 1, nr*nr)
     }
     
   }
@@ -229,6 +244,14 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
 }
 
 
+
+#===============================================================================
+# Helper Function for the Kalman Filter
+#===============================================================================
+
+
+# Both equations below are the same but serve different purpouses
+# need to find a way to unify
 project_state_forward <- function(rho, H, nu_t) {
   # nu_t_step should be the specific row for time t: nu_t[t, ]
   # Ensure rho is a column vector
@@ -252,6 +275,7 @@ calc_covariance <- function(SD_matrix, RHO = NULL, t = 0) {
 }
 
 
+# Replaces two equations
 project_covariance <- function(noise, sigma_base, transform_matrix) {
   
   
@@ -260,8 +284,18 @@ project_covariance <- function(noise, sigma_base, transform_matrix) {
   return(uncertainty)
 }
 
+calculate_kalman_gain <- function(sigma, G, R){
+  
+  K = sigma %*% t(G) %*% MASS::ginv(R + G %*% sigma %*% t(G))
+  
+  return(K)
+}
 
 
+#------------------------------------------------------------------------------- 
+#
+# Kalman Smoother
+#
 #-------------------------------------------------------------------------------
 kalman_smoother <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,indic_pos=0,
                             Rfunction=calc_covariance, Qfunction=calc_covariance){

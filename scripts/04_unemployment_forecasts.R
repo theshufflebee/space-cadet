@@ -83,7 +83,8 @@ loglik_okun <- function(theta, Y, X_data) {
   T_len <- nrow(Y)
   
   # Measurement Equation: [u, spf]' = [1, 1]' * Trend + [Cycle, 0]' + Noise
-  G <- matrix(c(1, 1), 2, 1) # Matrix of the 
+  # where Cycle is three obs of current and lag1, lag2 gdp cycle
+  G <- matrix(c(1, 1), 2, 1) # Matrix of the state equation
   M <- diag(c(model$sigma_u, model$sigma_spf)) # Error matrix
   
   # Cyclical component: Sum of Betas * GDP Gaps (only affects Unemployment)
@@ -100,7 +101,7 @@ loglik_okun <- function(theta, Y, X_data) {
   Sigma_0 <- matrix(10, 1, 1) # uninformative (?) prior, no much confidence i initial guess
   
   # Here initial guess idea: Y[1, 2] the first obs of spf or mean(Y[ ,2]))
-  rho_0   <- 0.03          # Whatever initial guess can make it unsure if sigma_0 is large
+  rho_0   <- 0.03          # Whatever initial guess can make it "unsure" if sigma_0 is set large
   
   # Run Kalman Filter
   res <- kalman_filter(Y, nu_t, H, N, mu_t, G, M, Sigma_0, rho_0)
@@ -109,7 +110,8 @@ loglik_okun <- function(theta, Y, X_data) {
   return(-sum(res$loglik.vector))
 }
 
-# --- 3. Initial Values & Optimization ---
+
+# --- Initial Values & Optimization ---
 # Educated guesses: 
 # sigmas ~ 0.5, betas (Okun) ~ -0.4, -0.2, -0.1
 model0 <- list(sigma_u = 0.5, sigma_spf = 0.5, 

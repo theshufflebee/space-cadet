@@ -21,7 +21,7 @@ gb_10y_ts <- snb_api_data_to_ts(gb_data, "10J", "10y_bond")
 # Its year date select end of month obs
 
 reer_ym <- reer_raw %>%
-  select("Value", "Date")%>%
+  select(all_of(c("Value", "Date")))%>%
   arrange("Date")%>%
   mutate(date_ym = as.yearmon(Date)) %>%
   

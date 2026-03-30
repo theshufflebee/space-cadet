@@ -19,7 +19,7 @@ mm_data <- read.table(mm_csv, skip=3, header = TRUE, sep=";")
 
 # Load the Metadata as a df
 mm_meta_data <- fromJSON(paste(readLines(mm_json, encoding = "UTF
-8"), collapse=""))
+8", warn = FALSE), collapse=""))
 
 
 # --- GOVERNMENT BOND DATA --
@@ -31,7 +31,7 @@ gb_data <- read.table(gb_csv, skip=3, header = TRUE, sep=";")
 
 # Load the Metadata as a df
 gb_meta_data <- fromJSON(paste(readLines(gb_json, encoding = "UTF
-8"), collapse=""))
+8", warn = FALSE), collapse=""))
 
 
 # --- REER ---
@@ -51,7 +51,7 @@ get_snb_data_wrapper(reer_csv,
 reer_raw <- read.table(reer_csv, skip=3, header = TRUE, sep=";")
 
 # Load the Metadata as a df
-reer_meta_data <- fromJSON(paste(readLines(reer_json, encoding = "UTF8"), collapse=""))
+reer_meta_data <- fromJSON(paste(readLines(reer_json, encoding = "UTF8", warn = FALSE), collapse=""), )
 
 
 

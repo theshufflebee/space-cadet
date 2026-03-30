@@ -214,3 +214,27 @@ format_time_series_df <- function(data,
   
   return(df)
 }
+
+
+
+
+# parameter Mapper for the models
+# Theta is the parameter vector from the optimizer
+# exp_spec contains the names of the parameters and a list of the index of
+# variables which can only be positive, that get an exp transformation
+
+param_mapper <- function(theta, exp_spec){
+  
+  output <- list()
+  
+  for (i in seq_along(exp_spec$names)) {
+    name <- exp_spec$name[i]
+    if (i %in% exp_spec$pos_idx) {
+      output[[name]] <- exp(theta[i])
+    } else {
+      output[[name]] <- theta[i]
+    }
+  }
+  
+  return(output)
+}

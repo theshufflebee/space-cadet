@@ -23,8 +23,8 @@ required_packages <- c(
   "BFS" ,       # Swiss Federal Statistical Office Data Access
   "roxygen2",    # For Documentation
   "readr",
-  "optimx"      # For optimizing in the Kalman Filter
-  
+  "optimx",      # For optimizing in the Kalman Filter
+  "argparse"     # For the CLI
 )
 
 
