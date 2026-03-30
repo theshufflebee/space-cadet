@@ -222,19 +222,43 @@ format_time_series_df <- function(data,
 # Theta is the parameter vector from the optimizer
 # exp_spec contains the names of the parameters and a list of the index of
 # variables which can only be positive, that get an exp transformation
+# Maps parameter to the model for optimizer
 
-param_mapper <- function(theta, exp_spec){
+param2model_gen <- function(theta, spec) {
   
   output <- list()
   
-  for (i in seq_along(exp_spec$names)) {
-    name <- exp_spec$name[i]
-    if (i %in% exp_spec$pos_idx) {
-      output[[names]] <- exp(theta[i])
+  for (i in seq_along(spec$names)) {
+    name <- spec$names[i]
+    if (i %in% spec$pos_idx) {
+      output[[name]] <- exp(theta[i])
     } else {
-      output[[names]] <- theta[i]
+      output[[name]] <- theta[i]
     }
   }
-  
   return(output)
 }
+
+
+# This does the inverse of above function it converts models back to the 
+
+model2param_gen <- function(input_list, spec) {
+  # Create a numeric vector of the correct length
+  theta <- numeric(length(spec$names))
+  
+  for (i in seq_along(spec$names)) {
+    name <- spec$names[i]
+    val  <- input_list[[name]]
+    
+    # use the log function on values that are constrained
+    if (i %in% spec$pos_idx) {
+      theta[i] <- log(val)
+    } else {
+      theta[i] <- val
+    }
+  }
+  return(theta)
+}
+
+
+

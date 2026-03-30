@@ -57,29 +57,22 @@ nrow(X) # Both must be qual
 
 
 
-# --- 1. Parameter Mapping Functions ---
-# Theta: [log_sigma_u, log_sigma_spf, beta0, beta1, beta2]
-param2model <- function(theta){
-  list(
-    sigma_u   = exp(theta[1]), # shock to the unemployment rate
-    sigma_spf = exp(theta[2]), # Shock to the SPF forecast
-    beta0     = theta[3],      
-    beta1     = theta[4],      
-    beta2     = theta[5]
-  )
-}
 
-model2param <- function(model){
-  c(log(model$sigma_u),
-    log(model$sigma_spf),
-    model$beta0,
-    model$beta1,
-    model$beta2)
-}
+
+
+
 
 # --- Likelihood Objective function---
-loglik_okun <- function(theta, Y, X_data) {
-  model <- param2model(theta)
+# its the function that the optimizer optimizes
+loglik_okun <- function(theta, Y, X_data, model_spec) {
+  
+  # optimizer operates in "log" space where values from
+  #negatie infitity to positive infinity are possible. But in the model it isn't for some
+  # parameters such as standard deviations. so before calculating log likelyhood
+  # we use the exp function to convert back to true parameters
+  # model <- param2model(theta) 
+  model <- param2model_gen(theta, model_spec)
+  
   T_len <- nrow(Y)
   
   # Measurement Equation: [u, spf]' = [1, 1]' * Trend + [Cycle, 0]' + Noise
@@ -97,7 +90,7 @@ loglik_okun <- function(theta, Y, X_data) {
   nu_t <- matrix(0, T_len, 1) # no intercet, we have a random walk
   N <- matrix(0.0001, 1, 1)     # Fixed Natural Rate Shock (found per trial and error)
   
-  # Initialization
+  # Setting of KALMANN initial values
   Sigma_0 <- matrix(10, 1, 1) # uninformative (?) prior, no much confidence i initial guess
   
   # Here initial guess idea: Y[1, 2] the first obs of spf or mean(Y[ ,2]))
@@ -114,9 +107,24 @@ loglik_okun <- function(theta, Y, X_data) {
 # --- Initial Values & Optimization ---
 # Educated guesses: 
 # sigmas ~ 0.5, betas (Okun) ~ -0.4, -0.2, -0.1
-model0 <- list(sigma_u = 0.5, sigma_spf = 0.5, 
-               beta0 = -0.4, beta1 = -0.2, beta2 = -0.1)
-theta_start <- model2param(model0)
+# model0 <- list(sigma_u = 0.5, sigma_spf = 0.5, 
+#                beta0 = -0.4, beta1 = -0.2, beta2 = -0.1)
+#theta_start <- model2param(model0)
+
+
+okun_spec <- list(
+  names   = c("sigma_u", "sigma_spf", "beta0", "beta1", "beta2"),
+  pos_idx = c(1, 2) # First two are variances, rest are coefficients
+)
+
+# Start values as a readable list
+start_list <- list(sigma_u = 0.005, sigma_spf = 0.003, beta0 = -0.4, beta1 = -0.2, beta2 = -0.1)
+
+# Convert to raw vector for optimx
+theta_start <- model2param_gen(start_list, okun_spec)
+
+
+
 
 # The Optimization Loop
 theta_est <- theta_start
@@ -128,7 +136,8 @@ for(i in 1:nb_loop){
     res_opt <- optimx(par = theta_est, 
                       fn = loglik_okun, 
                       Y = as.matrix(Y), 
-                      X_data = as.matrix(X), 
+                      X_data = as.matrix(X),
+                      model_spec = okun_spec,
                       method = method,
                       control = list(maximize = FALSE, trace = 0))
     
@@ -139,7 +148,8 @@ for(i in 1:nb_loop){
 }
 
 # --- See Results ---
-final_model <- param2model(theta_est)
+# final_model <- param2model(theta_est)
+final_model <- param2model_gen(theta_est, okun_spec)
 print(final_model)
 
 
