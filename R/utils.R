@@ -230,9 +230,9 @@ param_mapper <- function(theta, exp_spec){
   for (i in seq_along(exp_spec$names)) {
     name <- exp_spec$name[i]
     if (i %in% exp_spec$pos_idx) {
-      output[[name]] <- exp(theta[i])
+      output[[names]] <- exp(theta[i])
     } else {
-      output[[name]] <- theta[i]
+      output[[names]] <- theta[i]
     }
   }
   
