@@ -24,7 +24,8 @@ required_packages <- c(
   "roxygen2",    # For Documentation
   "readr",
   "optimx",      # For optimizing in the Kalman Filter
-  "argparse"     # For the CLI
+  "argparse",     # For the CLI
+  "neverhpfilter"
 )
 
 
