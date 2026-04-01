@@ -139,6 +139,35 @@
 │   └── 01_load_data.R                  # API Calls and Data Loading
 └── spacce-cadet.Rproj</code></pre>
 </div>
+<div class="section level2">
+<h2 id="contributing">Contributing<a class="anchor" aria-label="anchor" href="#contributing"></a>
+</h2>
+<div class="section level3">
+<h3 id="documentation-generation">Documentation Generation<a class="anchor" aria-label="anchor" href="#documentation-generation"></a>
+</h3>
+<p>The <code>generate_doc.R</code> script facilitates the generation of documentation. <strong>It is mandatory to write documentation for every function you may write.</strong> Below is an explanation of each step in the script and how it contributes to generating the documentation:</p>
+<div class="section level4">
+<h4 id="overview-of-the-script">Overview of the script<a class="anchor" aria-label="anchor" href="#overview-of-the-script"></a>
+</h4>
+<p>After loading the necessary libaries, the following commands are run:</p>
+<pre><code><span><span class="fu">roxygen2</span><span class="fu">::</span><span class="fu"><a href="https://roxygen2.r-lib.org/reference/roxygenize.html" class="external-link">roxygenise</a></span><span class="op">(</span><span class="op">)</span></span></code></pre>
+<p>This function automatically generates the documentation files in the <code>.Rd</code> format. It extracts structured comments from the code and creates corresponding man/ directory files and NAMESPACE.</p>
+<p>Here is an introduction on how to write such comments: <a href="https://roxygen2.r-lib.org/" class="external-link uri">https://roxygen2.r-lib.org/</a></p>
+<pre><code><span><span class="fu">devtools</span><span class="fu">::</span><span class="fu"><a href="https://devtools.r-lib.org/reference/install.html" class="external-link">install</a></span><span class="op">(</span><span class="op">)</span></span></code></pre>
+<p>This function installs the package in your local R library, allowing you to use the package’s functions in your R sessions as you would with any other installed package.</p>
+<pre><code><span><span class="fu">pkgdown</span><span class="fu">::</span><span class="fu"><a href="https://pkgdown.r-lib.org/reference/build_site.html" class="external-link">build_site</a></span><span class="op">(</span><span class="op">)</span></span></code></pre>
+<p>Using the pkgdown library we build a website for the package, making the documentation accessible and navigable in a web format (HTML). The generated files are stored in the docs/ directory.</p>
+</div>
+<div class="section level4">
+<h4 id="how-to-use-the-script">How to Use the Script<a class="anchor" aria-label="anchor" href="#how-to-use-the-script"></a>
+</h4>
+<p>After writing comments in the roxygen2 format, execute the <code>generate_doc.R</code> script by running the following command in your terminal from the root of the repo:</p>
+<pre><code>Rscript generate_doc.R</code></pre>
+<p>It should also in RStudio using <code>source("generate_doc.R")</code>, but it is untested. If it works, you should receive the message:</p>
+<p><code>Documentation generation, package installation, and site build completed successfully.</code></p>
+</div>
+</div>
+</div>
 </div>
 <div class="section level1">
 <h1 id="contact">Contact<a class="anchor" aria-label="anchor" href="#contact"></a>
