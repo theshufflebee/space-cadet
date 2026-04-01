@@ -16,14 +16,14 @@
 try_install <- function(pkg){
   for (type in c("both", "source")) {
     success <- tryCatch({
-      install.packages(pkg, repos="https://stat.ethz.ch/CRAN/", type = type)
+      install.packages(pkg, repos="https://stat.ethz.ch/CRAN/", type = type, quiet = TRUE, verbose = FALSE)
       # Top have an error, we need to try and load it first
       requireNamespace(pkg, quietly = TRUE)
     }, error = function(e) FALSE)
     if (success) {
       # change name to it clearer
       type <- if(type == "both") "binary"
-      message(pkg, ": installed successfully from ",type)
+      message("\n",pkg, ": installed successfully from ",type,"\n")
       return()
     }
   }
@@ -61,7 +61,7 @@ install_missing_packages <- function(required_packages){
 load_packages <- function(required_packages) {
   
   for (pkg in required_packages) {
-    library(pkg, character.only = TRUE)
+    suppressPackageStartupMessages(library(pkg, character.only = TRUE))
   }
 }
 
