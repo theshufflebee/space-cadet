@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript
 ################################################################################
 # 
 # Script for Running the Full Project
