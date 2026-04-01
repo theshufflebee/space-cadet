@@ -1,4 +1,4 @@
-
+# NEed MASS Packafe
 
 Kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
                           indic_pos=0,
@@ -73,28 +73,48 @@ Kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     # ==========================================================================
     # Recusrion only works for t>1 so for 0 need to start with the initial guess
     if(t==1){
-      rho_tp1_t[1,] = nu_t[1,] + t(H %*% rho_0) # rho_0 is initial guess, calculates first obs rho
-      R = Rfunction(M,rho_0) #Rfunction defined below (measurement eq.) Noise of measurement
-      Q = Qfunction(N,rho_0) #Qfunction defined below (transition eq.) Noise of transition
+      # First we project forward the initial guess of rho_0. here both H and nu_t[1,] will be estimated
+      rho_tp1_t[1,] = nu_t[1,] + t(H %*% rho_0) # rho_0 is initial guess, calculates first obs rho, nu_t 
+      
+      # Calculate the Noise, these square M and N are the shocks hitting the system
+      # Functions are defined below
+      R = Rfunction(M,rho_0)
+      Q = Qfunction(N,rho_0)
+      
     } else {
-      # Here where recursion kicks in when there is past obs
+      # After the first step we have recursions to previous values, here we tae the previous updated steps and project them forward
+      # Project state forward from t-1|t-1 to t|t-1
       rho_tp1_t[t,] = nu_t[t,] + t(H %*% rho_tt[t-1,]) # takes state in t-1 and projects it forward to to t
-      # rho _tt is the filtered state (after updating t-1 with t )
+      
+      # uses the shocks to calculate uncertainty again
       R = Rfunction(M,rho_tt[t-1,],t) # noise for obs equation
       Q = Qfunction(N,rho_tt[t-1,],t) # Noise for state equation
     }
+    
+    # Here if any latent variable is imposed to be >=0 this selects the max of 0 and the variable
     if(sum(indic_pos==1)>0){ # Some latent variables imposed to be >= 0
-      rho_tp1_t[t,indic_pos==1] = pmax(rho_tp1_t[t,indic_pos==1],0) # will take the max of either 0 or the value
+      rho_tp1_t[t,indic_pos==1] = pmax(rho_tp1_t[t,indic_pos==1],0)
     }
+    
+    # FOrecast the measurement using the previously forecasted state from t-1
     y_tp1_t[t,] = mu_t[t,] + t(G %*% rho_tp1_t[t,]) # forecast the measurement from t-1
     
+    # Predict Sigma: If first step, use initial guess
+    # Here Q is the uncertaintly of the shocks, while Sigma is the state estimation error cov
+    # We predict the uncertainty arround the state here
     if(t==1){
-      aux_Sigma_tp1_t = Q + H %*% Sigma_0 %*% t(H) # predict sigma from initial guess var of state equation error
+      aux_Sigma_tp1_t = Q + H %*% Sigma_0 %*% t(H)
     } else {
+      # here take sigma out of vector storage, once again unertainty arrond state + shocks in q
       aux_Sigma_tp1_t = Q + H %*% matrix(Sigma_tt[t-1,],nr,nr) %*% t(H) # predict sigma from t-1 var of state vector
     }
     
-    Sigma_tp1_t[t,] = matrix( aux_Sigma_tp1_t ,1,nr*nr) # flattens the matrix in a single vector
+    
+    # Save sigma here in the storage again by turning it into a single vector
+    Sigma_tp1_t[t,] = matrix( aux_Sigma_tp1_t ,1,nr*nr)
+    
+    # Omega takes the predicted uncertaintly arround the state and turns it into the predicted measurement error
+    # Omega is innovation covariance
     omega           = R + G %*% aux_Sigma_tp1_t %*% t(G) # sums up noise from measurements (R) and predicted state uncertainty
     Omega_tp1_t[t,] = matrix(omega,1,ny*ny) # flattens the whole thing again, for storage
     
@@ -104,15 +124,15 @@ Kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     # ==========================================================================
     
     # Detect observed variables:
-    # Adjust what variables you can truly update
+    # Adjust what variables you can truly update (arent NA)
     vec.obs.indices <- which(!is.na(Y_t[t,])) # indices of observed variables
-    ny.aux <- length(c(vec.obs.indices)) # number of observed variables
+    ny.aux <- length(c(vec.obs.indices)) # number of observed variables that arent na
     # Resize matrices accordingly:
-    G.aux <- matrix(G[vec.obs.indices,],nrow=ny.aux) # select observed variables
-    R.aux <- R[vec.obs.indices,] # select observed variables
-    omega <- omega[vec.obs.indices,] # select observed variables
+    G.aux <- matrix(G[vec.obs.indices,],nrow=ny.aux) # select observed variables from G matrix
+    R.aux <- R[vec.obs.indices,] # select observed variables from R matrix
+    omega <- omega[vec.obs.indices,] # select observed variables same from omega
     if(class(R.aux)[1]=="numeric"){ # safety step so it stays a matrix here
-      R.aux <- R.aux[vec.obs.indices]
+      R.aux <- R.aux[vec.obs.indices] # second part of selection, first rows then coumns
       omega <- omega[vec.obs.indices]
     }else{
       R.aux <- R.aux[,vec.obs.indices]
@@ -120,20 +140,33 @@ Kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     }
     R.aux <- matrix(R.aux,ny.aux,ny.aux)
     
+    # Here essentially we just computed a new auxiliary matrix that is smaller and only contains
+    # rows and columns from variables that are actually observed here
+    
     #Compute gain K:
     if(dim(G.aux)[1]>0){ # only update if there is at least one new observation
+      
       # Calculate Kalman gain
+      # aux_Sigma_tp_1 is the uncertaainly arround the state. we take ratio of it to the shocks in R and the var of sigma and G
       K = aux_Sigma_tp1_t %*% t(G.aux) %*% MASS::ginv(R.aux + G.aux %*% aux_Sigma_tp1_t %*% t(G.aux))
       
+      # Calculate FOrecast error when you actually observe new variables
       lambda_t   = Y_t[t,] - y_tp1_t[t,] # forecast error
-      lambda_t <- matrix(lambda_t[vec.obs.indices],ncol=1)
-      rho_tt[t,] = t( rho_tp1_t[t,] + K %*% lambda_t ) # new updated state with obs t available
+      lambda_t <- matrix(lambda_t[vec.obs.indices],ncol=1) # reorganize forecast error
+      
+      # Update the state vector using the Kalman gain. the higher it is the more you trust the updated innovation lambda_t (error)
+      # The higher K the more of the corecast error or suprise is trusted
+      rho_tt[t,] = t( rho_tp1_t[t,] + K %*% lambda_t ) # new updated state vector as t is available with obs t available
+      
+      # Once again check if there are constraints on the states
       if(sum(indic_pos==1)>0){
         rho_tt[t,indic_pos==1] = pmax(rho_tt[t,indic_pos==1],0)
       }
+      
+      #update the uncertainty arroud the state based on kalmann gain
       Id         = diag(1,nrow=nr,ncol=nr) # identity matrix
       Sigma_tt[t,] = matrix( (Id - K %*% G.aux) %*% aux_Sigma_tp1_t,1,nr*nr) # updated sigma / var matrix
-
+      
       # Computation of log-likelihood (determinant):
       if(length(c(omega))==1){
         det.omega <- omega
@@ -142,17 +175,20 @@ Kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
       }
       
       # Potential reconciliation between components of rho_tt (QKF):
-      # QUadratic stuff
+      # QUadratic stuff not importat here
       y2Bfitted  <- matrix(Y_t[t,],ncol=1)
       constant   <- matrix(mu_t[t,],ncol=1)
       Rho_tt_1   <- rho_tp1_t[t,]
       opt        <- list(y2Bfitted,constant,G,M,Rho_tt_1,Q)
       rho_tt[t,] <- reconciliationf(rho_tt[t,],opt)
       
+      # Calculate log likelihood
       loglik.vector <- rbind(loglik.vector,
                              ny.aux/2*log(2*pi) - 1/2*(log(det.omega) +
                                                          t(lambda_t) %*% MASS::ginv(omega) %*% lambda_t)
       )
+      
+      # Sum pu for what needs to be finalized
       logl <- logl + loglik.vector[t] # what needs to be optimmized
       
     }else{ # if no update just use preditions (increases error)
@@ -164,6 +200,7 @@ Kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
   
   fitted.obs <- mu_t + rho_tt %*% t(G) # fitted observables -> estimate of y_hat_t given t
   
+  # Create output list
   output = list(r=rho_tt,Sigma_tt=Sigma_tt,loglik=logl,y_tp1_t=y_tp1_t,
                 S_tp1_t=Sigma_tp1_t,r_tp1_t=rho_tp1_t,
                 loglik.vector = loglik.vector,Omega_tp1_t=Omega_tp1_t,M=M,
@@ -171,7 +208,7 @@ Kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
   return(output)
 }
 
-Rf <- function(M,RHO,t=0){
+Rf <- function(M,RHO,t=0){  # The currently useless parameters are here for future extendability
   return(M %*% t(M))
 }
 Qf <- function(N,RHO,t=0){
