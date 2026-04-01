@@ -6,28 +6,51 @@
 # Output none (Packages installed)
 
 
+#' Helper function to try installing packages from binary or source if that fails
+#' 
+#' @param pkg Character(String?) the package to be installed
+#' 
+#' @return None if success, stops process if error
+#' 
+#' @seealso [install_missing_packages()]
+try_install <- function(pkg){
+  for (type in c("both", "source")) {
+    success <- tryCatch({
+      install.packages(pkg, repos="https://stat.ethz.ch/CRAN/", type = type)
+      # Top have an error, we need to try and load it first
+      requireNamespace(pkg, quietly = TRUE)
+    }, error = function(e) FALSE)
+    if (success) {
+      # change name to it clearer
+      type <- if(type == "both") "binary"
+      message(pkg, ": installed successfully from ",type)
+      return()
+    }
+  }
+  stop("Failed to install '",pkg,"' from both binary and source, please install manually. Aborting")
+}
 #' Function to install missing packages from a vector
 #' 
-#' This function takes a vector of required packages as input and then removes those already installed.
-#' All non installed packages are then installed from the ethz CRAN repo
+#' This function takes a vector of required packages as input, find those missing and installed them if necessary
 #' 
 #' @param required_packages Vector of characters. A vector containing names of packages
 #' 
-#' @return None. Installs all non installed packages and indicates if there are no packages to be installed.
+#' @return None. Installs all missing packages and indicates if there are no packages to be installed.
+#' 
+#' @seealso [try_install()]
 install_missing_packages <- function(required_packages){
   
   installed_packages <- rownames(installed.packages())
   
   missing_packages <- setdiff(required_packages, installed_packages)
   
-  if (length(missing_packages) > 0) {
-    install.packages(missing_packages, repos="https://stat.ethz.ch/CRAN/")
-  } else {
+  if (length(missing_packages) == 0) {
     message("All Required Packages are installed")
+    return()
   }
+  # Vectorisation on each one, so we can do tryCatch
+  lapply(missing_packages, try_install)
 }
-
-
 #' Load all packages from a vector
 #' 
 #' Load all packages from a vector via library()
