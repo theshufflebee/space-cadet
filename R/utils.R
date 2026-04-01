@@ -13,6 +13,7 @@
 #' @return None if success, stops process if error
 #' 
 #' @seealso [install_missing_packages()]
+#' @export
 try_install <- function(pkg){
   for (type in c("both", "source")) {
     success <- tryCatch({
@@ -38,6 +39,7 @@ try_install <- function(pkg){
 #' @return None. Installs all missing packages and indicates if there are no packages to be installed.
 #' 
 #' @seealso [try_install()]
+#' @export
 install_missing_packages <- function(required_packages){
   
   installed_packages <- rownames(installed.packages())
@@ -58,6 +60,7 @@ install_missing_packages <- function(required_packages){
 #' @param required_packages Vector of Strings. All packages that you want to be loaded
 #' 
 #' @return None. Loads all packages.
+#' @export
 load_packages <- function(required_packages) {
   
   for (pkg in required_packages) {
@@ -76,6 +79,7 @@ load_packages <- function(required_packages) {
 #' @return Bool. Messages indicate if download was succesfull and returns \code{TRUE} or \code{False} respectively
 #' 
 #' @seealso [download_url_csv_wrapper()]
+#' @export
 download_url_csv <- function(url, filepath) {
   
   tryCatch({
@@ -103,6 +107,7 @@ download_url_csv <- function(url, filepath) {
 #' 
 #' @return None. Messages indicating success.
 #' @seealso [download_url_csv()]
+#' @export
 download_url_csv_wrapper <- function(url, filepath, do_api_call) {
   
   if (!file.exists(filepath) | do_api_call) {
@@ -138,6 +143,7 @@ download_url_csv_wrapper <- function(url, filepath, do_api_call) {
 #' 
 #' @importFrom BFS bfs_get_data bfs_download_asset
 #' @importFrom readr write_csv
+#' @export
 bfs_wrapper <- function(id, dest_file, do_api_call = FALSE, type = "data") {
   
   # Initialize success as FALSE, Update if data is downloaded
@@ -210,6 +216,7 @@ bfs_wrapper <- function(id, dest_file, do_api_call = FALSE, type = "data") {
 #' @importFrom zoo as.yearmon
 #' @importFrom dplyr select arrange
 #' @importFrom tidyr drop_na
+#' @export
 format_time_series_df <- function(data,
                                   date_col,
                                   value_col,
