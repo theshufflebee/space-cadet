@@ -6,6 +6,22 @@
 # add it, else it is as random walk.
 
 
+#' Transition Matrix (H) Factory
+#' Factory Function that creates a function
+#' This Function Creates the H matrix of for the Kalmann filter, which gouverns
+#' the persistance of the state. It can be either an AR(1) Process (default) or
+#' a Randowm walk when there is no persistance parameter to estimate and the
+#' matrix defaults to 1.
+#' 
+#' @param name give the AR(1) parameter a name, defaults to phi
+#' @param random_walk If set to true, the phi parameter is set to 1 for a random walk
+#' 
+#' @return returns a list with 2 objects, one is the matrix function used for the optimizer
+#' and the parameter rule that translates between optimizer and the model, as the AR(1) param
+#' has to be between ]0;1[
+#' 
+#' @seealso [loglik_ssm()]
+#' @export 
 H_matrix_factory <- function(name = "phi", random_walk = FALSE) {
   
   # This is a list containing the dictionary and the starting guess
@@ -34,11 +50,22 @@ H_matrix_factory <- function(name = "phi", random_walk = FALSE) {
 }
 
 
-# currently also just a normal function
-# This matrix links the state to the measurement equation
-# currently just as many 1s as there are measurement variables
-# a ny x 1 matrix where ny is the number of measurement variables
-
+#' Measurement Link Matrix (G) Factory
+#' 
+#' Factory Function that creates a function
+#' Creates the matrix linking the hidden state (e.g., natural rate) to the observed variables.
+#' It creates a list containing the manifest (parameter specifications) and a
+#' function according to matrix specifications for the optimizer.
+#'
+#' @param Y_data Matrix/DataFrame of observed variables used to determine dimensions.
+#' @param loadings Numeric vector. Fixed weights for the state's impact on observations. Defaults to 1s.
+#' @param nr Integer. Number of hidden states, defaults to 1.
+#'
+#' @return A list containing \code{manifest} (empty for fixed loadings) and \code{builder}.
+#' 
+#' @seealso [ssm_optimizer()]
+#' 
+#' @export
 G_matrix_factory <- function(Y_data, loadings = NULL, nr = 1) {
   ny <- ncol(Y_data)
   
@@ -73,8 +100,17 @@ G_matrix_factory <- function(Y_data, loadings = NULL, nr = 1) {
 }
 
 
-# The mu_t matrix with exogenous components
-# currently only true factory function
+#' Measurement Noise Matrix (M) Factory
+#' 
+#' Factory Function that creates a function
+#' Creates a diagonal covariance matrix for observation errors. The parameter specs
+#' are restricted to be positive in the manifest (parameter specs)
+#'
+#' @param Y_data Matrix/DataFrame of observations to determine the number of variances.
+#' @param prefix Character. Prefix for the variance parameters, defaults to "sigma_".
+#'
+#' @return A list containing \code{manifest} (Rule 1: Exponential to be non negative) and \code{builder}.
+#' @export
 M_matrix_factory <- function(Y_data, prefix = "sigma_") {
   col_names <- colnames(Y_data)
   ny        <- length(col_names)
@@ -103,7 +139,19 @@ M_matrix_factory <- function(Y_data, prefix = "sigma_") {
   return(list(manifest = manifest, builder = builder))
 }
 
-
+#' Exogenous Component Matrix (mu_t) Factory
+#' 
+#' Factory Function that creates a function.
+#' Creates a time-varying matrix of exogenous signals. Can do this using exogenous inputs.
+#'
+#' @param X_data Matrix of exogenous regressors
+#' @param Y_data Matrix of observations to determine time and variable dimensions.
+#' @param param_prefix Character. Prefix for the coefficients, defaults to "beta".
+#' @param intercept Bool. Whether to include an estimated intercept.
+#' @param impact_cols Integer vector. Indices of observation variables influenced by the signal.
+#'
+#' @return A list containing \code{manifest} (Rule 0: Linear) and \code{builder}.
+#' @export
 mu_t_matrix_factory <- function(X_data,
                           Y_data,
                           param_prefix = "beta",
@@ -155,6 +203,23 @@ mu_t_matrix_factory <- function(X_data,
 # parameter mapping for keeping them positive if needed
 # ==============================================================================
 
+
+#' Map Optimizer Parameters to Model Parameters
+#' 
+#' Transforms unconstrained values from the optimizer (that gives random values)
+#' into model-appropriate values according to parameter restictions using specified
+#' rules (e.g., exponential for variance or non negative parameters, or logistic
+#' for persistence that are between 0 and 1). These are then transformed and plugged
+#' into the matrix functions
+#'
+#' @param theta Numeric vector. Unconstrained parameters from the optimizer.
+#' @param spec List. Contains parameter names and their transformation rules.
+#'
+#' @return A named list of transformed model parameters.
+#' 
+#' @seealso [model2param_gen()]
+#' 
+#' @export
 param2model_gen <- function(theta, spec) {
   out <- list()
   for (i in seq_along(spec$names)) {
@@ -171,6 +236,20 @@ param2model_gen <- function(theta, spec) {
   return(out)
 }
 
+
+#' Map Model Parameters to Optimizer Parameters
+#' 
+#' Inverse of \code{param2model_gen}. Maps model values back to unconstrained
+#' space for the optimizer.
+#'
+#' @param model_list Named list of model parameters.
+#' @param spec List. Transformation rules.
+#'
+#' @return A numeric vector of unconstrained parameters.
+#' 
+#' @seealso [param2model_gen()]
+#' 
+#' @export
 model2param_gen <- function(model_list, spec) {
   theta <- numeric(length(spec$names))
   for (i in seq_along(spec$names)) {
@@ -190,6 +269,23 @@ model2param_gen <- function(model_list, spec) {
 # ==============================================================================
 # Log lik function made to be customizable for SSMs
 # ==============================================================================
+
+
+#' State-Space Log-Likelihood Function
+#' 
+#' Calculates the negative log-likelihood of a State-Space model given current parameters.
+#' Integrates parameter mapping, matrix building, and Kalman filtering.
+#'
+#' @param theta Numeric vector of parameters furnished by optimizer
+#' @param Y Observed data matrix.
+#' @param model_spec Parameter transformation dictionary containing restrictions
+#' @param mu_t_builder Builder function for the exogenous component matrix.
+#' @param G_builder Builder function  for the measurement link matrix.
+#' @param H_builder Builder function  for the transition matrix.
+#' @param M_builder Builder function  for the measurement noise matrix.
+#'
+#' @return Numeric. The negative log-likelihood.
+#' @export
 loglik_ssm <- function(theta,
                        Y,
                        model_spec,
@@ -246,6 +342,21 @@ loglik_ssm <- function(theta,
 # goal is to wrap this into a rollinge stimation wrap to get parameters for
 # the forecast
 
+#' Hybrid Optimizer Wrapper
+#' 
+#' Refines model estimates using a multi-method optimization loop (Nelder-Mead and nlminb).
+#' Useful for avoiding local minima in complex likelihood surfaces.
+#'
+#' @param nb_loop Integer. Number of full refinement cycles.
+#' @param theta_start Numeric vector. Initial parameter guesses.
+#' @param Y Observed data.
+#' @param X Exogenous data.
+#' @param mu_t_builder,H_builder,G_builder,M_builder Matrix builder functions.
+#' @param model_spec Parameter mapping dictionary.
+#' @param optim_methods Character vector of optimization methods to cycle through.
+#'
+#' @return A list containing the optimized \code{params} (transformed) and the raw \code{theta}.
+#' @export
 ssm_optimizer_wrapper <- function(nb_loop = 3,
                                   theta_start,
                                   Y = Y,

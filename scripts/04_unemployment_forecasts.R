@@ -32,8 +32,8 @@
 
 # We can't have NaNs in the GDP Gap
 # Further all estimation goes on from the spf start in 2015
-Y <- Y_okun[Y_okun$quarter >= as.yearqtr("2015-01-01"), ]
-Y <- as.matrix(Y[ , c("unemp_rate", "spf_5y_unemp")])
+Y_date_select <- Y_okun[Y_okun$quarter >= as.yearqtr("2015-01-01"), ]
+Y <- as.matrix(Y_date_select[ , c("unemp_rate", "spf_5y_unemp")])
 
 T <- nrow(Y)
 
@@ -41,7 +41,7 @@ X <- X_okun[X_okun$quarter >= as.yearqtr("2015-01-01"), ]
 
 X <- as.matrix(X[ , c("gdp_gap", "gap_lag1", "gap_lag2")])
 
-
+# Select non NA rows as we can't have missing values in the exogenous variables
 valid_rows <- complete.cases(X)
 
 # Subset both matrices to keep only these rows
@@ -56,24 +56,32 @@ X <- as.matrix(X[valid_rows, c("gdp_gap", "gap_lag1", "gap_lag2")])
 # This is how we get the functions for all matrices and the corresponding
 # parameter mappings and rules for transformations should parameters be restricted
 
-okun_factory  <- mu_t_matrix_factory(X, Y, intercept = FALSE)
-trans_factory <- H_matrix_factory(random_walk = TRUE) # Set TRUE for Random Walk
-g_link_factory <- G_matrix_factory(Y)
-m_noise_factory <- M_matrix_factory(Y)
+mu_t_builder  <- mu_t_matrix_factory(X, Y, intercept = FALSE)
+H_builder <- H_matrix_factory(random_walk = TRUE)
+G_builder <- G_matrix_factory(Y)
+M_builder <- M_matrix_factory(Y)
+
+# sum all builders up fore forecasting later
+all_builder_functions <- list(
+  mu_t    = mu_t_builder$builder,
+  H       = H_builder$builder,
+  G       = G_builder$builder,
+  M       = M_builder$builder
+)
 
 # --- Collect the Master Manifest ---
 # We combine the rules and defaults from all active components into one for
 #further processing
 all_rules <- c(
-  okun_factory$manifest$rules,
-  trans_factory$manifest$rule,
-  m_noise_factory$manifest$rules
+  mu_t_builder$manifest$rules,
+  H_builder$manifest$rule,
+  M_builder$manifest$rules
 )
 
 all_defaults <- c(
-  okun_factory$manifest$default,
-  trans_factory$manifest$default,
-  m_noise_factory$manifest$default
+  mu_t_builder$manifest$default,
+  H_builder$manifest$default,
+  M_builder$manifest$default
 )
 
 # -- Create the Master Spec ---
@@ -94,9 +102,9 @@ params_results <- ssm_optimizer_wrapper(
   Y            = Y,
   X            = X,
   model_spec   = okun_spec,
-  mu_t_builder = okun_factory$builder,
-  G_builder    = g_link_factory$builder,
-  H_builder    = trans_factory$builder,
-  M_builder    = m_noise_factory$builder
+  mu_t_builder = all_builder_functions$mu_t,
+  G_builder    = all_builder_functions$G,
+  H_builder    = all_builder_functions$H,
+  M_builder    = all_builder_functions$M
 )
 
