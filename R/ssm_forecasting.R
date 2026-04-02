@@ -11,6 +11,8 @@ ssm_forecaster <- function(Y, X, forecast_start, all_builder_functions) {
   
   date vector <- select dates from Y
   
+  drop the dates 
+  
   
   forecast_dates_vector <- select dates from_date vector >= forecast_start
   

@@ -50,8 +50,8 @@ master_df <- master_df %>%
 master_df <- master_df %>%
   arrange(date) %>%
   mutate(
-    gap_lag1 = lag(gdp_gap, 3),
-    gap_lag2 = lag(gdp_gap, 6)
+    gap_lag1 = dplyr::lag(gdp_gap, 3),
+    gap_lag2 = dplyr::lag(gdp_gap, 6)
   )
 
 

@@ -236,11 +236,11 @@ format_time_series_df <- function(data,
   # format the value as numeric
   df[[new_name]] <- as.numeric(df[[new_name]])
   
-  # 3. Clean up
+  # Clean up
   df <- df %>%
-    dplyr::select(date, !!sym(new_name)) %>%
-    tidyr::drop_na() %>%
-    dplyr::arrange(date)
+    select(all_of(c("date", new_name))) %>%
+    drop_na() %>%
+    arrange(date)
   
   return(df)
 }

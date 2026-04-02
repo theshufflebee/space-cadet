@@ -25,7 +25,8 @@ required_packages <- c(
   "readr",
   "optimx",      # For optimizing in the Kalman Filter
   "argparse",     # For the CLI
-  "neverhpfilter"
+  "neverhpfilter", #for HP Filter
+  "conflicted"
 )
 
 
@@ -40,5 +41,12 @@ install_missing_packages(required_packages)
 load_packages(required_packages)
 
 
-# Set choice of functions:
-select <- dplyr::select
+
+# Resolve conflicts
+conflict_prefer("filter", "dplyr")
+conflict_prefer("select", "dplyr")
+conflict_prefer("lag",    "stats") 
+conflict_prefer("complete", "tidyr") 
+conflict_prefer("last", "dplyr")
+
+

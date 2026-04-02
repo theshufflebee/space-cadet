@@ -10,10 +10,19 @@
 <url><loc>/reference/download_url_csv_wrapper.html</loc></url>
 <url><loc>/reference/format_time_series_df.html</loc></url>
 <url><loc>/reference/get_snb_data_wrapper.html</loc></url>
+<url><loc>/reference/G_matrix_factory.html</loc></url>
+<url><loc>/reference/H_matrix_factory.html</loc></url>
 <url><loc>/reference/index.html</loc></url>
 <url><loc>/reference/install_missing_packages.html</loc></url>
+<url><loc>/reference/kalman_filter.html</loc></url>
 <url><loc>/reference/load_packages.html</loc></url>
+<url><loc>/reference/loglik_ssm.html</loc></url>
+<url><loc>/reference/model2param_gen.html</loc></url>
+<url><loc>/reference/mu_t_matrix_factory.html</loc></url>
+<url><loc>/reference/M_matrix_factory.html</loc></url>
+<url><loc>/reference/param2model_gen.html</loc></url>
 <url><loc>/reference/snb_api_data_to_ts.html</loc></url>
+<url><loc>/reference/ssm_optimizer_wrapper.html</loc></url>
 <url><loc>/reference/try_install.html</loc></url>
 </urlset>
 

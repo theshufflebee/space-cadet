@@ -1,5 +1,52 @@
 # NEed MASS Packafe
 
+
+#' Constrained Kalman Filter for Linear State-Space Models
+#' 
+#' Implements a Kalman filter for the estimation of latent states in a linear system.
+#' This implementation supports exogenous components, missing values (NA), 
+#' non-negativity constraints on latent factors, and potential quadratic reconciliation.
+#' 
+#' @section System Equations:
+#' Measurement equations:
+#' \deqn{y_t = \mu_t + G \rho_t + M \epsilon_t}
+#' Transition equations:
+#' \deqn{\rho_t = \nu_t + H \rho_{t-1} + N \xi_t}
+#' 
+#' @param Y_t Matrix. Observed data matrix of dimension \eqn{T \times ny}.
+#' @param nu_t Matrix. Transition equation intercept/exogenous component (\eqn{T \times nr}). 
+#'   Depends on past information only.
+#' @param H Matrix. Transition matrix describing the evolution of the state (e.g., AR(1) coefficients).
+#' @param N Matrix. State noise scaling matrix (process noise).
+#' @param mu_t Matrix. Measurement intercept matrix (\eqn{T \times ny}). Would be 0 if data is demeaned.
+#' @param G Matrix. Observation matrix containing the relations between observed and unobserved variables.
+#' @param M Matrix. Measurement noise scaling matrix.
+#' @param Sigma_0 Matrix. Initial covariance matrix guess for the state vector.
+#' @param rho_0 Vector. Starting guess for the initial state vector.
+#' @param indic_pos Vector. Binary indicators (0/1) specifying if specific latent factors 
+#'   must be constrained to be \eqn{\ge 0}.
+#' @param Rfunction Function. Defines the measurement noise covariance. Defaults to \code{calc_covariance}.
+#' @param Qfunction Function. Defines the transition noise covariance. Defaults to \code{calc_covariance}.
+#' @param reconciliationf Function. Define a modification for \code{rho_tt} (e.g., for consistency 
+#'   in Augmented State Vectors in Quadratic Kalman Filters).
+#'
+#' @return A list containing:
+#' \item{r}{Filtered variables \eqn{\rho_{t|t}} (size \eqn{T \times nr}).}
+#' \item{Sigma_tt}{Filtered state covariance \eqn{\Sigma_{t|t}} stored as flattened vectors.}
+#' \item{loglik}{Scalar. Total log-likelihood of the model.}
+#' \item{y_tp1_t}{Forecasted observables \eqn{y_{t|t-1}}.}
+#' \item{S_tp1_t}{Predicted state covariance \eqn{\Sigma_{t|t-1}}.}
+#' \item{r_tp1_t}{Predicted state vector \eqn{\rho_{t|t-1}}.}
+#' \item{loglik.vector}{Vector of date-specific log-likelihoods.}
+#' \item{Omega_tp1_t}{Innovation covariance \eqn{\Omega_{t|t-1}}.}
+#' \item{M}{The measurement scaling matrix used.}
+#' \item{fitted_obs}{Estimated observables given filtered states (\eqn{\hat{y}_t|t}).}
+#' 
+#' @note 
+#' If \code{reconciliationf} is provided, \code{rho_tt} is modified to ensure consistency 
+#' defined by the function (used in QKF for augmented state vectors).
+#' 
+#' @export
 kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
                           indic_pos=0,
                           Rfunction=calc_covariance, Qfunction=calc_covariance,

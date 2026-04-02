@@ -145,7 +145,7 @@ get_snb_data_wrapper <- function(file,
 #'
 #' @return A processed dataframe with a \code{date} column and the renamed value column.
 #' 
-#' @importFrom tidyverse pivot_wider
+#' @importFrom tidyr pivot_wider
 snb_api_data_to_ts <- function(dataset,
                                variable, # name in the supplied dataset
                                variable_name, # choose name for return dataset

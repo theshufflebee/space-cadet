@@ -30,14 +30,17 @@
 
 # must turn this in a wrapper later
 
+# keep it in this format
+start_date <- "2015-01-01"
+
 # We can't have NaNs in the GDP Gap
 # Further all estimation goes on from the spf start in 2015
-Y_date_select <- Y_okun[Y_okun$quarter >= as.yearqtr("2015-01-01"), ]
+Y_date_select <- Y_okun[Y_okun$quarter >= as.yearqtr(start_date), ]
 Y <- as.matrix(Y_date_select[ , c("unemp_rate", "spf_5y_unemp")])
 
 T <- nrow(Y)
 
-X <- X_okun[X_okun$quarter >= as.yearqtr("2015-01-01"), ]
+X <- X_okun[X_okun$quarter >= as.yearqtr(start_date), ]
 
 X <- as.matrix(X[ , c("gdp_gap", "gap_lag1", "gap_lag2")])
 
