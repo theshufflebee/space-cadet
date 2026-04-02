@@ -412,6 +412,9 @@ ssm_optimizer_wrapper <- function(nb_loop = 3,
   message("\nFinal Refined Parameters:\n")
   print(final_params)
   
-  return(final_params)
+  return(list(
+    params = final_params, 
+    theta  = theta
+  ))
   
 }

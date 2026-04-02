@@ -33,24 +33,31 @@
 # keep it in this format
 start_date <- "2015-01-01"
 
-# We can't have NaNs in the GDP Gap
-# Further all estimation goes on from the spf start in 2015
-Y_date_select <- Y_okun[Y_okun$quarter >= as.yearqtr(start_date), ]
-Y <- as.matrix(Y_date_select[ , c("unemp_rate", "spf_5y_unemp")])
+
+df_okun_merged <- X_okun %>%
+  filter(quarter >= start_date) %>%
+  left_join(Y_okun,
+            by = "quarter")
+
+non_na_range <- which(complete.cases(df_okun_merged[,colnames(X_okun)]))
+
+first_valid <- min(non_na_range)
+last_valid <- max(non_na_range)
+
+message("save estimation range: ", first_valid, "to", last_valid)
+
+df_okun_final <- df_okun_merged[first_valid:last_valid, ]
+
+if(any(is.na(df_okun_final[, c("gdp_gap", "gap_lag1", "gap_lag2")]))) {
+  warning("There are NA values in the exogenous regressors")
+}
+
+
+Y <- as.matrix(df_okun_final[ , c("unemp_rate", "spf_5y_unemp")])
 
 T <- nrow(Y)
 
-X <- X_okun[X_okun$quarter >= as.yearqtr(start_date), ]
-
-X <- as.matrix(X[ , c("gdp_gap", "gap_lag1", "gap_lag2")])
-
-# Select non NA rows as we can't have missing values in the exogenous variables
-valid_rows <- complete.cases(X)
-
-# Subset both matrices to keep only these rows
-# This ensures Y and X remain perfectly synchronized by date
-Y <- as.matrix(Y[valid_rows, c("unemp_rate", "spf_5y_unemp")])
-X <- as.matrix(X[valid_rows, c("gdp_gap", "gap_lag1", "gap_lag2")])
+X <- as.matrix(df_okun_final[ , c("gdp_gap", "gap_lag1", "gap_lag2")])
 
 # Dataprep for Okun complete -> probably move this back into the previous script
 # ==============================================================================
@@ -110,4 +117,19 @@ params_results <- ssm_optimizer_wrapper(
   H_builder    = all_builder_functions$H,
   M_builder    = all_builder_functions$M
 )
+
+
+
+
+parameter_output <- get_ssm_forecast_parameters(data = df_okun_final,
+                                       y_cols = c("unemp_rate", "spf_5y_unemp"),
+                                       x_cols = c("gdp_gap", "gap_lag1", "gap_lag2"),
+                                       date_col = "quarter",
+                                       all_builder_functions = all_builder_functions,
+                                       spec = okun_spec ,
+                                       all_defaults = all_defaults,
+                                       forecast_start = "2021-04-01",
+                                       forecast_end = NULL)
+
+
 

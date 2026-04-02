@@ -2,10 +2,10 @@
 final_params <- params_results 
 
 # Build matrices with estimated parameters
-mu_t_final <- okun_factory$builder(final_params)
-G_final    <- g_link_factory$builder(final_params)
-H_final    <- trans_factory$builder(final_params)
-M_final    <- m_noise_factory$builder(final_params)
+mu_t_final <- mu_t_builder$builder(final_params)
+G_final    <- G_builder$builder(final_params)
+H_final    <- H_builder$builder(final_params)
+M_final    <- M_builder$builder(final_params)
 
 # State noise is surrently fixed
 N_final  <- matrix(0.0001, 1, 1)
