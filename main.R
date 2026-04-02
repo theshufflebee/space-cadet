@@ -1,3 +1,4 @@
+#!/usr/bin/env Rscript
 ################################################################################
 # 
 # Script for Running the Full Project
@@ -14,12 +15,11 @@ rm(list=ls())
 
 # --------- ii. Load here package to enable finding script loading other packages 
 
-if (!require("here", character.only = TRUE)) {
+if (!require("here", character.only = TRUE, quietly=TRUE)) {
   message(paste("Installing missing package:", "here"))
   install.packages("here", dependencies = TRUE)
   library("here", character.only = TRUE)
 }
-
 # Load all internal functions
 
 source(here("R", "load_snb_data.R"))

@@ -1,0 +1,19 @@
+<urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
+<url><loc>/404.html</loc></url>
+<url><loc>/authors.html</loc></url>
+<url><loc>/index.html</loc></url>
+<url><loc>/reference/bfs_wrapper.html</loc></url>
+<url><loc>/reference/download_kof_data.html</loc></url>
+<url><loc>/reference/download_kof_data_wrapper.html</loc></url>
+<url><loc>/reference/download_snb_data.html</loc></url>
+<url><loc>/reference/download_url_csv.html</loc></url>
+<url><loc>/reference/download_url_csv_wrapper.html</loc></url>
+<url><loc>/reference/format_time_series_df.html</loc></url>
+<url><loc>/reference/get_snb_data_wrapper.html</loc></url>
+<url><loc>/reference/index.html</loc></url>
+<url><loc>/reference/install_missing_packages.html</loc></url>
+<url><loc>/reference/load_packages.html</loc></url>
+<url><loc>/reference/snb_api_data_to_ts.html</loc></url>
+<url><loc>/reference/try_install.html</loc></url>
+</urlset>
+

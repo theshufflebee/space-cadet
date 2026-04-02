@@ -6,28 +6,53 @@
 # Output none (Packages installed)
 
 
+#' Helper function to try installing packages from binary or source if that fails
+#' 
+#' @param pkg Character(String?) the package to be installed
+#' 
+#' @return None if success, stops process if error
+#' 
+#' @seealso [install_missing_packages()]
+#' @export
+try_install <- function(pkg){
+  for (type in c("both", "source")) {
+    success <- tryCatch({
+      install.packages(pkg, repos="https://stat.ethz.ch/CRAN/", type = type, quiet = TRUE, verbose = FALSE)
+      # Top have an error, we need to try and load it first
+      requireNamespace(pkg, quietly = TRUE)
+    }, error = function(e) FALSE)
+    if (success) {
+      # change name to it clearer
+      type <- if(type == "both") "binary"
+      message("\n",pkg, ": installed successfully from ",type,"\n")
+      return()
+    }
+  }
+  stop("Failed to install '",pkg,"' from both binary and source, please install manually. Aborting")
+}
 #' Function to install missing packages from a vector
 #' 
-#' This function takes a vector of required packages as input and then removes those already installed.
-#' All non installed packages are then installed from the ethz CRAN repo
+#' This function takes a vector of required packages as input, find those missing and installed them if necessary
 #' 
 #' @param required_packages Vector of characters. A vector containing names of packages
 #' 
-#' @return None. Installs all non installed packages and indicates if there are no packages to be installed.
+#' @return None. Installs all missing packages and indicates if there are no packages to be installed.
+#' 
+#' @seealso [try_install()]
+#' @export
 install_missing_packages <- function(required_packages){
   
   installed_packages <- rownames(installed.packages())
   
   missing_packages <- setdiff(required_packages, installed_packages)
   
-  if (length(missing_packages) > 0) {
-    install.packages(missing_packages, repos="https://stat.ethz.ch/CRAN/")
-  } else {
+  if (length(missing_packages) == 0) {
     message("All Required Packages are installed")
+    return()
   }
+  # Vectorisation on each one, so we can do tryCatch
+  lapply(missing_packages, try_install)
 }
-
-
 #' Load all packages from a vector
 #' 
 #' Load all packages from a vector via library()
@@ -35,10 +60,11 @@ install_missing_packages <- function(required_packages){
 #' @param required_packages Vector of Strings. All packages that you want to be loaded
 #' 
 #' @return None. Loads all packages.
+#' @export
 load_packages <- function(required_packages) {
   
   for (pkg in required_packages) {
-    library(pkg, character.only = TRUE)
+    suppressPackageStartupMessages(library(pkg, character.only = TRUE))
   }
 }
 
@@ -53,6 +79,7 @@ load_packages <- function(required_packages) {
 #' @return Bool. Messages indicate if download was succesfull and returns \code{TRUE} or \code{False} respectively
 #' 
 #' @seealso [download_url_csv_wrapper()]
+#' @export
 download_url_csv <- function(url, filepath) {
   
   tryCatch({
@@ -80,6 +107,7 @@ download_url_csv <- function(url, filepath) {
 #' 
 #' @return None. Messages indicating success.
 #' @seealso [download_url_csv()]
+#' @export
 download_url_csv_wrapper <- function(url, filepath, do_api_call) {
   
   if (!file.exists(filepath) | do_api_call) {
@@ -115,6 +143,7 @@ download_url_csv_wrapper <- function(url, filepath, do_api_call) {
 #' 
 #' @importFrom BFS bfs_get_data bfs_download_asset
 #' @importFrom readr write_csv
+#' @export
 bfs_wrapper <- function(id, dest_file, do_api_call = FALSE, type = "data") {
   
   # Initialize success as FALSE, Update if data is downloaded
@@ -187,6 +216,7 @@ bfs_wrapper <- function(id, dest_file, do_api_call = FALSE, type = "data") {
 #' @importFrom zoo as.yearmon
 #' @importFrom dplyr select arrange
 #' @importFrom tidyr drop_na
+#' @export
 format_time_series_df <- function(data,
                                   date_col,
                                   value_col,

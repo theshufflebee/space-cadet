@@ -1,0 +1,27 @@
+Package: space.cadet
+Type: Package
+Title: forecast important macroeconomic variables of the Swiss Economy with State space models
+Version: 0.1
+Author: Jonas Bruno and Marco Antonio Soto Novoa
+Maintainer: Jonas Bruno <jonas.bruno@unil.ch>
+Description: This repo contains all the code related to my Masters Thesis at CREA at HEC Lausanne. The Thesis' main goal is to forecast important macroeconomic variables of the Swiss Economy with State space models.
+Depends: 
+  R (>= 4.3.0),
+  MASS,
+  tidyverse,
+  here,
+  RCurl,
+  jsonlite,
+  glue,
+  readxl,
+  kofdata,
+  zoo,   
+  BFS,  
+  roxygen2,
+  readr,
+  optimx,
+  argparse,
+  neverhpfilter
+License: TO BE DECIDED
+Encoding: UTF-8
+RoxygenNote: 7.3.2
