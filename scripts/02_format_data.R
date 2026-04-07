@@ -67,7 +67,7 @@ employment_ts <- format_time_series_df(employment,
 # --- GDP Data ---
 gdp_data <- data_gdp_raw %>% 
   dplyr::filter(
-    structure %in% c("gdp","inv_constr","inv_fixed", "cons_priv","cons_gov",          # choose GDP components
+    structure %in% c("gdp","inv_constr","inv_fixed", "cons_priv","cons_gov",          # these are all components in the structure
                      "exp_good_ex_vm","exp_serv","imp_serv","imp_good_ex_v"),
     type == "real",
     seas_adj == "cssa",

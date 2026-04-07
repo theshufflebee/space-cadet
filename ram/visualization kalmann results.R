@@ -1,5 +1,5 @@
 # Extract Data from results (ssm_optimizer_wrapper)
-final_params <- params_results 
+final_params <- params_results$params 
 
 # Build matrices with estimated parameters
 mu_t_final <- mu_t_builder$builder(final_params)
