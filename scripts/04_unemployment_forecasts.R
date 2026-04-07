@@ -1,6 +1,6 @@
 ################################################################################
 #
-# This Model forecasts the Swiss unemp_rate Rate
+# This script estimates the parameters for the Okun model and runs the forecast
 #
 ################################################################################
 
@@ -130,6 +130,25 @@ parameter_output <- get_ssm_forecast_parameters(data = df_okun_final,
                                        all_defaults = all_defaults,
                                        forecast_start = "2021-04-01",
                                        forecast_end = NULL)
+
+
+
+params_df <- parameter_output %>%
+  # select params list from the list
+  map_dfr(~ as.data.frame(.x$params), .id = "quarter") %>%
+  # Convert the character dates back to yearqtr for future forecastng
+  mutate(quarter = as.yearqtr(quarter))
+
+print(head(params_df))
+
+write_csv(params_df, "output/okun_forecast_parameters.csv")
+
+
+okun_params_df <- read_csv("output/okun_forecast_parameters.csv")
+
+
+
+
 
 
 

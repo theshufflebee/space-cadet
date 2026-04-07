@@ -34,11 +34,11 @@
 #' \item{r}{Filtered variables \eqn{\rho_{t|t}} (size \eqn{T \times nr}).}
 #' \item{Sigma_tt}{Filtered state covariance \eqn{\Sigma_{t|t}} stored as flattened vectors.}
 #' \item{loglik}{Scalar. Total log-likelihood of the model.}
-#' \item{y_tp1_t}{Forecasted observables \eqn{y_{t|t-1}}.}
-#' \item{S_tp1_t}{Predicted state covariance \eqn{\Sigma_{t|t-1}}.}
-#' \item{r_tp1_t}{Predicted state vector \eqn{\rho_{t|t-1}}.}
+#' \item{y_tp1_t}{Forecasted observables \eqn{y_{t+1|t}}.}
+#' \item{S_tp1_t}{Predicted state covariance \eqn{\Sigma_{t+1|t}}.}
+#' \item{r_tp1_t}{Predicted state vector \eqn{\rho_{t+1|t}}.}
 #' \item{loglik.vector}{Vector of date-specific log-likelihoods.}
-#' \item{Omega_tp1_t}{Innovation covariance \eqn{\Omega_{t|t-1}}.}
+#' \item{Omega_tp1_t}{Innovation covariance \eqn{\Omega_{t+1|t}}.}
 #' \item{M}{The measurement scaling matrix used.}
 #' \item{fitted_obs}{Estimated observables given filtered states (\eqn{\hat{y}_t|t}).}
 #' 
