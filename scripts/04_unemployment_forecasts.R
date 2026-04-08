@@ -106,18 +106,17 @@ theta_start <- model2param_gen(all_defaults, okun_spec)
 
 # --- Run the Optimizer Wrapper ---
 # pass into it the builder functions for all matrices
-params_results <- ssm_optimizer_wrapper(
-  nb_loop      = 3,
-  theta_start  = theta_start,
-  Y            = Y,
-  X            = X,
-  model_spec   = okun_spec,
-  mu_t_builder = all_builder_functions$mu_t,
-  G_builder    = all_builder_functions$G,
-  H_builder    = all_builder_functions$H,
-  M_builder    = all_builder_functions$M
-)
-
+# params_results <- ssm_optimizer_wrapper(
+#   nb_loop      = 2,
+#   theta_start  = theta_start,
+#   Y            = Y,
+#   X            = X,
+#   model_spec   = okun_spec,
+#   mu_t_builder = all_builder_functions$mu_t,
+#   G_builder    = all_builder_functions$G,
+#   H_builder    = all_builder_functions$H,
+#   M_builder    = all_builder_functions$M
+# )
 
 
 
@@ -128,18 +127,28 @@ parameter_output <- get_ssm_forecast_parameters(data = df_okun_final,
                                        all_builder_functions = all_builder_functions,
                                        spec = okun_spec ,
                                        all_defaults = all_defaults,
-                                       forecast_start = "2021-04-01",
+                                       forecast_start = "2024-07-01",
                                        forecast_end = NULL)
 
 
 
 params_df <- parameter_output %>%
-  # select params list from the list
-  map_dfr(~ as.data.frame(.x$params), .id = "quarter") %>%
-  # Convert the character dates back to yearqtr for future forecastng
+  map_dfr(function(x) {
+    # Convert parameters to a data frame
+    p_df <- as.data.frame(x$params)
+    
+    # Extract the last value of the filtered state r with tail()
+    p_df$natural_rate <- as.numeric(tail(x$states$r, 1)) # so it's not another format
+    
+    return(p_df)
+  }, .id = "quarter") %>%
+  # Convert the character dates back to yearqtr
   mutate(quarter = as.yearqtr(quarter))
 
+# Preview the result
 print(head(params_df))
+
+
 
 write_csv(params_df, "output/okun_forecast_parameters.csv")
 

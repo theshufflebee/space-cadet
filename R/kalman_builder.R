@@ -292,7 +292,8 @@ loglik_ssm <- function(theta,
                        mu_t_builder,
                        G_builder,
                        H_builder,
-                       M_builder) {
+                       M_builder,
+                       return_full_res = FALSE) {
   
   # Map Parameters so the ones specified can't be positive
   model <- param2model_gen(theta, model_spec)
@@ -330,7 +331,11 @@ loglik_ssm <- function(theta,
   # returns the negative loglik, so the optimizer can run the whol thing again
   # wuth newly selected parameters
   
-  return(-sum(res$loglik.vector))
+  if (return_full_res) {
+    return(res) # Returns the whole list (states, lik, etc.)
+  } else {
+    return(-sum(res$loglik.vector)) # Returns the scalar for the optimizer
+  }
 }
 
 
