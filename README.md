@@ -69,41 +69,44 @@ space-cadet/
 ## Contributing
 
 ### Documentation Generation
-The `generate_doc.R` script facilitates the generation of documentation. **It is mandatory to write documentation for every function you may write.**
-Below is an explanation of each step in the script and how it contributes to generating the documentation:
+
+The `generate_doc.R` script facilitates the generation of documentation. **It is mandatory to write documentation for every function you may write.** Below is an explanation of each step in the script and how it contributes to generating the documentation:
 
 #### Overview of the script
+
 After loading the necessary libaries, the following commands are run:
 
-```
+```         
 roxygen2::roxygenise()
 ```
+
 This function automatically generates the documentation files in the `.Rd` format. It extracts structured comments from the code and creates corresponding man/ directory files and NAMESPACE.
 
-Here is an introduction on how to write such comments: https://roxygen2.r-lib.org/ 
+Here is an introduction on how to write such comments: <https://roxygen2.r-lib.org/>
 
-```
+```         
 devtools::install()
 ```
+
 This function installs the package in your local R library, allowing you to use the package's functions in your R sessions as you would with any other installed package.
 
-```
+```         
 pkgdown::build_site()
 ```
 
 Using the pkgdown library we build a website for the package, making the documentation accessible and navigable in a web format (HTML). The generated files are stored in the docs/ directory.
 
 #### How to Use the Script
+
 After writing comments in the roxygen2 format, execute the `generate_doc.R` script by running the following command in your terminal from the root of the repo:
 
-```
+```         
 Rscript generate_doc.R
 ```
 
-It should also in RStudio using `source("generate_doc.R")`, but it is untested.
-If it works, you should receive the message:
+It should also in RStudio using `source("generate_doc.R")`, but it is untested. If it works, you should receive the message:
 
-`Documentation generation, package installation, and site build completed successfully.` 
+`Documentation generation, package installation, and site build completed successfully.`
 
 # Contact
 
