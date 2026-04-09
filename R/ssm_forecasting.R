@@ -70,16 +70,7 @@ get_ssm_forecast_parameters <- function(data,
     Y_select <- as.matrix(data_t[, y_cols])
     X_select <- as.matrix(data_t[, x_cols])
     
-    if (apply_lags == TRUE) {
-      
-      message("Applying lags")
-      
-      apply_hp filter to X data
-      
-      add to data.frame
-      
-      then create lags
-      
+
     }
     
     # re initualize the builders as the time dimension changes
