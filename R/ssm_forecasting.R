@@ -5,57 +5,49 @@
 ################################################################################
 
 # Pseudocode
+library(mFilter)
 
 #' Generate Rolling SSM Parameters for Forecasting
 #' 
 #' Estimates model parameters over an expanding window up to a specified end date.
 #' Returns a list of parameters to be used in a separate forecasting step.
+#' 
+#' 
+#' 
 get_ssm_forecast_parameters <- function(data,
                                         y_cols,
-                                        x_cols,
+                                        x_col,
                                         date_col = "quarter",
                                         all_builder_functions,
                                         spec,
                                         all_defaults,
                                         forecast_start,
+                                        val_T1 = "2015-01-01", # The beginning of the dataset we use to forecast
                                         forecast_end = NULL) {
   
-  # 1. Force the data's date column to yearqtr
-  date_vector <- as.yearqtr(data[[date_col]])
+  # Force the data's date column to yearqtr to prevent format issues
+  data[[date_col]] <- as.yearqtr(data[[date_col]])
   
-  # 2. Force start_q safely (The "Double Conversion")
-  # We use as.Date to handle the string, then yearqtr to handle the class
+  # create date_vector
+  full_date_vector      <- data[[date_col]]
+  
+  # Start of the pseudo forecast
   start_q <- as.yearqtr(as.Date(forecast_start))
   
+  # First observation of the full sample
+  val_T1 <- as.yearqtr(as.Date(val_T1))
+  
+  # If there is no forecast date end specified do as far as possible
+  # else go until specifed date
   if(is.null(forecast_end)) {
-    end_q <- max(date_vector, na.rm = TRUE)
-    message(sprintf("No end date provided. Defaulting to last available: %s", as.character(end_q)))
+    end_q <- max(full_date_vector, na.rm = TRUE)
   } else {
-    # Same safety here
     end_q <- as.yearqtr(as.Date(forecast_end))
   }
   
-  # Make sure forecast_dates only contain actual matches
-  mask <- which(date_vector >= start_q & date_vector <= end_q)
-  forecast_dates <- date_vector[mask]
+  forecast_dates <- full_date_vector[full_date_vector >= start_q & full_date_vector <= end_q]
   
-  # Debugging: in case of problems with matching start and end
-  if(length(forecast_dates) == 0) {
-    stop(sprintf("No dates found between %s and %s in the dataset!", 
-                 as.character(start_q), as.character(end_q)))
-  }
-  
-  print("Confirmed Forecast Dates:")
-  print(forecast_dates)
-  print(start_q)
-  print(end_q)
-  
-  # select the dates over whicht to estinate parameters
-  #forecast_dates <- date_vector[date_vector >= start_q & date_vector <= end_q]
-
   comp <- list()
-  
-  #initialize initial guess
   current_theta <- model2param_gen(all_defaults, spec)
   
   message(sprintf("Running rolling estimation from %s to %s...", 
@@ -65,14 +57,35 @@ get_ssm_forecast_parameters <- function(data,
   for (i in seq_along(forecast_dates)) {
     target_date <- forecast_dates[i]
     
-    # select subset of data
-    data_t   <- data[date_vector <= target_date, ]
-    Y_select <- as.matrix(data_t[, y_cols])
-    X_select <- as.matrix(data_t[, x_cols])
+    # select subset of data available at the time
+    data_t <- data[full_date_vector <= target_date, ] #here only take the data available at t
     
-
-    }
+    # Select the first non NA observation of the Exogenous / GDP variable
+    first_obs_idx <- which(!is.na(data_t[[x_col]]))[1]
+    gdp_series    <- data_t[[x_col]][first_obs_idx:nrow(data_t)]
     
+    # C. Apply HP Filter (mFilter package)
+    # freq = 1600 is standard for quarterly data
+    hp_res <- hpfilter(gdp_series, freq = 1600)
+    
+    # D. Align Cycle back to vintage dataframe
+    data_t$y_gap <- NA
+    data_t$y_gap[first_obs_idx:nrow(data_t)] <- as.numeric(hp_res$cycle)
+    print(data_t$quarter)
+    
+    data_estimation <- data_t %>%
+      mutate(
+        y_gap_l0 = as.numeric(y_gap),
+        y_gap_l1 = as.numeric(dplyr::lag(y_gap, 1)),
+        y_gap_l2 = as.numeric(dplyr::lag(y_gap, 2))
+      ) %>%
+      filter(!!sym(date_col) >= val_T1)
+    
+    
+    Y_select <- as.matrix(data_estimation[, y_cols])
+    X_select <- as.matrix(data_estimation[, c("y_gap_l0", "y_gap_l1", "y_gap_l2")])
+    
+    print(head(X_select))
     # re initualize the builders as the time dimension changes
     curr_okun_fact  <- mu_t_matrix_factory(X_select, Y_select, intercept = FALSE)
     curr_trans_fact <- H_matrix_factory(random_walk = TRUE)
@@ -129,7 +142,6 @@ get_ssm_forecast_parameters <- function(data,
 
 
 # FOrecast
-
 
 
 

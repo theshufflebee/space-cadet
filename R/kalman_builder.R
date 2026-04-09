@@ -184,6 +184,7 @@ mu_t_matrix_factory <- function(X_data,
     
     # Signal = X * Beta
     # Result is a T_len x 1 vector
+    
     signal <- X_mat %*% matrix(current_betas)
     
     # Map the signal into the mu_t matrix (T_len x ny)

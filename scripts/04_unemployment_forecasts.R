@@ -29,9 +29,8 @@
 
 
 # must turn this in a wrapper later
-
 # keep it in this format
-start_date <- "2015-01-01"
+start_date <- "2010-01-01"
 
 
 df_okun_merged <- X_okun %>%
@@ -48,7 +47,7 @@ message("save estimation range: ", first_valid, "to", last_valid)
 
 df_okun_final <- df_okun_merged[first_valid:last_valid, ]
 
-if(any(is.na(df_okun_final[, c("gdp_gap", "gap_lag1", "gap_lag2")]))) {
+if(any(is.na(df_okun_final[, c("log_gdp")]))) {
   warning("There are NA values in the exogenous regressors")
 }
 
@@ -57,7 +56,7 @@ Y <- as.matrix(df_okun_final[ , c("unemp_rate", "spf_5y_unemp")])
 
 T <- nrow(Y)
 
-X <- as.matrix(df_okun_final[ , c("gdp_gap", "gap_lag1", "gap_lag2")])
+X <- as.matrix(df_okun_final[ , c("log_gdp")])
 
 # Dataprep for Okun complete -> probably move this back into the previous script
 # ==============================================================================
@@ -65,13 +64,19 @@ X <- as.matrix(df_okun_final[ , c("gdp_gap", "gap_lag1", "gap_lag2")])
 # --- Initialize all Factories ---
 # This is how we get the functions for all matrices and the corresponding
 # parameter mappings and rules for transformations should parameters be restricted
+# This ensures p_names in the factory matches your 3-lag X matrix later.
+beta_names <- c("beta1", "beta2", "beta3")
 
-mu_t_builder  <- mu_t_matrix_factory(X, Y, intercept = FALSE)
+# Pass a dummy matrix with 3 columns so the factory initializes for 3 parameters
+X_dummy <- matrix(0, nrow = nrow(Y), ncol = 3) 
+
+# Initialize the factory using the dummy structure
+mu_t_builder  <- mu_t_matrix_factory(X_dummy, Y, intercept = FALSE)
 H_builder <- H_matrix_factory(random_walk = TRUE)
 G_builder <- G_matrix_factory(Y)
 M_builder <- M_matrix_factory(Y)
 
-# sum all builders up fore forecasting later
+# sum all builders up for forecasting later
 all_builder_functions <- list(
   mu_t    = mu_t_builder$builder,
   H       = H_builder$builder,
@@ -80,8 +85,6 @@ all_builder_functions <- list(
 )
 
 # --- Collect the Master Manifest ---
-# We combine the rules and defaults from all active components into one for
-#further processing
 all_rules <- c(
   mu_t_builder$manifest$rules,
   H_builder$manifest$rule,
@@ -94,9 +97,15 @@ all_defaults <- c(
   M_builder$manifest$default
 )
 
+# --- Force the correct Beta starting values ---
+all_defaults$beta1 <- -0.1
+all_defaults$beta2 <- -0.05
+all_defaults$beta3 <- -0.01
+
 # -- Create the Master Spec ---
-# this is to pass into the optimizer so parameter transformations are done correctly
 okun_spec <- list(
+  # Ensure mu_t params are explicitly listed as the 3 betas
+  mu_t = list(params = beta_names),
   names = names(all_rules),
   rules = all_rules
 )
@@ -122,7 +131,7 @@ theta_start <- model2param_gen(all_defaults, okun_spec)
 
 parameter_output <- get_ssm_forecast_parameters(data = df_okun_final,
                                        y_cols = c("unemp_rate", "spf_5y_unemp"),
-                                       x_cols = c("gdp_gap", "gap_lag1", "gap_lag2"),
+                                       x_col = c("log_gdp"),
                                        date_col = "quarter",
                                        all_builder_functions = all_builder_functions,
                                        spec = okun_spec ,
@@ -173,7 +182,7 @@ okun_params_df <- read_csv("output/okun_forecast_parameters.csv") %>%
 # Setup Dates that are to be forecast
 # as the okun df contains dates that are the "today" for forecasts, for all available dates
 # we forecast over its full range
-dates <- okun_params_df$quarter
+dates <- okun_params_df$quarter # dates are all dates where we forecast
 forecast_h <- 8
 
 # we extend to the forecast dataframe so we can store the full forecast
@@ -207,6 +216,15 @@ predict_ssm_path_simple <- function(rho_start, betas, gdp_features) {
   return(as.numeric(rho_start + cyclical_impact))
 }
 
+
+
+gdp_gap_forecasts <-df_okun_final[c("quarter", "log_gdp")]
+
+
+
+
+
+
 # Fill the Forecasts
 for (i in seq_along(dates)) {
   forecast_origin <- dates[i] # select start date
@@ -219,18 +237,37 @@ for (i in seq_along(dates)) {
   # get 8 quarters after "today" the origin
   look_ahead_dates <- seq(forecast_origin + 0.25, by = 0.25, length.out = forecast_h)
   
-  # Pivot the Long Data to Wide for the math
-  gdp_features_wide <- master_okun_model_long %>%
-    
-    # Filter for the dates and the gdp variables
-    filter(quarter %in% look_ahead_dates,
-           variable %in% c("gdp_gap", "gap_lag1", "gap_lag2")) %>%
-    
-    # Pivot so each variable is a column and each row is a tim ein h for function
-    pivot_wider(names_from = variable, values_from = value) %>%
+  # get the historical true data known today
+  history_gdp <- X_okun %>%
+    filter(quarter <= forecast_origin) %>%
+    select(quarter, log_gdp)
+  
+  # Get 8-quarter forecast starting after 'today'
+  future_gdp <- gdp_gap_forecasts %>%
+    filter(quarter > forecast_origin) %>%
+    slice(1:forecast_h) %>%
+    select(quarter, log_gdp)
+  
+  # Stack them
+  combined_gdp <- bind_rows(history_gdp, future_gdp) %>%
     arrange(quarter) %>%
-    # Ensure columns are in the order betas: t, t-1, t-2
+    filter(!is.na(log_gdp))
+  
+  hp_res <- hpfilter(combined_gdp$log_gdp, freq = 1600)
+  combined_gdp$y_gap <- as.numeric(hp_res$cycle)
+  
+  # Create the 3 Lag Columns
+  gdp_features_wide <- combined_gdp %>%
+    mutate(
+      gdp_gap  = y_gap,
+      gap_lag1 = dplyr::lag(y_gap, 1),
+      gap_lag2 = dplyr::lag(y_gap, 2)
+    ) %>%
+    # Select only the horizon we want to forecast
+    filter(quarter > forecast_origin) %>%
+    arrange(quarter) %>%
     select(gdp_gap, gap_lag1, gap_lag2)
+  
   
   # get forecast
   if (nrow(gdp_features_wide) > 0) {
