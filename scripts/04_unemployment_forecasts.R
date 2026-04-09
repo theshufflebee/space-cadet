@@ -153,9 +153,25 @@ print(head(params_df))
 write_csv(params_df, "output/okun_forecast_parameters.csv")
 
 
-okun_params_df <- read_csv("output/okun_forecast_parameters.csv")
+okun_params_df <- read_csv("output/okun_forecast_parameters.csv") %>%
+  mutate(quarter = as.yearqtr(quarter))
 
+dates <- okun_params_df$quarter
+n <- length(dates)
 
+eval_mat <- matrix(NA, nrow = n, ncol = n)
+
+rownames(eval_mat) <- as.character(dates)
+colnames(eval_mat) <- as.character(dates)
+
+actual_unemp <- df_okun_final %>%
+  filter(quarter %in% dates) %>%
+  arrange(quarter) %>%
+  pull(unemp_rate)
+
+diag(eval_mat) <- actual_unemp
+
+eval_df <- as.data.frame(eval_mat)
 
 
 
