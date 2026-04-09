@@ -35,12 +35,11 @@ get_ssm_forecast_parameters <- function(data,
     end_q <- as.yearqtr(as.Date(forecast_end))
   }
   
-  # 3. CRITICAL: Use which() or !is.na to avoid generating NA vectors
-  # This ensures forecast_dates only contains actual matches
+  # Make sure forecast_dates only contain actual matches
   mask <- which(date_vector >= start_q & date_vector <= end_q)
   forecast_dates <- date_vector[mask]
   
-  # Debugging: If this is still 0, the dates just don't overlap
+  # Debugging: in case of problems with matching start and end
   if(length(forecast_dates) == 0) {
     stop(sprintf("No dates found between %s and %s in the dataset!", 
                  as.character(start_q), as.character(end_q)))
@@ -70,6 +69,18 @@ get_ssm_forecast_parameters <- function(data,
     data_t   <- data[date_vector <= target_date, ]
     Y_select <- as.matrix(data_t[, y_cols])
     X_select <- as.matrix(data_t[, x_cols])
+    
+    if (apply_lags == TRUE) {
+      
+      message("Applying lags")
+      
+      apply_hp filter to X data
+      
+      add to data.frame
+      
+      then create lags
+      
+    }
     
     # re initualize the builders as the time dimension changes
     curr_okun_fact  <- mu_t_matrix_factory(X_select, Y_select, intercept = FALSE)
