@@ -4,7 +4,7 @@ This repo contains all the code related to my Masters Thesis at CREA at HEC Laus
 
 ## How to run
 
-This is currently a work in Progress. The working parts of the project can be run through the main.R script in the repo root. As of 20.03.2026 it runs only until script 02 and it isn't complete yet. Open the .rproj file with R Studio and run the main script via source("main.R")
+This is currently a work in Progress. The working parts of the project can be run through the main.R script in the repo root. As of the Last Update (see at the bottom) it runs only until script 04 and it isn't complete yet. Open the .rproj file with R Studio and run the main script via source("main.R")
 
 ## Libraries
 
@@ -35,35 +35,50 @@ Tree created via fs::dir_tree()
 
 ``` text
 space-cadet/
-├── data                                # Contains all data
-│   └── raw                             # Contains all untransformed data
-│       ├── cpi_series.xlsx
-│       ├── employment_data.csv
-│       ├── gov_bonds.csv
-│       ├── gov_bonds_metadata.json
-│       ├── kof_consensus_master.csv
-│       ├── money_market.csv
-│       ├── money_market_metadata.json
-│       ├── snb_reer_manual_download.xlsx   # Need to find fix for Download
+├── data/                               # Contains all data
+│   ├── master.csv                      # Formatted master dataset
+│   └── raw/                            # Contains all untransformed data
+│       ├── cpi_series.xlsx             # Swiss CPI Data
+│       ├── employment_data.csv         # Swiss Employment Data
+│       ├── gdp.csv                     # Swiss GDP Data
+│       ├── gov_bonds.csv               # Swiss Gov Bond Data
+│       ├── gov_bonds_metadata.json     # Swiss Gov Bond Metadata
+│       ├── kof_consensus_master.csv    # KOF Consensus Forecasts Data
+│       ├── money_market.csv            # SARON and LIBOR CHF Data
+│       ├── money_market_metadata.json  # SARON and LIBOR CHF Metadata
+│       ├── reer_ppi_eu.csv             # REER CHF/EU Data
+│       ├── reer_ppi_eu_metadata.json   # REER CHF/EU Metadata
 │       └── unemployment_canton.csv
-├── main.R                              # script to run the project
-├── workplace.Rmd                       # All work that is in progres is done here
-├── output                              # All outputs are stored here
-├── R                                   # This folder contains all functions
+├── data.md                             # Documentation for data sources
+├── DESCRIPTION                         # Project metadata and dependencies
+├── docs/                               # pkgdown-generated package documentation
+├── generate_doc.r                      # Script to generate project documentation
+├── main.R                              # Script to run the project
+├── man/                                # R documentation files (.Rd)
+│   ├── ...                             # R Documentations from Roxygen
+│   └── figures/                        # Contains images used in documentation
+├── NAMESPACE                           # R package namespace exports
+├── output/                             # All outputs are stored here
+│   ├── forecast_df.csv                 # Forecast matrix of Okun Model
+│   └── okun_forecast_parameters.csv    # Rolling estimation parameters Okun Model
+├── R/                                  # This folder contains all functions
+│   ├── kalman_builder.R                # SSM matrix factory functions
+│   ├── kalman_procedures.R             # Kalman Filter and Likelihood logic
+│   ├── load_kof_data.R                 # KOF API implementation
 │   ├── load_snb_data.R                 # SNB API Calls
+│   ├── ssm_forecasting.R               # Prediction and rolling forecast logic
 │   └── utils.R                         # Utility functions
-├── ram                                 # This is a folder for experiments
-│   ├── Code_Jonas_CSSA_GDP.R
-│   ├── explorer.Rmd
-│   ├── Kalman_examples.R
-│   ├── Kalman_procedures.R
-│   ├── state_space_playground.Rmd
-│   └── swiss_real_gdp.csv
-├── README.html
+├── ram/                                # Experimental Space: not relevant for proj
 ├── README.md
-├── scripts                             # Scripts that make up project
-│   └── 01_load_data.R                  # API Calls and Data Loading
-└── spacce-cadet.Rproj
+├── scripts/                            # Scripts that make up project
+│   ├── 00a_install_dependencies.R      # Environment setup
+│   ├── 00b_config.R                    # Project-wide configurations
+│   ├── 01_load_data.R                  # API Calls and Data Loading
+│   ├── 02_format_data.R                # Data cleaning and joining
+│   ├── 03_transform_data.R             # Data Manipulation and prep for analysis
+│   └── 04_unemployment_forecasts.R     # Forecasting first model
+├── space-cadet.Rproj                   # RStudio project file
+└── SSM_Documentation.Rmd               # Breakdown of the SSM model / Code
 ```
 
 ## Contributing

@@ -100,7 +100,7 @@ First The function `download_snb_data()` calls the API using a specific URL. The
 
 If you visit a table online you will find an Info button for AI handling.
 
-Apart from the Cube you select the dimensions, `D0`, `D1`, `D2`. You may not need all of them. Here the datacube is `devwkieffid` (Effective exchange rate indices ). We select the following from the dimensions - `D0` = `P` (Real, PPI Based) - `D1` = `E` (Euro Area Index) - `D2` = `I` (Index)
+Apart from the Cube you select the dimensions, `D0`, `D1`, `D2`. You may not need all of them. Here the datacube is `devwkieffid` (Effective exchange rate indices ). We select the following from the dimensions - `D0` = `P` (Real & PPI Based) - `D1` = `E` (Euro Area) - `D2` = `I` (Index)
 
 We also specify the timeframe where we want the data via `from_date` and `to_date`.
 
@@ -125,4 +125,4 @@ R version 4.3.3
 Jonas Bruno\
 jonas.bruno\@unil.ch
 
-Last Update 20.03.2026
+Last Update 10.04.2026

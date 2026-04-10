@@ -4,7 +4,16 @@
 \alias{loglik_ssm}
 \title{State-Space Log-Likelihood Function}
 \usage{
-loglik_ssm(theta, Y, model_spec, mu_t_builder, G_builder, H_builder, M_builder)
+loglik_ssm(
+  theta,
+  Y,
+  model_spec,
+  mu_t_builder,
+  G_builder,
+  H_builder,
+  M_builder,
+  return_full_res = FALSE
+)
 }
 \arguments{
 \item{theta}{Numeric vector of parameters furnished by optimizer}
