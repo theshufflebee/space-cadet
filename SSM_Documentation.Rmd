@@ -17,203 +17,255 @@ source(here("R", "ssm_forecasting.R"))
 
 ```
 
-# SSM Documentation
+# State-Space Model (SSM) Documentation
 
-This Document exists to show how the Kalman filter and State space
-models work.
+This document outlines the theoretical framework and implementation
+details of the State-Space Model and the Kalman Filter used in this
+project.
 
-We work with the following notation / specification
+## 1. Model Specification
 
-**Measurement Equation**
+The system is defined by two fundamental equations that describe the
+relationship between observed data and hidden structural components.
+
+### Measurement Equation
+
+The measurement equation relates the observed variables $y_t$ to the
+latent state $\rho_t$:
+
 $$y_t = \mu_t + G\rho_t + M\varepsilon_t \tag{1}$$
 
-\vspace{1em}
+-   $\mu_t$: A vector representing the intercept or the contribution of
+    exogenous variables (e.g., the Okun’s Law cyclical impact $X\beta$).
+-   $G$: The factor loading matrix that maps the latent state to the
+    observed measurements.
+-   $M$: The coefficient matrix for the measurement noise
+    $\varepsilon_t$, defining the observation error variance-covariance
+    structure.
 
-**Transition / State Equation**
+### Transition Equation
+
+The transition (or state) equation describes the evolution of the latent
+state over time:
+
 $$\rho_t = \nu_t + H\rho_{t-1} + N\xi_t \tag{2}$$
 
--   $\mu_t$ is a vector representing the intercept. It can also take on
-    exogenous variables
--   $G$ are the factor loadings of the state and relates state and
-    measurement equation
--   $M$ is the error var/covar matrix of the measurement equation
--   $\nu_t$ is the intercept of the state euqation, can be used to
-    represent a drift
--   $H$ is the transition matrix between the state at $t$ and $t-1$
--   $N$ is the error matrix of the state equation
+-   $\nu_t$: The intercept of the state equation, typically used to
+    represent a deterministic drift in the trend.
+-   $H$: The transition matrix defining the persistence of the state
+    from $t-1$ to $t$.
+-   $N$: The coefficient matrix for the state innovation $\xi_t$,
+    defining the process noise variance.
 
-## Estimation Pipeline
+## 2. Estimation Pipeline
 
-The model uses a coded function of the Kalman Filter available in
-`kalmann_procedures.R` This function takes in the matrices that make up
-the filter listed above, the data for Y, initial guesses, incic_pos for
-when a variable is constrained to be positive, reconcilliationf for
-functions / R and Q functions for a quadratic filter which is currently
-not used.
+The core estimation logic is contained within the `kalman_filter()`
+function located in `kalman_procedures.R`. This function serves as the
+engine, processing system matrices to generate filtered state estimates
+and the corresponding log-likelihood for optimization.
 
-The way the matrices are build is that you do that outside of the
-filter. You build them including the specified parameters and potential
-exogenous data and then pass them into the filter to get the filtered
-values and the log likelyhood.
+### Matrix Construction
+
+System matrices are constructed externally via "factory" functions
+(e.g., `mu_t_matrix_factory()`, `G_matrix_factory()`). These matrices
+output a builder function (e.g., `mu_t_builder()`, `G_builder())`, that
+builds the final matrices with the parameters from the optimizer. This
+modular approach allows injection of time-varying exogenous data and
+specific parameter constraints into the matrices before they are passed
+to the filter. This ensures that the filter remains a pure mathematical
+operator, independent of the specific model configuration.
+
+### Filter Inputs
+
+Beyond the primary system matrices ($G, H, M, N, \mu_t, \nu_t$), the
+estimation pipeline handles several advanced configurations:
+
+-   **Initial Conditions**: Requires initial guesses for the state
+    $\rho_0$ and the state covariance $\Sigma_0$.
+
+-   **Constraints**: Supports `indic_pos` to enforce positivity
+    constraints on specific parameters during optimization.
+
+-   **Reconciliation**: Allows for functional adjustments to the state
+    through reconciliation functions. (Currently not needed)
+
+-   **Quadratic Filtering**: The architecture supports $Q$ functions for
+    quadratic filter extensions. These are currently not needed
+
+The pipeline operates by iteratively updating the state estimate as new
+data arrives, minimizing the prediction error and maximizing the
+log-likelihood of the observed series $Y$.
 
 ```{r}
 # uncomment to see the function
 # kalman_filter
 ```
 
-## Optimization approach
+# Optimization Strategy
 
-The optimization works with a numeric optimizer from the `optimx`
-package. It optimizes an objective functions by passing specific
-parameters to it. In the context of the Kalman filter here, the
-objective function is a function that sets up the matrices to be passed
-into the Kalman filter above, which returns the log likelihood which is
-the object that is optimized.
+The parameter estimation for the State-Space Model is conducted using a
+maximum likelihood approach, implemented via numeric optimization.
 
-In more detail the flow of the pipeline is: - Determine parameters
-(either from first guess, or new guess by optimizer) - Create Kalman
-filter matrices from the parameters - Pass the Matrices into the filter,
-return likelihood. - optimizer chooses new parameters in response to the
-results - when the optimizer doesn't find a good improvement in
-parameters, returns them as final estimatiion
+## 1. The Objective Function
+
+The optimization process utilizes the `optimx` package to minimize the
+negative log-likelihood (or maximize the log-likelihood) of the system.
+The objective function, `loglik_ssm`, acts as a bridge between the
+optimizer and the Kalman Filter:
+
+-   **Matrix Mapping**: It receives a vector of candidate parameters
+    from the optimizer and maps them into the structured system matrices
+    ($G, H, M, N, \mu_t, \nu_t$) via their builder functions.
+
+-   **Filtering**: These matrices are passed into the `kalman_filter`
+    function.
+
+-   **Likelihood Calculation**: The filter processes the observed data
+    $Y$ and returns the log-likelihood based on the prediction errors
+    (innovations) and their associated variances.
+
+## 2. Recursive Optimization Flow
+
+The pipeline follows an iterative logic to converge on the optimal
+parameter set:
+
+-   **Initialization**: The process begins with either a user-defined
+    initial guess or the results of a previous estimation.
+
+-   **Evaluation**: The Kalman Filter computes the likelihood of the
+    data given the current parameter guess.
+
+-   **Adjustment**: The optimizer analyzes the gradient and curvature of
+    the likelihood surface to propose a new, improved parameter vector.
+
+-   **Convergence**: The loop continues until the marginal improvement
+    in the log-likelihood falls below a specified tolerance threshold,
+    at which point the final estimates are returned.
+
+## 3. The Estimation Wrapper
+
+To ensure robust convergence and prevent the model from becoming trapped
+in local optima, a dedicated wrapper function manages the optimization
+loops.
+
+### Multi-Method Sequential Optimization
+
+The wrapper allows for the execution of multiple optimization algorithms
+(e.g., Nelder-Mead followed by BFGS) in a sequential chain. In this
+setup, the final parameter output of the first method serves as the
+starting value for the second. This hybrid approach allows us to use
+different methods with different strengths.
+
+### Iterative Refinement
+
+The user can specify multiple global loops. Each iteration begins with
+the best parameters found in the previous cycle, progressively refining
+the estimation. This iterative "tidying" of the parameters ensures that
+the final results represent a stable, globally optimized configuration
+for the State-Space Model.
 
 ```{r}
 loglik_ssm
 ```
 
-The Wrapper function tidies up this loop. You can specify how many loops
-you want to run and how many methods you want. Each loop then runs the
-number of sleected methods. If you select two it takes the initial
-guesses runs the first method and then takes the final output of the
-parameters and uses them as the new starting guess for the second method
-and so on. Once all methods are done, it goes to the second loop
-iteration, still taking the last optimized guess. with this function you
-can estimate the parameters for the kalman filter.
-
 ```{r}
 ssm_optimizer_wrapper
 ```
 
-# Matrix Handling
+# Matrix Handling and Function Factories
 
-The challenge here is how to handle the matrices. Because they need to
-be updated with the parameters durnin the estimation, they cannot
-directly be constructed outside of the estimation loop. The solution to
-this is that we use a function that creates the matrix which takes the
-parameters as input and adds creates the full matrix to pass into the
-filter. To solve this we use function factories.
+The primary technical challenge in the estimation pipeline is the
+dynamic nature of the system matrices. Since these matrices must be
+updated with new candidate parameters at every iteration of the
+optimizer, they cannot be static objects. This is resolved through the
+use of **Function Factories**.
 
-Function factories are functions that create functions. The idea here is
-that we have have a factory that creates a certain function that already
-has the specifications of how many parameters are needed. Therefore we
-can fore example specify if there is an AR(1) or a Random walk process.
-We can also specify for example how many exogenous variables exist and
-their corresponding parameters. The output function of the factory, the
-builder function then just takes the parameters from the optimizer and
-constructs the final matrix with the parameters from the optimizer
+A function factory is a higher-order function that generates a specific
+"builder" function. This builder is pre-configured with the model's
+structural specifications—such as the number of exogenous variables or
+the type of stochastic process (e.g., Random Walk vs. AR(1)). Once
+created, the builder function accepts a vector of parameters from the
+optimizer and populates the final matrices required by the Kalman
+Filter.
 
-## Buildiung mu_t
+## 1. Building $\mu_t$ (Exogenous Effects)
 
-This is the most difficult matrix to build, as it can contain exogenous
-data. In context of the Kalman filter it is similiar to an intercept. If
-it is specified as such it can contain the beta0 as the intercept. if
-there is any additional exogenous data it is in mu_t as well.
+The $\mu_t$ matrix is the most complex component to construct as it
+incorporates time-varying exogenous data. It functions similarly to an
+intercept in a regression model but can vary at each time step $t$.
 
-The final mu_t is a vector containting as many rows as there are
-measurement variables Y. The builder returns a matrix / dataframe with
-as many columns as observations in t.
+The builder generates a matrix where each row corresponds to an
+observation in time $T = 1, \dots, T_{end}$, and each column corresponds
+to a measurement variable in $Y$. During the filtering process, the
+algorithm selects the appropriate row for the current time step. For a
+model with two measurement variables and several exogenous predictors
+(such as Okun’s Law features), the matrix is structured as:
 
-The filter then picks the given t at each point.
+$$
+  \mu_t = 
+  \begin{bmatrix}
+    \beta_0 + \beta_1 X_{1,1} + \beta_2 X_{1,2} & 0 \\
+    \beta_0 + \beta_1 X_{2,1} + \beta_2 X_{2,2} & 0 \\
+    \vdots & \vdots \\
+    \beta_0 + \beta_1 X_{T,1} + \beta_2 X_{T,2} & 0
+  \end{bmatrix}
+$$ In context of the Okuns Law model, the first row is the first
+observation and we see that the first column with the exogenous
+regressors impacts the first measurement variable, which is
+unemployment. The second measurement variable is not impacted by
+anything so the second column is 0.
 
-it looks like this
-
-\$\$ \mu\_t =
-
-\begin{bmatrix}
-        
-        \beta_0 * 1 + \beta_1 * X_{1,1} + \beta_2 * X_{1,2} && 0 \\
-        \beta_0 * 1 + \beta_1 * X_{2,1} + \beta_2 * X_{2,2} && 0 \\
-        
-        
-\end{bmatrix}
-
-\$\$
-
-Where:
-
-$$X\_{1,n}$$ are all observations at time T = 1},$$ X\_{2,n}$$ are all
-observations at time T = 2 and so on}
-
-where each row is an observation of time t from 1:T. The filter then
-selects the corresponding row at each point in time.
-
-The factoryfunction then returns a function where the parameters (betas)
-are replaced by the optimizer guess. Additionally it returns the
-manifest which conains the parameters used for an overview of all
-parameters that need to be estimated. This list then also contains
-educated guesses for the parameters and constraints on the value if they
-are needed
+The factory also produces a **manifest**, a list of parameters to be
+estimated, including initial "educated guesses" as starting points for
+the optimizer and boundary constraints.
 
 ```{r}
 mu_t_matrix_factory
 ```
 
-## Building G
+## 2. Building $G$ (Factor Loadings)
 
-The Matrix G governs the link between the state equatin and the
-measurement equation. it contains the factory loadings. it's size is
-governed by the number of states (nr) and the number of Measurement (Y)
-Variables. As default all the values are 1, i.e a 1 to 1 transition.
-
-At the moment there are no parameters gouverning the matrix, so the
-parameter input is useless. It exists for a possible future utilization
+Matrix $G$ governs the link between the latent state $\rho_t$ and the
+measurement equation. Its dimensions are determined by the number of
+states and the number of observed variables. In the current
+specification, $G$ typically defaults to a vector of ones, implying a
+1-to-1 relationship between the state (the natural rate) and the
+observations. While currently static, the factory architecture allows
+for future implementations where loadings can be estimated as
+parameters.
 
 ```{r}
 G_matrix_factory
 ```
 
-## Building M
+## 3. Building $M$ (Measurement Noise)
 
-The matrix $M$ represents the measurement error covariance matrix. It
-quantifies the uncertainty or "noise" associated with each observed
-variable (Y) in the measurement equation.
+Matrix $M$ represents the measurement error covariance, quantifying the
+"noise" or uncertainty in each observed variable. We assume independent
+noise, resulting in a diagonal matrix:
 
-An example would be the following
+$$M = \begin{bmatrix}
+\sigma_{\epsilon, 1} & 0 \\ 0 & \sigma_{\epsilon, 2}
+\end{bmatrix}$$
 
-In this case there is independent noise, i.e. only the diagonal is non
-0. Further the variance can be non negative, so we have a rule to the
-noise taht it is $0< \sigma$. for that we transform any guess of the
-optimizer with an exponential funcion `exp()`.
-
-The variances will be estimated. As for interpretation here, if the
-variances (chosen by the optimizer) are small, the kalman filter places
-a lot of "trust" in the observed variance and the state very directly
-tracks them (given the loadings of G). If sigma is high then the
-opposite is the case.
+To ensure that variances remain strictly positive ($0 < \sigma$), the
+builder applies an exponential transformation, $\exp(\theta)$, to the
+optimizer's candidate values. If the estimated variances are small, the
+Kalman Filter places high "trust" in the observed data; conversely, high
+variances cause the filter to rely more heavily on the state transition
+logic.
 
 ```{r}
 M_matrix_factory
 ```
 
-## Buildung H
+## 4. Building $H$ (State Transition)
 
-The H Matrix is the State Transition matrix determining the relationship
-between
-
-$\rho_t$ and $\rho_{t-1}$. It's size depends on the number of states.
-Currently there is only a specification for 1 state. Currently it can
-either be a random walk or an AR(1) process, which has a parameter phi
-that has to be estimated.
-
-If the specification is randowm walk it returns
-
-$H = \begin{bmatrix} 1 \end{bmatrix}$
-
-else it returns
-
-$H = \begin{bmatrix} \phi \end{bmatrix}$
-
-The phi has to be $0<\phi < 1$
+The $H$ matrix determines the persistence of the state $\rho$ from $t-1$
+to $t$. The structure depends on the specified process: - **Random
+Walk**: $H = [1]$. The state is structural, and changes are driven
+exclusively by shocks ($\xi_t$). - **AR(1) Process**: $H = [\phi]$,
+where the persistence parameter $0 < \phi < 1$ must be estimated.
 
 ```{r}
 H_matrix_factory
@@ -223,17 +275,42 @@ The logic of the random walk for the specification in the model is that
 the rate is structural and only shocks to the natural rate change it.
 These shocks are then governed by the matrix N
 
-## Building N
+## 5. Building $N$ (State Innovation)
 
-Currently there is no Function to determine N, it is sepcified directly.
-This will be changed in the future. You can set it in the
-`kalman_builder.R`. in the `loglik_ssm()`function.
+The $N$ matrix governs the variance of the shocks to the state equation.
+Currently, $N$ is specified manually within the `kalman_builder.R` or
+`loglik_ssm()` functions. Future iterations will migrate this into a
+dedicated factory function to allow the optimizer to estimate the
+volatility of the natural rate directly.
 
-# The Manifest logic
+# The Manifest Logic
 
-Each of the function returns a manifest which contains the metadata /
-the parameter constraints plus an inital guess for each varaible for the
-optimizer.
+Every factory function, in addition to producing a builder, generates a
+**Manifest**. The manifest serves as a centralized metadata repository
+that defines the search space for the numerical optimizer.
+
+## 1. Parameter Metadata and Constraints
+
+The manifest explicitly maps each estimated coefficient to its
+corresponding role in the system matrices. It contains:
+
+-   **Initial Guesses**: Pre-defined starting values (e.g., based on
+    historical averages or economic theory) that provide the optimizer
+    with a stable entry point into the likelihood surface.
+
+-   **Boundary Constraints**: Specific logical limits for parameters,
+    such as enforcing that the AR(1) coefficient $\phi$ remains between
+    0 and 1, or that variance terms $\sigma$ are strictly positive.
+
+## 2. Integration with the Optimizer
+
+The manifest ensures that the optimizer remains "aware" of the model's
+structural requirements. By centralizing these definitions, the manifest
+allows for rapid model iteration; for instance, if an additional
+exogenous variable is added to $\mu_t$, the manifest automatically
+updates the number of parameters the optimizer needs to track. This
+creates a self-documenting pipeline where the model's structural
+assumptions are always aligned with the estimation process.
 
 # Rolling Pseudo-Out-of-Sample Forecast Logic
 
