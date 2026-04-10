@@ -10,10 +10,6 @@
 
 # Transformation here are things such as HP filer.
 
-library(xts)
-library(neverhpfilter)
-
-
 # I use hamilton filter on the full gdp Series to take care of NaN
 
 master_df$unemp_rate <- master_df$unemployment / (master_df$unemployment + master_df$employment)

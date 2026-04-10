@@ -4,9 +4,6 @@
 #
 ################################################################################
 
-# Pseudocode
-library(mFilter)
-
 #' Generate Rolling SSM Parameters for Forecasting
 #' 
 #' Estimates model parameters over an expanding window up to a specified end date.
@@ -157,6 +154,142 @@ get_ssm_forecast_parameters <- function(data,
   
   return(comp)
 }
+
+
+
+predict_ssm_path_simple <- function(rho_start, betas, gdp_features) {
+  # gdp_features is h rows by 3 columns
+  # Matrix multiplication: (h x 3) %*% (3 x 1) = (h x 1)
+  cyclical_impact <- as.matrix(gdp_features) %*% matrix(betas)
+  
+  # Forecast = Intercept (Natural Rate) + Cyclical part
+  return(as.numeric(rho_start + cyclical_impact))
+}
+
+
+
+
+# Function defined to predict the random walk ssm with exogenous betas
+# gdp features is a dataframe where each row is a time in h and each column is a lag
+predict_ssm_path_simple <- function(rho_start, betas, exog_features) {
+  cyclical_impact <- as.matrix(exog_features) %*% matrix(betas)
+  return(as.numeric(rho_start + cyclical_impact))
+}
+
+
+
+forecast_okun_ssm <- function(params_df = okun_params_df,
+                              date_col = "quarter",
+                              exog_var_col = "log_gdp",
+                              forecast_h = 8,
+                              data_df = df_okun_final,
+                              target_variable = "unemp_rate",
+                              X_data = X_okun,
+                              gdp_gap_forecasts = gdp_gap_forecasts) {
+  
+  okun_params_df <- params_df %>%
+    mutate(quarter = as.yearqtr(quarter))
+  
+  # Select dates that will be forecast
+  dates <- okun_params_df %>%
+    pull(.data[[date_col]])# dates are all dates where we forecast
+  
+  # Since we will forecast beyond known dates we extend the dataframe
+  extended_rows <- seq(min(dates), by = 0.25, length.out = length(dates) + forecast_h)
+  
+  # Build the matrix for storage
+  # Dim: number of forecast dates + h rows and number of forecast dates columns
+  # forecast dates are all the dates we make a forecast from
+  eval_mat <- matrix(NA, nrow = length(extended_rows), ncol = length(dates))
+  rownames(eval_mat) <- as.character(extended_rows)
+  colnames(eval_mat) <- as.character(dates)
+  
+  # The dataframe with the actual dataframes
+  actual_unemp_df <- data_df %>%
+    filter(quarter %in% dates) %>%
+    arrange(quarter)
+  
+  # Select date range in which pseudo forecast takes place
+  actual_unemp_df <- df_okun_final %>%
+    filter(quarter %in% dates) %>%
+    arrange(quarter)
+  
+  # loop over each diagonal value and fill them in with the true values
+  for(i in seq_along(dates)) {
+    date_str <- as.character(dates[i])
+    eval_mat[date_str, i] <- actual_unemp_df[[target_variable]][i]
+  }
+  
+  # Loop over dates to build forecasts
+  for (i in seq_along(dates)) {
+    forecast_origin <- dates[i] # select start date
+    
+    # Select parameters / state for this vintage
+    current_params <- okun_params_df[i, ]
+    rho_T <- current_params$natural_rate
+    betas <- c(current_params$beta1, current_params$beta2, current_params$beta3)
+    
+    # get 8 quarters after "today" the origin
+    look_ahead_dates <- seq(forecast_origin + 0.25, by = 0.25, length.out = forecast_h)
+    
+    # get the historical true data known today
+    history_gdp <- X_data %>%
+      filter(quarter <= forecast_origin) %>% 
+      select(quarter, .data[[exog_var_col]]) 
+    
+    future_gdp <- gdp_gap_forecasts %>%
+      filter(quarter > forecast_origin) %>% 
+      slice(1:forecast_h) %>%
+      select(quarter, .data[[exog_var_col]])
+    
+    combined_gdp <- bind_rows(history_gdp, future_gdp) %>%
+      arrange(quarter) %>%
+      filter(!is.na(.data[[exog_var_col]]))
+    
+    # Take HP filter over the fpast and predicted future gdp
+    hp_res <- hpfilter(combined_gdp[[exog_var_col]], freq = 1600)
+    combined_gdp$y_gap <- as.numeric(hp_res$cycle)
+    
+    # Create the 3 Lag Columns
+    gdp_features_wide <- combined_gdp %>%
+      mutate(
+        gdp_gap  = y_gap,
+        gap_lag1 = dplyr::lag(y_gap, 1),
+        gap_lag2 = dplyr::lag(y_gap, 2)
+      ) %>%
+      # Select only the horizon we want to forecast
+      filter(quarter > forecast_origin) %>%
+      arrange(quarter) %>%
+      select(gdp_gap, gap_lag1, gap_lag2)
+    
+    
+    # get forecast
+    if (nrow(gdp_features_wide) > 0) {
+      h_available <- nrow(gdp_features_wide)
+      # currently here for end of horizon where we have less than 8 known dates
+      # later we use the gdp forecasts and can run that easily
+      
+      # Use Random walk ssm prediction function
+      path <- predict_ssm_path_simple(rho_T, betas, gdp_features_wide)
+      
+      # Add to matrix
+      target_rows <- as.character(look_ahead_dates[1:h_available])
+      eval_mat[target_rows, i] <- path
+    }
+  }
+  
+  eval_df <- as.data.frame(eval_mat)
+  
+  # Final Result
+  eval_df <- as.data.frame(eval_mat)
+  
+  return(eval_df)
+  
+}
+
+
+
+
 
 
 # FOrecast

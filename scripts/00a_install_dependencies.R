@@ -26,7 +26,10 @@ required_packages <- c(
   "optimx",      # For optimizing in the Kalman Filter
   "argparse",     # For the CLI
   "neverhpfilter", #for HP Filter
-  "conflicted"
+  "conflicted", # to handle conflict between packages
+  "mFilter", # HP Filter
+  "xts"  # Time series data handling
+  
 )
 
 
