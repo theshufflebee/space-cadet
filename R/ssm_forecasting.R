@@ -12,6 +12,19 @@ library(mFilter)
 #' Estimates model parameters over an expanding window up to a specified end date.
 #' Returns a list of parameters to be used in a separate forecasting step.
 #' 
+#' We have T = 1 as the start of the data, T=T is the end of the data,
+#' T=t as the current date up until we have the data availabe for the pseudo forecast
+#' and t+h would then be the forecast horizon.
+#' What we do here is just get the parameter estimation at time t
+#' 
+#' @param data The Dataframe that contains full data$
+#' @param y_cols The Name of the Y column(s) in the data dataframe
+#' @param x_col The column that contains the data for exogenous variales
+#' @param date_col the column name of the date column
+#' @param spec the okun model specification
+#' @param all_defaults the default guesses
+#' @param forecast_start The date where the forecast stats, limit of the available information set
+#' @param val_T1 the beginning of the forecast information set
 #' 
 #' 
 get_ssm_forecast_parameters <- function(data,
@@ -34,6 +47,7 @@ get_ssm_forecast_parameters <- function(data,
   # Start of the pseudo forecast
   start_q <- as.yearqtr(as.Date(forecast_start))
   
+  
   # First observation of the full sample
   val_T1 <- as.yearqtr(as.Date(val_T1))
   
@@ -44,6 +58,8 @@ get_ssm_forecast_parameters <- function(data,
   } else {
     end_q <- as.yearqtr(as.Date(forecast_end))
   }
+  
+  message("estimation between", start_q, "and", end_q)
   
   forecast_dates <- full_date_vector[full_date_vector >= start_q & full_date_vector <= end_q]
   
@@ -56,6 +72,8 @@ get_ssm_forecast_parameters <- function(data,
   # loop over all forecasting dates
   for (i in seq_along(forecast_dates)) {
     target_date <- forecast_dates[i]
+    
+    message("target date: ", target_date) # This is today
     
     # select subset of data available at the time
     data_t <- data[full_date_vector <= target_date, ] #here only take the data available at t

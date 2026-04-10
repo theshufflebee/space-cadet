@@ -176,6 +176,17 @@ predict_ssm_path_simple <- function(rho_start, betas, gdp_features) {
 # Pseudo Out of sample Forecasts
 ################################################################################
 # Load parameter df needed for forecast
+
+
+forecast_okun_ssm <- function(params_df,
+                              date_col = "quarter",
+                              forecast_h = 8,
+                              ) {
+  
+  
+}
+
+
 okun_params_df <- read_csv("output/okun_forecast_parameters.csv") %>%
   mutate(quarter = as.yearqtr(quarter))
 
@@ -248,7 +259,7 @@ for (i in seq_along(dates)) {
     slice(1:forecast_h) %>%
     select(quarter, log_gdp)
   
-  # Stack them
+  # Stack them to get future gdp gaps
   combined_gdp <- bind_rows(history_gdp, future_gdp) %>%
     arrange(quarter) %>%
     filter(!is.na(log_gdp))
