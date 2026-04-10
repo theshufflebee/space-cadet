@@ -147,8 +147,6 @@ get_ssm_forecast_parameters <- function(data,
     )
     
     #----------------------------------------
-    
-    
     cat(sprintf("[%d/%d] Estimated: %s\n", i, length(forecast_dates), as.character(target_date)))
   }
   
@@ -286,14 +284,5 @@ forecast_okun_ssm <- function(params_df = okun_params_df,
   return(eval_df)
   
 }
-
-
-
-
-
-
-# FOrecast
-
-
 
 

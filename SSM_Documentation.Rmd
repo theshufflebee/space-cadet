@@ -127,7 +127,7 @@ The filter then picks the given t at each point.
 
 it looks like this
 
-$$ \mu\_t =
+\$\$ \mu\_t =
 
 \begin{bmatrix}
         
@@ -135,12 +135,14 @@ $$ \mu\_t =
         \beta_0 * 1 + \beta_1 * X_{2,1} + \beta_2 * X_{2,2} && 0 \\
         
         
-\end{bmatrix} $$
+\end{bmatrix}
 
-Where: 
+\$\$
 
-$$X\_{1,n}$$ are all observations at time T = 1},$$ X\_{2,n}$$ are all observations at time T = 2 and so on}
+Where:
 
+$$X\_{1,n}$$ are all observations at time T = 1},$$ X\_{2,n}$$ are all
+observations at time T = 2 and so on}
 
 where each row is an observation of time t from 1:T. The filter then
 selects the corresponding row at each point in time.
@@ -232,3 +234,72 @@ This will be changed in the future. You can set it in the
 Each of the function returns a manifest which contains the metadata /
 the parameter constraints plus an inital guess for each varaible for the
 optimizer.
+
+# Rolling Pseudo-Out-of-Sample Forecast Logic
+
+The forecasting framework is implemented in two distinct phases:
+**Rolling Parameter Estimation** and **Path Projection**.
+
+## 1. Temporal Framework
+
+We define the time dimension of our sample as $T \in [1, T_{end}]$. For
+any given forecast origin $t$, the model parameters are estimated using
+the information set $\mathcal{I}_t = \{y_1, \dots, y_t\}$. From this
+vantage point (pseudo present where we forecast from), we project the
+unemployment rate forward for a horizon $h = \{1, \dots, 8\}$,
+corresponding to two years. Once the forecast at origin $t$ is complete,
+the vantage point advances to $t+1$, where the model is re-estimated
+using $\mathcal{I}_{t+1}$, and a new path is generated. This recursive
+process repeats until $\mathcal{I} = T\_{end}$ reaches the end of the
+available estimation sample.
+
+## 2. Function Workflow
+
+The logic is split between two primary functions. First,
+`get_ssm_forecast_parameters()` executes the rolling estimation,
+yielding a sequence of optimal parameter vectors $\theta_t$ and the
+filtered state (natural rate) $\rho_t$ (here the natural rate
+$\bar{u}_t$) for every vintage. Subsequently, `forecast_okun_ssm()` uses
+these specific vintage outputs to compute the projected unemployment
+path $\hat{u}_{t+1:t+h}$.
+
+## 3. Real-Time Output Gap Estimation
+
+The estimation of the cyclical component requires careful handling of
+the HP-filter endpoint bias. While the formal evaluation period begins
+in **2015 Q1**, the HP filter is initialized in **2010 Q1**. This
+five-year "burn-in" ensures that the GDP trend $\bar{y}_t$ is stabilized
+by historical data before the first forecast origin. For parameter
+estimation at any time $t$, the filter is applied only to the log-GDP
+series $y_{2010:t}$ to ensure no future information after
+$\mathcal{I}_t$ enters through the HP filter into the Output gap
+$\tilde{y}_t$ into the $\beta$ coefficients. Furthermore, the burn-in
+period ensures that the lag terms $\tilde{y}_{t-1}$ and
+$\tilde{y}_{t-2}$ are fully populated starting from the first estimation
+date.
+
+## 4. Forecasting the Path
+
+The forecasting phase utilizes a different information set for the GDP
+gap by concatenating historical log-GDP ($T=2010$ to $t$) with exogenous
+GDP forecasts ($T=t+1$ to $t+h$). The HP filter is then applied to this
+combined series, and the resulting cyclical components for the $h$
+future periods serve as the exogenous inputs for the Okun equation. The
+forecast path is generated as:
+
+$$\hat{u}_{t+k} = \rho_t + \beta_{1,t} \cdot \tilde{y}_{t+k} + \beta_{2,t} \cdot \tilde{y}_{t+k-1} + \beta_{3,t} \cdot \tilde{y}_{t+k-2}$$
+
+where $\rho_t$ is the natural rate at the vantage point, $\beta_t$ are
+the vintage-specific coefficients, and $\tilde{y}$ is the projected GDP
+gap.
+
+## 5. The Evaluation Matrix
+
+The results are stored in a $(\text{Dates} + h) \times \text{Dates}$
+matrix, where dates are the dates from $y_t$, the initial vantage point
+at the first estimation to $T_{end}$. The columns represent the forecast
+origin $t$, while the rows represent the target date $t+k$. On the
+Diagonal (where the row index equals the column index), the matrix
+contains the actual observed unemployment data. This structure provides
+a baseline for visual and statistical error analysis, as the
+pseudo-forecasts occupy the cells below the diagonal.

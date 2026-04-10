@@ -112,5 +112,12 @@ ts_names <- c(
 
 
 
+# Okun Model Configuration settings
+
+# We run the HP filter to estimate the gap. this determines the first observation
+# of the GDP Variable
+hp_filter_burn_in <- "2010-01-01"
+
+
 
 
