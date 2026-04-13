@@ -12,24 +12,37 @@ This is currently a work in Progress. The working parts of the project can be ru
 R version 4.3.3
 ```
 
-### Data Acquisition
+### Data Acquisition & API Connectivity
 
--   **`kofdata`**: Interface for downloading KOF Institute data.
--   **`BFS`**: Download data from the Swiss Federal Statistical Office.
--   **`RCurl`**: General purpose client for API calls.
--   **`jsonlite`**: Handling of JSON files
+-   **`kofdata`**: Specialized interface for accessing KOF Swiss Economic Institute time series.
+-   **`BFS`**: Interface for the Swiss Federal Statistical Office (BFS) open data API.
+-   **`RCurl`**: General-purpose client for network-level API calls.
+-   **`jsonlite`**: High-performance JSON parsing for API responses.
+-   **`glue`**: Interpreted string interpolation, primarily used for dynamic API URL construction.
 
-### File Handling
+### Data Manipulation & File Handling
 
--   **`readxl`**: Importing data from Excel
--   **`readr`**: Data Handling for rectangular files
+-   **`tidyverse`**: A core suite of tools (including **`dplyr`** and **`readr`**) designed for tidy data manipulation and visualization.
+-   **`readxl`**: Importing data from Excel workbooks.
+-   **`here`**: Manages project-relative file paths to ensure reproducibility across different machines.
 
-### Data Manipulation & Time Series
+### Time Series & Seasonal Adjustment
 
--   **`dplyr`**: Data manipulation
--   **`zoo`**: Time series Handling
+-   **`zoo`** & **`xts`**: Essential infrastructure for handling indexed time series and flexible date/time formats.
+-   **`seasonal`**: Interface for X-13ARIMA-SEATS, used for professional-grade seasonal adjustments.
+-   **`mFilter`**: Implementation of various time series filters, including the Hodrick-Prescott (HP) filter.
+-   **`neverhpfilter`**: Provides an implementation of the Hamilton filter as a modern alternative to the HP filter.
 
-## Project Directory Structure
+### Modeling & Optimization
+
+-   **`optimx`**: A unified interface for numerical optimization algorithms used to estimate the state-space model parameters.
+-   **`MASS`**: Supports complex matrix operations, such as the inversions required within the Kalman Filter.
+
+### Project Infrastructure & Workflow
+
+-   **`argparse`**: Provides Command Line Interface (CLI) functionality for executing scripts with external arguments.
+-   **`roxygen2`**: A system for documenting functions and generating standardized help files.
+-   **`conflicted`**: Explicitly manages namespace conflicts between packages to prevent silent function masking. \## Project Directory Structure
 
 Tree created via fs::dir_tree()
 
@@ -128,4 +141,4 @@ It should also in RStudio using `source("generate_doc.R")`, but it is untested. 
 Jonas Bruno\
 jonas.bruno\@unil.ch
 
-Last Update 20.03.2026
+Last Update 13.04.2026

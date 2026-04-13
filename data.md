@@ -32,7 +32,9 @@ The Dataframe is then saved as kof_master.csv. It inclodes all consensus forecas
 -   `ch.kof.consensus.q_qn_3minterest_12m.mea` -\> The 12 month mean interest rate forecast
 -   `date`-\> the date column from the quarter the forecast was taken from.
 
-The Unemployment forecast is not seasonally adjusted. This is how the master looks: <img src="man/figures/kof_master.png" alt="Data structure as of last release date" width="600"/>
+This is how the master looks: <img src="man/figures/kof_master.png" alt="Data structure as of last release date" width="600"/>
+
+The Unemployment forecast is not seasonally adjusted. We adjust it using the `seasonal` package. The step happens in the `format_time_series_df()` function.
 
 ## Employment Data
 
@@ -52,15 +54,17 @@ The data looks like this: <img src="man/figures/unemployment.png" alt="Data stru
 
 Then we select the data for `REGION`= `TOTAL` as this is the whole of Switzerland.
 
+The Unemployment data is not seasonally adjusted. We adjust it using the `seasonal` package. The step happens in the `format_time_series_df()` function.
+
 Finally we calculate the unemployment rate by dividing unemployment by (unemployment + employment).
 
 ## CPI Data
 
-The CPI Data is from the **Swiss Federal Office of Statistics** (BFS) with ID: 36483229. It's downloaded via the `BFS`Package using `bfs_download_asset()` and saved as \_\_\_.csv
+The CPI Data is from the **Swiss Federal Office of Statistics** (BFS) with ID: 36483229. It's downloaded via the `BFS`Package using `bfs_download_asset()` and saved as cpi_series.xlsx
 
 The data looks like this: <img src="man/figures/cpi.png" alt="Data structure as of last release date" width="400"/>
 
-Then we select the data for column `38687` as it is indexed in 2015. In theory the index columns are interchangable.
+Then we select the data for column `38687` as it is indexed in 2015. In theory the index columns are interchangable, however numbers that are closer to 100 are more readable and optimizers work better when the data is all in similiar magnitude.
 
 ## SARON & LIBOR Data
 
@@ -76,7 +80,11 @@ The API call Downloads two datafiles a CSV with the actual data and the metadate
 
 The data looks like this: <img src="man/figures/money_market.png" alt="Data structure as of last release date" width="400"/>
 
-The SARON and LIBOR was discontinued in January of 2022 while SARON calculations only exist since June of 1999.
+The SARON and LIBOR was discontinued in January of 2022 after multiple scandals while SARON calculations only exist since June of 1999.
+
+The SARON is the SWISS AVERAGE RATE OVERNIGHT and the primary refinancing rate in swiss francs. It's based on overnight lending between banks in francs. It gets calculated daily and then averaged out monthly. See more here: <https://www.six-group.com/en/market-data/indices/switzerland/saron.html>
+
+The LIBOR was an average interest rate for borrowing between global banks. In contrast to the SARON it was calculated by asking banks at what price they would lend to each other. In contrast to the SARON it did not take the actual, but the stated values of banks and was therefore subject to collusion. See more: <https://www.investopedia.com/terms/l/libor.asp>
 
 ## Government Bonds Data
 
@@ -125,4 +133,4 @@ R version 4.3.3
 Jonas Bruno\
 jonas.bruno\@unil.ch
 
-Last Update 10.04.2026
+Last Update 13.04.2026

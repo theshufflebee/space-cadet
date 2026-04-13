@@ -84,7 +84,7 @@ estimation pipeline handles several advanced configurations:
     $\rho_0$ and the state covariance $\Sigma_0$.
 
 -   **Constraints**: Supports `indic_pos` to enforce positivity
-    constraints on specific parameters during optimization.
+    constraints on state during optimization
 
 -   **Reconciliation**: Allows for functional adjustments to the state
     through reconciliation functions. (Currently not needed)
@@ -97,7 +97,7 @@ data arrives, minimizing the prediction error and maximizing the
 log-likelihood of the observed series $Y$.
 
 ```{r}
-# uncomment to see the function
+# uncomment and run to see function
 # kalman_filter
 ```
 
@@ -165,10 +165,12 @@ the final results represent a stable, globally optimized configuration
 for the State-Space Model.
 
 ```{r}
+# uncomment and run to see function
 loglik_ssm
 ```
 
 ```{r}
+# uncomment and run to see function
 ssm_optimizer_wrapper
 ```
 
@@ -220,6 +222,7 @@ estimated, including initial "educated guesses" as starting points for
 the optimizer and boundary constraints.
 
 ```{r}
+# uncomment and run to see function
 mu_t_matrix_factory
 ```
 
@@ -235,6 +238,7 @@ for future implementations where loadings can be estimated as
 parameters.
 
 ```{r}
+# uncomment and run to see function
 G_matrix_factory
 ```
 
@@ -256,6 +260,7 @@ variances cause the filter to rely more heavily on the state transition
 logic.
 
 ```{r}
+# uncomment and run to see function
 M_matrix_factory
 ```
 
@@ -268,6 +273,7 @@ exclusively by shocks ($\xi_t$). - **AR(1) Process**: $H = [\phi]$,
 where the persistence parameter $0 < \phi < 1$ must be estimated.
 
 ```{r}
+# uncomment and run to see function
 H_matrix_factory
 ```
 
@@ -344,11 +350,11 @@ path $\hat{u}_{t+1:t+h}$.
 
 The estimation of the cyclical component requires careful handling of
 the HP-filter endpoint bias. While the formal evaluation period begins
-in **2015 Q1**, the HP filter is initialized in **2010 Q1**. This
-five-year "burn-in" ensures that the GDP trend $\bar{y}_t$ is stabilized
-by historical data before the first forecast origin. For parameter
-estimation at any time $t$, the filter is applied only to the log-GDP
-series $y_{2010:t}$ to ensure no future information after
+in **2015 Q1**, the HP filter is initialized (for example) in **2010
+Q1**. This five-year "burn-in" ensures that the GDP trend $\bar{y}_t$ is
+stabilized by historical data before the first forecast origin. For
+parameter estimation at any time $t$, the filter is applied only to the
+log-GDP series $y_{2010:t}$ to ensure no future information after
 $\mathcal{I}_t$ enters through the HP filter into the Output gap
 $\tilde{y}_t$ into the $\beta$ coefficients. Furthermore, the burn-in
 period ensures that the lag terms $\tilde{y}_{t-1}$ and
