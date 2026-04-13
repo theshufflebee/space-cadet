@@ -28,7 +28,8 @@ required_packages <- c(
   "neverhpfilter", #for HP Filter
   "conflicted", # to handle conflict between packages
   "mFilter", # HP Filter
-  "xts"  # Time series data handling
+  "xts",  # Time series data handling
+  "seasonal" # for seasonality adjustments
   
 )
 

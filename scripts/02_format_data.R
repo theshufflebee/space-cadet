@@ -44,7 +44,7 @@ cpi_ts <- format_time_series_df(cpi_raw, "Datum / Date", "38687", "cpi", "%Y-%m-
 unemployment <- unemployment_raw %>%
   filter(REGION %in% "Total")
 
-unemployment_ts <- format_time_series_df(unemployment, "PERIOD", "VALUE", "unemployment", "%Y-%m")
+unemployment_ts <- format_time_series_df(unemployment, "PERIOD", "VALUE", "unemployment", "%Y-%m", seasonal_adj = TRUE)
 
 # Employment
 employment <- emp_raw %>%
@@ -57,12 +57,13 @@ employment <- emp_raw %>%
   mutate(date_clean = zoo::as.yearmon(zoo::as.yearqtr(Trimestre, format = "%YQ%q"), fraction = 1))
 
 # Format as ts
-employment_ts <- format_time_series_df(employment,
-                                       "date_clean",
-                                       "Emplois.selon.la.division.économique..le.taux.d.occupation.et.le.sexe",
-                                       "employment",
-                                       "%b %Y")
 
+employment_ts <- format_time_series_df(employment,
+                                           "date_clean",
+                                           "Emplois.selon.la.division.économique..le.taux.d.occupation.et.le.sexe",
+                                           "employment",
+                                           "%b %Y",
+                                           seasonal_adj = FALSE)
 
 # --- GDP Data ---
 gdp_data <- data_gdp_raw %>% 
@@ -84,7 +85,7 @@ gdp_ts <- format_time_series_df(gdp_data, "date", "value", "gdp", "%Y-%m-%d")
 kof_spf_df <- master_kof_consensus_forecast %>%
   select(all_of(kof_cols_to_keep))
 
-kof_5y_unemp <- format_time_series_df(kof_spf_df, "date", kof_cols_to_keep[2], "5y_unemp_forecast", "%b %Y")
+kof_5y_unemp <- format_time_series_df(kof_spf_df, "date", kof_cols_to_keep[2], "5y_unemp_forecast", "%b %Y", seasonal_adj = TRUE)
 
 kof_5y_cpi <- format_time_series_df(kof_spf_df, "date", kof_cols_to_keep[3], "5y_cpi_forecast", "%b %Y")
 

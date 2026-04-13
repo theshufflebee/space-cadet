@@ -196,15 +196,26 @@ okun_eval_df <- forecast_okun_ssm(params_df = okun_params_df,
                               date_col = "quarter",
                               exog_var_col = "log_gdp",
                               forecast_h = 8,
-                              data_df = df_okun_final,
+                              Y_data_df = df_okun_final,
                               target_variable = "unemp_rate",
                               X_data = X_okun,
                               gdp_gap_forecasts = gdp_gap_forecasts)
 
 
 
-
 # Save FOrecast df
 write_csv(okun_eval_df, "output/forecast_df.csv")
+
+# get last obs where we lnow true values
+last_origin <- as.yearqtr(tail(colnames(okun_eval_df), 1))
+
+# turn the dataframe into a quadratic matrix for estimation
+okun_eval_square <- okun_eval_df[as.yearqtr(rownames(okun_eval_df)) <= last_origin, ]
+
+# The number of rows should now equal the number of columns
+dim(okun_eval_square)
+
+
+
 
 
