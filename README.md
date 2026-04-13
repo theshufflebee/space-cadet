@@ -41,8 +41,12 @@ R version 4.3.3
 ### Project Infrastructure & Workflow
 
 -   **`argparse`**: Provides Command Line Interface (CLI) functionality for executing scripts with external arguments.
+
 -   **`roxygen2`**: A system for documenting functions and generating standardized help files.
--   **`conflicted`**: Explicitly manages namespace conflicts between packages to prevent silent function masking. \## Project Directory Structure
+
+-   **`conflicted`**: Explicitly manages namespace conflicts between packages to prevent silent function masking.
+
+## Project Directory Structure
 
 Tree created via fs::dir_tree()
 
@@ -132,9 +136,7 @@ After writing comments in the roxygen2 format, execute the `generate_doc.R` scri
 Rscript generate_doc.R
 ```
 
-It should also in RStudio using `source("generate_doc.R")`, but it is untested. If it works, you should receive the message:
-
-`Documentation generation, package installation, and site build completed successfully.`
+It can also be done in RStudio using `source("generate_doc.R")`.
 
 # Contact
 

@@ -251,7 +251,7 @@ format_time_series_df <- function(data,
     freq <- if(mean(diff(df$date)) < 0.3) 12 else 4
     start_year <- as.numeric(format(df$date[1], "%Y"))
     start_per <- as.numeric(format(df$date[1], "%m"))
-    if(freq == 4) start_per <- as.numeric(zoo::as.quarterly(df$date[1]))
+    if(freq == 4) start_per <- as.numeric(as.yearqtr(df$date[1]))
     
     diff_mean <- mean(diff(df$date))
     message(paste("Detected Mean Diff:", round(diff_mean, 4)))

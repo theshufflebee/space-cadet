@@ -48,7 +48,14 @@ the value column is numeric, sorted, and free of missing data.</p>
     </div>
 
     <div id="ref-usage">
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">format_time_series_df</span><span class="op">(</span><span class="va">data</span>, <span class="va">date_col</span>, <span class="va">value_col</span>, <span class="va">new_name</span>, <span class="va">date_format</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">format_time_series_df</span><span class="op">(</span></span>
+<span>  <span class="va">data</span>,</span>
+<span>  <span class="va">date_col</span>,</span>
+<span>  <span class="va">value_col</span>,</span>
+<span>  <span class="va">new_name</span>,</span>
+<span>  <span class="va">date_format</span>,</span>
+<span>  seasonal_adj <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div id="arguments">
@@ -74,6 +81,11 @@ the value column is numeric, sorted, and free of missing data.</p>
 <dt id="arg-date-format">date_format<a class="anchor" aria-label="anchor" href="#arg-date-format"></a></dt>
 <dd><p>String. The format string used to parse the date
 (e.g., <code>"%Y-%m"</code> for 2024-01, <code>"%b %Y"</code> for Jan 2001, or <code>"%YQ%q"</code> for 2024Q1).</p></dd>
+
+
+<dt id="arg-seasonal-adj">seasonal_adj<a class="anchor" aria-label="anchor" href="#arg-seasonal-adj"></a></dt>
+<dd><p>Set to true if you want data to be seasonally adjusted.
+Detects either quarterly or monthly and adjusts accordingly</p></dd>
 
 </dl></div>
     <div id="value">

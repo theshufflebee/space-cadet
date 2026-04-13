@@ -101,7 +101,14 @@ Returns a list of parameters to be used in a separate forecasting step.</p>
     <p>We have T = 1 as the start of the data, T=T is the end of the data,
 T=t as the current date up until we have the data availabe for the pseudo forecast
 and t+h would then be the forecast horizon.
-What we do here is just get the parameter estimation at time t</p>
+What we do here is just get the parameter estimation at time t.</p>
+<p>At each step we have to reestimate the HP filter to get the gaps. This is done via a burn in
+where we start the estimation at the first observation in the dataframe. the dataframe is cut to the burn in start in the preparation
+this assures there is no starting point bias.</p>
+    </div>
+    <div id="see-also">
+    <h2>See also</h2>
+    <div class="dont-index"><p>[forecast_okun_ssm()]</p></div>
     </div>
 
   </div>

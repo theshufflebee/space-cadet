@@ -115,6 +115,7 @@ ggplot(df, aes(x = date)) +
   # 3. Estimated Natural Rate (rho)
   geom_line(aes(y = u_star, color = "Natural Rate"), size = 1.2) +
   
+  
   # Formatting
   scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
   scale_color_manual(values = c(
@@ -134,3 +135,53 @@ ggplot(df, aes(x = date)) +
     plot.title = element_text(face = "bold"),
     panel.grid.minor = element_blank()
   )
+
+
+# -------------------
+
+library(ggplot2)
+library(dplyr)
+library(patchwork) # For combining plots
+
+# 1. Calculate Predicted Values and Residuals
+# The prediction in a State Space model is: y_hat = mu_t + G * rho_t
+# Since G is 1 for the first variable:
+viz_df <- viz_df %>%
+  mutate(
+    okun_impact = as.numeric(mu_t_res[, 1]),
+    predicted   = u_star + okun_impact,
+    error       = actual - predicted
+  )
+
+# 2. Plot A: Predicted vs. Actual
+p1 <- ggplot(viz_df, aes(x = date)) +
+  geom_line(aes(y = actual, color = "Actual"), size = 1, alpha = 0.5) +
+  geom_line(aes(y = predicted, color = "Predicted (u* + Okun)"), size = 1, linetype = "dashed") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  scale_color_manual(values = c("Actual" = "black", "Predicted (u* + Okun)" = "firebrick")) +
+  labs(
+    title = "Model Fit: Predicted vs. Actual Unemployment",
+    subtitle = "Prediction combines the Natural Rate and the cyclical Okun's Law component",
+    y = "Rate", x = NULL, color = NULL
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top", plot.title = element_text(face = "bold"))
+
+# 3. Plot B: The Prediction Error (Residuals)
+p2 <- ggplot(viz_df, aes(x = date)) +
+  geom_area(aes(y = error), fill = "gray70", alpha = 0.5) +
+  geom_line(aes(y = error), color = "gray30", size = 0.5) +
+  geom_hline(yintercept = 0, linetype = "dotted") +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  labs(
+    title = "Prediction Error",
+    subtitle = "Residuals (Actual - Predicted)",
+    y = "Error (pp)", x = NULL
+  ) +
+  theme_minimal()
+
+# Combine plots (Requires 'patchwork' package)
+p1 / p2 + plot_layout(heights = c(2, 1))
+
+
+

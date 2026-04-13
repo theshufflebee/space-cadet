@@ -4,7 +4,14 @@
 \alias{format_time_series_df}
 \title{Create Standardized Time Series Dataframe}
 \usage{
-format_time_series_df(data, date_col, value_col, new_name, date_format)
+format_time_series_df(
+  data,
+  date_col,
+  value_col,
+  new_name,
+  date_format,
+  seasonal_adj = FALSE
+)
 }
 \arguments{
 \item{data}{Dataframe. The input dataset to be formatted (e.g., raw BFS or SNB output).}
@@ -17,6 +24,9 @@ format_time_series_df(data, date_col, value_col, new_name, date_format)
 
 \item{date_format}{String. The format string used to parse the date 
 (e.g., \code{"\%Y-\%m"} for 2024-01, \code{"\%b \%Y"} for Jan 2001, or \code{"\%YQ\%q"} for 2024Q1).}
+
+\item{seasonal_adj}{Set to true if you want data to be seasonally adjusted.
+Detects either quarterly or monthly and adjusts accordingly}
 }
 \value{
 A tidy dataframe with two columns: \code{date} (class \code{yearmon}) 

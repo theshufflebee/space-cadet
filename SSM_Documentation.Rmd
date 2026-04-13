@@ -17,7 +17,27 @@ source(here("R", "ssm_forecasting.R"))
 
 ```
 
-# State-Space Model (SSM) Documentation
+This document explains the methodological background of this project. It
+is structured as follows
+
+-   **State-Space Models and the Kalman Filter**: Explains how the model
+    is build and how the kalman filter is applied. Also explains how the
+    kalman filter works and how the estimation pipeline works
+
+-   **Optimization strategy** Explains how the Optimization of the log
+    likelihood is implemented.
+
+-   **Matrix Handing and Function Factories** Explains how the Matrices
+    that make up the Kalman filter are built and what they represent
+
+-   **The Manifest Logic** Explains how the metadata / constraints on
+    the parameters is collected and how they are passed intp the
+    optimization process
+
+-   **Rolling Pseudo-Out-of-Sample Forecast** Explains how the
+    forecasting is implemented
+
+# State-Space Models and the Kalman Filter
 
 This document outlines the theoretical framework and implementation
 details of the State-Space Model and the Kalman Filter used in this
@@ -57,6 +77,10 @@ $$\rho_t = \nu_t + H\rho_{t-1} + N\xi_t \tag{2}$$
 -   $N$: The coefficient matrix for the state innovation $\xi_t$,
     defining the process noise variance.
 
+## The Kalmann Filter
+
+tbd
+
 ## 2. Estimation Pipeline
 
 The core estimation logic is contained within the `kalman_filter()`
@@ -78,7 +102,7 @@ operator, independent of the specific model configuration.
 ### Filter Inputs
 
 Beyond the primary system matrices ($G, H, M, N, \mu_t, \nu_t$), the
-estimation pipeline handles several advanced configurations:
+estimation pipeline handles several other configurations:
 
 -   **Initial Conditions**: Requires initial guesses for the state
     $\rho_0$ and the state covariance $\Sigma_0$.
@@ -108,10 +132,10 @@ maximum likelihood approach, implemented via numeric optimization.
 
 ## 1. The Objective Function
 
-The optimization process utilizes the `optimx` package to minimize the
-negative log-likelihood (or maximize the log-likelihood) of the system.
-The objective function, `loglik_ssm`, acts as a bridge between the
-optimizer and the Kalman Filter:
+The optimization process utilizes the `optimx` package to optmize the
+negative log-likelihood of the system. The objective function,
+`loglik_ssm`, acts as a bridge between the optimizer and the Kalman
+Filter:
 
 -   **Matrix Mapping**: It receives a vector of candidate parameters
     from the optimizer and maps them into the structured system matrices

@@ -70,7 +70,8 @@
 <code>ch.kof.consensus.q_qn_3minterest_12m.mea</code> -&gt; The 12 month mean interest rate forecast</li>
 <li>
 <code>date</code>-&gt; the date column from the quarter the forecast was taken from.</li>
-</ul><p>The Unemployment forecast is not seasonally adjusted. This is how the master looks: <img src="reference/figures/kof_master.png" alt="Data structure as of last release date" width="600"></p>
+</ul><p>This is how the master looks: <img src="reference/figures/kof_master.png" alt="Data structure as of last release date" width="600"></p>
+<p>The Unemployment forecast is not seasonally adjusted. We adjust it using the <code>seasonal</code> package. The step happens in the <code><a href="reference/format_time_series_df.html">format_time_series_df()</a></code> function.</p>
 </div>
 <div class="section level2">
 <h2 id="employment-data">Employment Data<a class="anchor" aria-label="anchor" href="#employment-data"></a></h2>
@@ -84,13 +85,14 @@
 <p>The unemployment is from the <strong>Swiss Federal Office of Statistics</strong> (BFS). It’s downloaded via the <code>BFS</code>Package using <code>bfs_download_asset()</code> and saved as cpi_series.xlsx</p>
 <p>The data looks like this: <img src="reference/figures/unemployment.png" alt="Data structure as of last release date" width="400"></p>
 <p>Then we select the data for <code>REGION</code>= <code>TOTAL</code> as this is the whole of Switzerland.</p>
+<p>The Unemployment data is not seasonally adjusted. We adjust it using the <code>seasonal</code> package. The step happens in the <code><a href="reference/format_time_series_df.html">format_time_series_df()</a></code> function.</p>
 <p>Finally we calculate the unemployment rate by dividing unemployment by (unemployment + employment).</p>
 </div>
 <div class="section level2">
 <h2 id="cpi-data">CPI Data<a class="anchor" aria-label="anchor" href="#cpi-data"></a></h2>
-<p>The CPI Data is from the <strong>Swiss Federal Office of Statistics</strong> (BFS) with ID: 36483229. It’s downloaded via the <code>BFS</code>Package using <code>bfs_download_asset()</code> and saved as ___.csv</p>
+<p>The CPI Data is from the <strong>Swiss Federal Office of Statistics</strong> (BFS) with ID: 36483229. It’s downloaded via the <code>BFS</code>Package using <code>bfs_download_asset()</code> and saved as cpi_series.xlsx</p>
 <p>The data looks like this: <img src="reference/figures/cpi.png" alt="Data structure as of last release date" width="400"></p>
-<p>Then we select the data for column <code>38687</code> as it is indexed in 2015. In theory the index columns are interchangable.</p>
+<p>Then we select the data for column <code>38687</code> as it is indexed in 2015. In theory the index columns are interchangable, however numbers that are closer to 100 are more readable and optimizers work better when the data is all in similiar magnitude.</p>
 </div>
 <div class="section level2">
 <h2 id="saron--libor-data">SARON &amp; LIBOR Data<a class="anchor" aria-label="anchor" href="#saron--libor-data"></a></h2>
@@ -100,7 +102,9 @@
 <p>Apart from the Cube you select the dimensions, <code>D0</code>, <code>D1</code>, <code>D2</code>. You may not need all of them. Here the datacube is <code>zimoma</code> (Money Market Rates). We select <code>3M0</code> (LIBOR) and <code>SARON</code> from the <code>D0</code> dimension. We also specify the timeframe where we want the data via <code>from_date</code> and <code>to_date</code>.</p>
 <p>The API call Downloads two datafiles a CSV with the actual data and the metadate as JSON file.</p>
 <p>The data looks like this: <img src="reference/figures/money_market.png" alt="Data structure as of last release date" width="400"></p>
-<p>The SARON and LIBOR was discontinued in January of 2022 while SARON calculations only exist since June of 1999.</p>
+<p>The SARON and LIBOR was discontinued in January of 2022 after multiple scandals while SARON calculations only exist since June of 1999.</p>
+<p>The SARON is the SWISS AVERAGE RATE OVERNIGHT and the primary refinancing rate in swiss francs. It’s based on overnight lending between banks in francs. It gets calculated daily and then averaged out monthly. See more here: <a href="https://www.six-group.com/en/market-data/indices/switzerland/saron.html" class="external-link uri">https://www.six-group.com/en/market-data/indices/switzerland/saron.html</a></p>
+<p>The LIBOR was an average interest rate for borrowing between global banks. In contrast to the SARON it was calculated by asking banks at what price they would lend to each other. In contrast to the SARON it did not take the actual, but the stated values of banks and was therefore subject to collusion. See more: <a href="https://www.investopedia.com/terms/l/libor.asp" class="external-link uri">https://www.investopedia.com/terms/l/libor.asp</a></p>
 </div>
 <div class="section level2">
 <h2 id="government-bonds-data">Government Bonds Data<a class="anchor" aria-label="anchor" href="#government-bonds-data"></a></h2>
@@ -135,7 +139,7 @@
 <h1 id="contact">Contact<a class="anchor" aria-label="anchor" href="#contact"></a></h1>
 <p>Jonas Bruno<br>
 jonas.bruno@unil.ch</p>
-<p>Last Update 10.04.2026</p>
+<p>Last Update 13.04.2026</p>
 </div>
 
 
