@@ -205,6 +205,8 @@ bfs_wrapper <- function(id, dest_file, do_api_call = FALSE, type = "data") {
 #' @param new_name String. The final name for the value column in the output.
 #' @param date_format String. The format string used to parse the date 
 #' (e.g., \code{"\%Y-\%m"} for 2024-01, \code{"\%b \%Y"} for Jan 2001, or \code{"\%YQ\%q"} for 2024Q1).
+#' @param seasonal_adj Set to true if you want data to be seasonally adjusted.
+#' Detects either quarterly or monthly and adjusts accordingly
 #'
 #' @return A tidy dataframe with two columns: \code{date} (class \code{yearmon}) 
 #' and \code{[new_name]} (class \code{numeric}), sorted chronologically.
@@ -221,7 +223,8 @@ format_time_series_df <- function(data,
                                   date_col,
                                   value_col,
                                   new_name,
-                                  date_format) {
+                                  date_format,
+                                  seasonal_adj = FALSE) {
   
   # format as dataframe
   df <- as.data.frame(data)
@@ -240,7 +243,28 @@ format_time_series_df <- function(data,
   df <- df %>%
     select(all_of(c("date", new_name))) %>%
     drop_na() %>%
+    filter(date >= zoo::as.yearmon(1990)) %>%
     arrange(date)
+  
+  if(seasonal_adj) {
+    
+    freq <- if(mean(diff(df$date)) < 0.3) 12 else 4
+    start_year <- as.numeric(format(df$date[1], "%Y"))
+    start_per <- as.numeric(format(df$date[1], "%m"))
+    if(freq == 4) start_per <- as.numeric(zoo::as.quarterly(df$date[1]))
+    
+    diff_mean <- mean(diff(df$date))
+    message(paste("Detected Mean Diff:", round(diff_mean, 4)))
+    message(paste("Assigned Frequency:", freq))
+    
+    ts_temp <- ts(df[[new_name]], start = c(start_year, start_per), frequency = freq)
+    
+    adj_model <- seasonal::seas(ts_temp)
+    
+    df[[new_name]] <- as.numeric(seasonal::final(adj_model))
+    
+    message(paste("Applied seasonal adjustment to", new_name))
+  }
   
   return(df)
 }
