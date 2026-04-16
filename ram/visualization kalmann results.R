@@ -137,6 +137,12 @@ ggplot(df, aes(x = date)) +
   )
 
 
+ggsave(
+  filename = "output/okun_model_fit.pdf", 
+  width = 10, 
+  height = 6
+)
+
 # -------------------
 
 library(ggplot2)
@@ -182,6 +188,67 @@ p2 <- ggplot(viz_df, aes(x = date)) +
 
 # Combine plots (Requires 'patchwork' package)
 p1 / p2 + plot_layout(heights = c(2, 1))
+
+ggsave(
+  filename = "output/okun_model_error_plot.pdf", 
+  width = 10, 
+  height = 6
+)
+
+
+# =============================================================================
+
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+final_forecast_matrix <- okun_eval_df
+
+# 1. Transform Matrix to Long Format
+spaghetti_long <- final_forecast_matrix %>%
+  mutate(target_date = as.yearqtr(rownames(.))) %>%
+  pivot_longer(
+    cols = -target_date, 
+    names_to = "vantage_point", 
+    values_to = "forecast_value"
+  ) %>%
+  mutate(vantage_point = as.yearqtr(vantage_point)) %>%
+  filter(target_date >= vantage_point, !is.na(forecast_value))
+
+# 2. Extract the Actuals (The Diagonal)
+actuals_path <- spaghetti_long %>%
+  filter(target_date == vantage_point)
+
+# 3. The Plot
+ggplot() +
+  # Forecast Lines (Grouped by vantage point to avoid connecting them all)
+  geom_line(data = spaghetti_long, 
+            aes(x = target_date, y = forecast_value, group = vantage_point, color = "Forecast"), 
+            linewidth = 0.5, alpha = 0.3) +
+  
+  # The Actual Realized Path
+  geom_line(data = actuals_path, 
+            aes(x = target_date, y = forecast_value, color = "Actuals"), 
+            linewidth = 1.2) +
+  
+  # THE FIX: This links the strings above to specific colors
+  scale_color_manual(values = c(
+    "Forecast" = "steelblue", 
+    "Actuals"  = "firebrick"
+  )) +
+  
+  # Formatting
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1)) +
+  labs(
+    title = "Swiss Okun Model: Pseudo Out-of-Sample Evaluation",
+    subtitle = "Spaghetti lines show 8-quarter forecasts from each vantage point",
+    x = NULL, y = "Unemployment Rate", color = "Series"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom", plot.title = element_text(face = "bold"))
+
+ggsave("output/forecast_spaghetti_plot.pdf", width = 10, height = 6)
+
 
 
 
