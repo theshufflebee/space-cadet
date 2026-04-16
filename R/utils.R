@@ -316,3 +316,36 @@ model2param_gen <- function(input_list, spec) {
 
 
 
+
+#' Convert Rolling SSM Results to Dataframe
+#' @param results_list The output from new_forecasting_okun_ssm
+#' @return A dataframe with one row per vantage point
+extract_params_df <- function(results_list) {
+  
+  # Map over each date in the results list
+  params_df <- purrr::map_dfr(results_list, function(item) {
+    
+    # Extract the vantage point (date)
+    vp_date <- item$target_date
+    
+    # Flatten the economic parameters
+    # This turns the list c(beta1=..., phi=...) into a single-row dataframe
+    params <- as.data.frame(item$params)
+    
+    # extract the natural rate
+    state_vec <- as.vector(item$states$r)
+    params$natural_rate <- state_vec[length(state_vec)] # length selects the last obs of the vector
+    
+    # Add the date as a column
+    params <- params %>%
+      mutate(quarter = vp_date) %>%
+      select(quarter, everything())
+    
+    return(params)
+  })
+  
+  return(params_df)
+}
+
+
+
