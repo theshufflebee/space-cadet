@@ -216,6 +216,3 @@ okun_eval_square <- okun_eval_df[as.yearqtr(rownames(okun_eval_df)) <= last_orig
 dim(okun_eval_square)
 
 
-
-
-

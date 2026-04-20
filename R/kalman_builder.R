@@ -322,7 +322,7 @@ loglik_ssm <- function(theta,
   
 
   # the shocks in the state euqation
-  N     <- matrix(0.0001, 1, 1) # Fixed Smoothness
+  N     <- matrix(0.001, 1, 1) # Fixed Smoothness
   
   # Run filter with given specs
   res <- kalman_filter(Y_t = Y, nu_t = nu_t, H = H, N = N, 

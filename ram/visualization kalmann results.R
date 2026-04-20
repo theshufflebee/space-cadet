@@ -137,11 +137,58 @@ ggplot(df, aes(x = date)) +
   )
 
 
+
+library(ggplot2)
+library(patchwork)
+library(scales)
+
+# 1. Top Plot: Unemployment Breakdown
+p_unemp <- ggplot(viz_df, aes(x = date)) +
+  # Actual vs Natural Rate
+  geom_line(aes(y = actual, color = "Obs Unemployment"), linewidth = 0.8, alpha = 0.5) +
+  geom_line(aes(y = u_star, color = "Natural Rate (u*)"), linewidth = 1.2) +
+  geom_line(aes(y = spf, color = "SPF 5y Forecast"), linetype = "dashed", size = 0.8) +
+  # Formatting
+  scale_y_continuous(labels = percent_format(accuracy = 0.1)) +
+  scale_color_manual(values = c(
+    "Obs Unemployment" = "gray50",
+    "SPF 5y Forecast" = "firebrick3",
+    "Natural Rate (u*)" = "dodgerblue4"
+  )) +
+  labs(
+    title = "Swiss Structural Unemployment and GDP Cycle",
+    subtitle = "Top: Observed vs. Natural Rate | Bottom: Output Gap (HP Filter)",
+    y = "Unemployment Rate", x = NULL, color = NULL
+  ) +
+  theme_minimal() +
+  theme(legend.position = "top", plot.title = element_text(face = "bold"))
+
+# 2. Bottom Plot: GDP Gap (Exogenous driver)
+p_gdp <- ggplot(viz_df, aes(x = date)) +
+  # The GDP Gap as an area plot to show 'slack' vs 'boom'
+  geom_area(aes(y = okun_cycle), fill = "firebrick3", alpha = 0.3) +
+  geom_line(aes(y = okun_cycle), color = "firebrick3", linewidth = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +
+  # Formatting
+  scale_y_continuous(labels = label_percent(accuracy = 0.1)) +
+  labs(y = "GDP Gap (%)", x = "Quarter") +
+  theme_minimal()
+
+# 3. Combine with Patchwork
+# heights = c(2, 1) makes the unemployment plot larger than the gap plot
+combined_okun_plot <- p_unemp / p_gdp + 
+  plot_layout(heights = c(3, 1))
+
+# Display
+combined_okun_plot
+
+# 4. Save
 ggsave(
-  filename = "output/okun_model_fit.pdf", 
-  width = 10, 
-  height = 6
+  filename = "output/okun_model_fit.pdf",
+  plot = combined_okun_plot,
+  width = 10, height = 8
 )
+
 
 # -------------------
 
