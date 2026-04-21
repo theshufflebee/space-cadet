@@ -180,7 +180,7 @@ build_N <- function(model_params, default_sig_xi = 0.001) {
 #' @export
 initialize_my_okun_ssm <- function(Y_data, X_data, parameter_guesses) {
   
-  # 1. Define the Manifest
+  # Define the Manifest
   # This acts as the "Single Source of Truth" for your parameters
   # Rules: 0 = Linear, 1 = Exponential (>0), 2 = Logit (0 to 1)
   required_params <- c("beta1", "beta2", "beta3", "sigma_unemp_rate", "sigma_spf_5y_unemp")
@@ -192,23 +192,34 @@ initialize_my_okun_ssm <- function(Y_data, X_data, parameter_guesses) {
     message("Missing xi_n in parameters. Using Fixed variance")
   }
   
+  # First bild manifest with the required parameters
   manifest <- list(
     # Okun's Law Betas (Unconstrained)
     beta1              = list(val = parameter_guesses$beta1, rule = 0),
     beta2              = list(val = parameter_guesses$beta2, rule = 0),
     beta3              = list(val = parameter_guesses$beta3, rule = 0),
     
-    # State Persistence (Bounded for stability)
-    # phi                = list(val = 0.98,  rule = 2),
     
     # Measurement Noise Standard Deviations (Must be positive)
     # Names match: "sigma_" + colnames(Y_data)
     sigma_unemp_rate   = list(val = parameter_guesses$sigma_unemp_rate,  rule = 1),
-    sigma_spf_5y_unemp = list(val = parameter_guesses$sigma_spf_5y_unemp, rule = 1),
-    
-    # Process Noise (Standard deviation of the Natural Rate innovation)
-    xi_n  = list(val = parameter_guesses$xi_n, rule = 1)
+    sigma_spf_5y_unemp = list(val = parameter_guesses$sigma_spf_5y_unemp, rule = 1)
   )
+  
+  # Then add those that are optional
+  
+  # State Persistence (Bounded for stability)
+  if ("phi" %in% names(parameter_guesses) && !is.null(parameter_guesses$phi)) {
+    manifest$phi <- list(val = parameter_guesses$phi, rule = 2)
+  } else {
+    message("--- phi not provided. Fixing phi = 1 (Random Walk) ---")
+  }
+  
+  if ("xi_n" %in% names(parameter_guesses) && !is.null(parameter_guesses$xi_n)) {
+    manifest$xi_n <- list(val = parameter_guesses$xi_n, rule = 1)
+  } else {
+    message("--- xi_n not provided. Using Fixed variance defined in build_N ---")
+  }
   
   # 2. Bundle the builders and data into the blueprint
   # These are the standalone functions you defined earlier

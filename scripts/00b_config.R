@@ -75,7 +75,7 @@ to_date <- format(Sys.Date(), "%Y-%m")
 
 # Set True if you want to re-download Data
 # If there is no data, API gets called automatically
-do_api_call <- TRUE
+do_api_call <- FALSE
 
 if (do_api_call) {
   message("do_api_call set to TRUE. Redownloading all files")
@@ -124,8 +124,7 @@ okun_parameter_guess <- list(
   beta2 = -0.1,
   beta3 = -0.1,
   sigma_unemp_rate = 0.01,
-  sigma_spf_5y_unemp = 0.005,
-  xi_n = 0.001
+  sigma_spf_5y_unemp = 0.005
 )
 
-
+# xi_n = 0.001

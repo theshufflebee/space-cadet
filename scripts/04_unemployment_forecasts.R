@@ -52,6 +52,7 @@ okun_params_df_new <- extract_params_df(results)
 
 # View the result
 print(head(okun_params_df_new))
+write_csv(okun_params_df_new, "output/okun_forecast_parameters.csv")
 
 
 # ==============================================================================
