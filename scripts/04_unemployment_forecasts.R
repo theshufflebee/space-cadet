@@ -45,7 +45,7 @@ gdp_gap_forecasts <- df_okun_final[c("quarter", "log_gdp")]
 
 # The parameters are estimate in a rolling scheme, i.e from the T = 0 to each date
 # from first valid to last valid
-results <- rolling_est_okun_ssm(df_okun_merged, forecast_start = "2024-07-01")
+results <- rolling_est_okun_ssm(df_okun_merged, forecast_start = "2022-07-01")
 
 # Extract the parameters from the results and put them in the correctly formated dataframe
 okun_params_df_new <- extract_params_df(results)
