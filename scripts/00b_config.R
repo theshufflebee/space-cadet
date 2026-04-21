@@ -74,7 +74,7 @@ to_date <- format(Sys.Date(), "%Y-%m")
 
 # Set True if you want to re-download Data
 # If there is no data, API gets called automatically
-do_api_call <- FALSE
+do_api_call <- TRUE
 
 if (do_api_call) {
   message("do_api_call set to TRUE. Redownloading all files")
