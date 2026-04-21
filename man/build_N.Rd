@@ -4,7 +4,7 @@
 \alias{build_N}
 \title{Build the N Matrix (Process Noise Covariance)}
 \usage{
-build_N(model_params, default_sig_xi = 0.01)
+build_N(model_params, default_sig_xi = 0.001)
 }
 \arguments{
 \item{model_params}{A named list. If "xi_n" is present, it is used as the 
@@ -14,11 +14,11 @@ standard deviation; otherwise, it uses the provided \code{default_sig_xi}.}
 parameter is estimated. Default is 0.01 (variance of 0.0001).}
 }
 \value{
-A \eqn{1 \times 1} matrix representing the process noise variance 
-\eqn{\xi_n^2}.
+A \eqn{1 \times 1} matrix representing the process noise sd 
+\eqn{\xi_n}.
 }
 \description{
-Constructs the covariance matrix for the state innovation \eqn{\xi_t} 
+Constructs the standard deviaton matrix for the state innovation \eqn{\xi_t} 
 (the variance of the Natural Rate shocks):
 \deqn{\rho_t = \dots + N\xi_t, \quad \xi_t \sim N(0, I)}
 }

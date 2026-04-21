@@ -9,7 +9,8 @@ loglik_ssm(
   ssm,
   return_full_res = FALSE,
   diffuse_prior = T,
-  init_guess_state = NULL
+  init_guess_state = NULL,
+  rho_guess = NULL
 )
 }
 \arguments{

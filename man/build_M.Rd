@@ -12,10 +12,10 @@ These represent the standard deviations (\eqn{\sigma}) of the observation errors
 }
 \value{
 A \eqn{2 \times 2} diagonal matrix \eqn{M} where 
-\eqn{M_{ii} = \sigma_i^2}.
+\eqn{M_{ii} = \sigma_i}.
 }
 \description{
-Constructs the diagonal variance-covariance matrix \eqn{M M'} for the 
+Constructs the diagonal standard deviat8ion matrix \eqn{M} for the 
 measurement noise \eqn{\varepsilon_t}:
 \deqn{y_t = \dots + M\varepsilon_t, \quad \varepsilon_t \sim N(0, I)}
 }

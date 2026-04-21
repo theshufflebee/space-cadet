@@ -164,53 +164,13 @@ loglik_ssm <- function(theta,
                        ssm,
                        return_full_res = FALSE,
                        diffuse_prior = T,
-                       init_guess_state = NULL) {
+                       init_guess_state = NULL,
+                       rho_guess = NULL) {
   
-  sig_init <- if(diffuse_prior) matrix(10, 1, 1) else matrix(0.01, 1, 1)
+  sig_init <- if(diffuse_prior){
+    matrix(10, 1, 1)} else {matrix(init_guess_state, 1, 1)}
   
-<<<<<<< HEAD
-  # Build exogenous mu_t, still a work in progress,
-  # it takes the parameters theta which are the numbers selected by optimizer
-  # and returns the matrices for the full estimation (for each t)
-  # EXECUTE the builders with the current 'model' parameters
-  mu_t <- mu_t_builder(model)
-  
-  # build the Matrix linking state euation and measurement equation
-  G    <- G_builder(model)
-  
-  # Transition: Handles Random Walk or AR(1)
-  H    <- H_builder(model)
-  
-  # build the matrix representing the shocks on the measurement variables
-  M    <- M_builder(model)  # Fixed: Added (model)
-  
-  # Build the rest of the model matrices
-  
-  # intercept for the state equation
-  T_len <- nrow(Y) # for nu_t
-  nu_t  <- matrix(0, T_len, 1)
-  
-
-  # the shocks in the state euqation
-  N     <- matrix(0.001, 1, 1) # Fixed Smoothness
-  
-  # Run filter with given specs
-  res <- kalman_filter(Y_t = Y, nu_t = nu_t, H = H, N = N, 
-                       mu_t = mu_t, G = G, M = M, 
-                       Sigma_0 = matrix(10), rho_0 = Y[1, 2])
-  
-  # returns the negative loglik, so the optimizer can run the whol thing again
-  # wuth newly selected parameters
-  
-  if (return_full_res) {
-    return(res) # Returns the whole list (states, lik, etc.)
-=======
-  rho_init <- if(is.null(init_guess_state)) {
-    ssm$data$Y[1, 2] 
->>>>>>> ssm_rework
-  } else {
-    init_guess_state
-  }
+  rho_init <- if(is.null(rho_guess)) {ssm$data$Y[1,2]} else {rho_guess}
   
   # Map Parameters (Optimizer Space -> Economic Space)
   model_params <- param2model_gen(theta, ssm)

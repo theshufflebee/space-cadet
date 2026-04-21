@@ -36,4 +36,6 @@ worldview at a specific date in history.
 }
 \seealso{
 \code{\link{loglik_ssm}} for the origin of the \code{params} and \code{states} objects.
+
+[rolling_est_okun_ssm()]
 }

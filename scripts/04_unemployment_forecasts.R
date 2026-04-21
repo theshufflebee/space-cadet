@@ -74,8 +74,3 @@ okun_eval_square <- forecast_okun_df[as.yearqtr(rownames(forecast_okun_df)) <= l
 
 # CheckThe number of rows should now equal the number of columns
 dim(okun_eval_square)
-<<<<<<< HEAD
-
-
-=======
->>>>>>> ssm_rework
