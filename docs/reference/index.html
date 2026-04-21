@@ -46,6 +46,34 @@
         </td>
         <td><p>A Wrapper for the BFS Packages download function</p></td>
       </tr><tr><td>
+          <p><code><a href="build_G.html">build_G()</a></code> </p>
+        </td>
+        <td><p>Build the G Matrix (Factor Loadings)</p></td>
+      </tr><tr><td>
+          <p><code><a href="build_H.html">build_H()</a></code> </p>
+        </td>
+        <td><p>Build the H Matrix (State Transition)</p></td>
+      </tr><tr><td>
+          <p><code><a href="build_M.html">build_M()</a></code> </p>
+        </td>
+        <td><p>Build the M Matrix (Measurement Noise Covariance)</p></td>
+      </tr><tr><td>
+          <p><code><a href="build_mu_t.html">build_mu_t()</a></code> </p>
+        </td>
+        <td><p>Build the mu_t Matrix (Exogenous Impact)</p></td>
+      </tr><tr><td>
+          <p><code><a href="build_N.html">build_N()</a></code> </p>
+        </td>
+        <td><p>Build the N Matrix (Process Noise Covariance)</p></td>
+      </tr><tr><td>
+          <p><code><a href="calculate_kalman_gain.html">calculate_kalman_gain()</a></code> </p>
+        </td>
+        <td><p>Calculate Kalman Gain</p></td>
+      </tr><tr><td>
+          <p><code><a href="calc_covariance.html">calc_covariance()</a></code> </p>
+        </td>
+        <td><p>Calculate Covariance Matrix from Standard Deviations</p></td>
+      </tr><tr><td>
           <p><code><a href="download_kof_data.html">download_kof_data()</a></code> </p>
         </td>
         <td><p>Download Data from the KOF Institute at ETHZ</p></td>
@@ -66,9 +94,17 @@
         </td>
         <td><p>Wrapper Function for the download_url_csv_function</p></td>
       </tr><tr><td>
+          <p><code><a href="extract_params_df.html">extract_params_df()</a></code> </p>
+        </td>
+        <td><p>Extract Estimated Parameters and States from Rolling SSM Results</p></td>
+      </tr><tr><td>
+          <p><code><a href="forecast_measurement_eq.html">forecast_measurement_eq()</a></code> </p>
+        </td>
+        <td><p>Forecast Measurement Equation</p></td>
+      </tr><tr><td>
           <p><code><a href="forecast_okun_ssm.html">forecast_okun_ssm()</a></code> </p>
         </td>
-        <td><p>This function runs the actual forecast for the okun model</p></td>
+        <td><p>Pseudo Out-of-Sample Forecasting for Okun State-Space Model</p></td>
       </tr><tr><td>
           <p><code><a href="format_time_series_df.html">format_time_series_df()</a></code> </p>
         </td>
@@ -78,17 +114,9 @@
         </td>
         <td><p>Wrapper function for download SNB Data</p></td>
       </tr><tr><td>
-          <p><code><a href="get_ssm_forecast_parameters.html">get_ssm_forecast_parameters()</a></code> </p>
+          <p><code><a href="initialize_my_okun_ssm.html">initialize_my_okun_ssm()</a></code> </p>
         </td>
-        <td><p>Generate Rolling SSM Parameters for Forecasting</p></td>
-      </tr><tr><td>
-          <p><code><a href="G_matrix_factory.html">G_matrix_factory()</a></code> </p>
-        </td>
-        <td><p>Measurement Link Matrix (G) Factory</p></td>
-      </tr><tr><td>
-          <p><code><a href="H_matrix_factory.html">H_matrix_factory()</a></code> </p>
-        </td>
-        <td><p>Transition Matrix (H) Factory Factory Function that creates a function This Function Creates the H matrix of for the Kalmann filter, which gouverns the persistance of the state. It can be either an AR(1) Process (default) or a Randowm walk when there is no persistance parameter to estimate and the matrix defaults to 1.</p></td>
+        <td><p>Initialize the Okun State-Space Blueprint</p></td>
       </tr><tr><td>
           <p><code><a href="install_missing_packages.html">install_missing_packages()</a></code> </p>
         </td>
@@ -108,23 +136,27 @@
       </tr><tr><td>
           <p><code><a href="model2param_gen.html">model2param_gen()</a></code> </p>
         </td>
-        <td><p>Map Model Parameters to Optimizer Parameters</p></td>
-      </tr><tr><td>
-          <p><code><a href="mu_t_matrix_factory.html">mu_t_matrix_factory()</a></code> </p>
-        </td>
-        <td><p>Exogenous Component Matrix (mu_t) Factory</p></td>
-      </tr><tr><td>
-          <p><code><a href="M_matrix_factory.html">M_matrix_factory()</a></code> </p>
-        </td>
-        <td><p>Measurement Noise Matrix (M) Factory</p></td>
+        <td><p>Map Model Parameters to Optimizer Parameters (Unconstrained Scale)</p></td>
       </tr><tr><td>
           <p><code><a href="param2model_gen.html">param2model_gen()</a></code> </p>
         </td>
-        <td><p>Map Optimizer Parameters to Model Parameters</p></td>
+        <td><p>Map Optimizer Parameters to Model Parameters (Economic Scale)</p></td>
       </tr><tr><td>
           <p><code><a href="predict_ssm_path_rw.html">predict_ssm_path_rw()</a></code> </p>
         </td>
         <td><p>Function to predict the random walk ssm with exogenous betas</p></td>
+      </tr><tr><td>
+          <p><code><a href="project_covariance.html">project_covariance()</a></code> </p>
+        </td>
+        <td><p>Project Covariance Matrix Forward</p></td>
+      </tr><tr><td>
+          <p><code><a href="project_state_forward.html">project_state_forward()</a></code> </p>
+        </td>
+        <td><p>Project Latent State Forward</p></td>
+      </tr><tr><td>
+          <p><code><a href="rolling_est_okun_ssm.html">rolling_est_okun_ssm()</a></code> </p>
+        </td>
+        <td><p>Rolling Okun SSM Estimation</p></td>
       </tr><tr><td>
           <p><code><a href="snb_api_data_to_ts.html">snb_api_data_to_ts()</a></code> </p>
         </td>
@@ -132,7 +164,7 @@
       </tr><tr><td>
           <p><code><a href="ssm_optimizer_wrapper.html">ssm_optimizer_wrapper()</a></code> </p>
         </td>
-        <td><p>Hybrid Optimizer Wrapper</p></td>
+        <td><p>Multi-Step State-Space Model Optimizer Wrapper</p></td>
       </tr><tr><td>
           <p><code><a href="try_install.html">try_install()</a></code> </p>
         </td>

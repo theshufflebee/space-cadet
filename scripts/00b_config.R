@@ -13,6 +13,7 @@ source(here("R", "utils.R"))
 source(here("R", "kalman_builder.R"))
 source(here("R", "kalman_procedures.R"))
 source(here("R", "ssm_forecasting.R"))
+source(here("R", "okun_matrices.R"))
 
 
        
@@ -110,14 +111,20 @@ ts_names <- c(
   "kof_12m_interest"
 )
 
-
-
 # Okun Model Configuration settings
 
 # We run the HP filter to estimate the gap. this determines the first observation
 # of the GDP Variable
 hp_filter_burn_in <- "2010-01-01"
 
+# --- Initial guesses for Okun ---
+# Initial parameters guess for okun model
+okun_parameter_guess <- list(
+  beta1 = -0.1,
+  beta2 = -0.1,
+  beta3 = -0.1,
+  sigma_unemp_rate = 0.01,
+  sigma_spf_5y_unemp = 0.005
+)
 
-
-
+# xi_n = 0.001

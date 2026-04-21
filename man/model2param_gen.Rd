@@ -2,22 +2,37 @@
 % Please edit documentation in R/kalman_builder.R
 \name{model2param_gen}
 \alias{model2param_gen}
-\title{Map Model Parameters to Optimizer Parameters}
+\title{Map Model Parameters to Optimizer Parameters (Unconstrained Scale)}
 \usage{
-model2param_gen(input_list, spec)
+model2param_gen(model_list, ssm)
 }
 \arguments{
-\item{spec}{List. Transformation rules.}
+\item{model_list}{A named list of parameters on their natural economic scale 
+(e.g., standard deviations as positive numbers, persistence as values between 0 and 1).}
 
-\item{model_list}{Named list of model parameters.}
+\item{ssm}{A structured SSM object containing a \code{manifest} list. 
+The manifest defines the transformation \code{rule} for each parameter.}
 }
 \value{
-A numeric vector of unconstrained parameters.
+A numeric vector (\code{theta}) of unconstrained parameters suitable for 
+use in \code{optim} or \code{optimx}.
 }
 \description{
-Inverse of \code{param2model_gen}. Maps model values back to unconstrained
-space for the optimizer.
+Transforms parameters from their constrained economic scale back to the 
+unconstrained scale used by the optimizer. This ensures that initial guesses 
+are correctly represented in the search space.
+}
+\details{
+This function applies the inverse of the transformations found in \code{param2model_gen}:
+\itemize{
+  \item \bold{Rule 0 (Linear):} \eqn{g(y) = y}. Used for unconstrained parameters like betas.
+  \item \bold{Rule 1 (Logarithmic):} \eqn{g(y) = \log(y)}. The inverse of \eqn{\exp(\theta)}. 
+  Ensures that a positive standard deviation maps to a real number.
+  \item \bold{Rule 2 (Logit):} \eqn{g(y) = \log\left(\frac{y}{1-y}\right)}. The inverse of the 
+  logistic function. Maps a parameter bounded in \eqn{(0, 1)} to the real line \eqn{(-\infty, \infty)}.
+}
 }
 \seealso{
-[param2model_gen()]
+\code{\link{param2model_gen}} for the forward transformation used 
+within the likelihood function.
 }

@@ -1,5 +1,21 @@
-# NEed MASS Packafe
+################################################################################
+#
+# THIS FILE CONTAINS THE MATHEMATICAL IMPLEMENTATION OF THE KALMAN FILTER / SMOOTHER
+#
+################################################################################
 
+# The implementation of the filter and the smoother are made through 2 different
+# main functions each are supported by a couple of helper functions that replace 
+# parts in the main function to make the code more readable.
+
+# As of this version only the filter is implemented for the project
+
+
+# ==============================================================================
+#
+# KALMAN FILTER
+#
+# ==============================================================================
 
 #' Constrained Kalman Filter for Linear State-Space Models
 #' 
@@ -31,7 +47,7 @@
 #'   in Augmented State Vectors in Quadratic Kalman Filters).
 #'
 #' @return A list containing:
-#' \item{r}{Filtered variables \eqn{\rho_{t|t}} (size \eqn{T \times nr}).}
+#' \item{r}{Filtered states \eqn{\rho_{t|t}} (size \eqn{T \times nr}).}
 #' \item{Sigma_tt}{Filtered state covariance \eqn{\Sigma_{t|t}} stored as flattened vectors.}
 #' \item{loglik}{Scalar. Total log-likelihood of the model.}
 #' \item{y_tp1_t}{Forecasted observables \eqn{y_{t+1|t}}.}
@@ -41,6 +57,8 @@
 #' \item{Omega_tp1_t}{Innovation covariance \eqn{\Omega_{t+1|t}}.}
 #' \item{M}{The measurement scaling matrix used.}
 #' \item{fitted_obs}{Estimated observables given filtered states (\eqn{\hat{y}_t|t}).}
+#' 
+#' @importFrom MASS ginv
 #' 
 #' @note 
 #' If \code{reconciliationf} is provided, \code{rho_tt} is modified to ensure consistency 
@@ -297,8 +315,17 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
 #===============================================================================
 
 
-# Both equations below are the same but serve different purpouses
-# need to find a way to unify
+#' Project Latent State Forward
+#'
+#' Computes the predicted state for the next period based on the transition equation: 
+#' \eqn{\rho_{t|t-1} = H \rho_{t-1} + \nu_t}.
+#'
+#' @param rho The current state estimate (column vector or scalar).
+#' @param H The transition matrix defining state persistence.
+#' @param nu_t The state intercept or drift term for the current step.
+#'
+#' @return A matrix representing the predicted latent state.
+#' @export
 project_state_forward <- function(rho, H, nu_t) {
   # nu_t_step should be the specific row for time t: nu_t[t, ]
   # Ensure rho is a column vector
@@ -307,6 +334,18 @@ project_state_forward <- function(rho, H, nu_t) {
   return(rho_pred)
 }
 
+
+#' Forecast Measurement Equation
+#'
+#' Calculates the predicted observation for the next period based on the 
+#' measurement equation: \eqn{y_{t|t-1} = G \rho_{t|t-1} + \mu_t}.
+#'
+#' @param mu_t The intercept or exogenous component (e.g., Okun cyclical impact).
+#' @param G The observation matrix (loadings).
+#' @param rho The predicted latent state (\eqn{\rho_{t|t-1}}).
+#'
+#' @return A row vector of predicted observations.
+#' @export
 forecast_measurement_eq <- function(mu_t, G, rho) {
   
   y_tp1_t <- (G %*% matrix(rho)) + matrix(mu_t)
@@ -315,22 +354,55 @@ forecast_measurement_eq <- function(mu_t, G, rho) {
 }
 
 
-# Currently some parameter here unseless, beacause it may get extended later
+#' Calculate Covariance Matrix from Standard Deviations
+#'
+#' Computes a variance-covariance matrix from a matrix of standard deviations.
+#' Currently implements the identity correlation case: \eqn{\Sigma = M M'}.
+#'
+#' @param SD_matrix A matrix containing standard deviation coefficients (e.g., matrix \eqn{M} or \eqn{N}).
+#' @param RHO Reserved for future implementation of correlation structures.
+#' @param t Reserved for future time-varying covariance implementation.
+#'
+#' @return A symmetric, positive semi-definite covariance matrix.
+#' @export
 calc_covariance <- function(SD_matrix, RHO = NULL, t = 0) {
   # Standard formula: Var = SD * SD'
   return(SD_matrix %*% t(SD_matrix))
 }
 
 
-# Replaces two equations
+#' Project Covariance Matrix Forward
+#'
+#' Updates the uncertainty (covariance) matrix for either the state transition 
+#' or the measurement prediction. Implements the quadratic form: 
+#' \eqn{\Sigma_{pred} = T \Sigma_{base} T' + \Omega}.
+#'
+#' @param noise The additive covariance matrix (Process noise \eqn{N} or Measurement noise \eqn{M}).
+#' @param sigma_base The starting covariance matrix (\eqn{\Sigma_{t-1}} or \eqn{\Sigma_{t|t-1}}).
+#' @param transform_matrix The linear operator (\eqn{H} for states or \eqn{G} for observations).
+#'
+#' @return A projected covariance matrix representing updated uncertainty.
+#' @export
 project_covariance <- function(noise, sigma_base, transform_matrix) {
-  
   
   uncertainty <- noise + transform_matrix %*% sigma_base %*% t(transform_matrix)
   
   return(uncertainty)
 }
 
+
+#' Calculate Kalman Gain
+#'
+#' Computes the optimal Kalman gain matrix (K) for the state update step.
+#' 
+#' @param sigma State estimation covariance matrix (Sigma_{t|t-1}).
+#' @param G Observation/Mapping matrix.
+#' @param R Observation noise covariance matrix.
+#'
+#' @return A matrix representing the Kalman gain.
+#' 
+#' @importFrom MASS ginv
+#' @export
 calculate_kalman_gain <- function(sigma, G, R){
   
   K = sigma %*% t(G) %*% MASS::ginv(R + G %*% sigma %*% t(G))
@@ -339,11 +411,11 @@ calculate_kalman_gain <- function(sigma, G, R){
 }
 
 
-#------------------------------------------------------------------------------- 
+# =============================================================================== 
 #
 # Kalman Smoother
 #
-#-------------------------------------------------------------------------------
+# =============================================================================== 
 kalman_smoother <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,indic_pos=0,
                             Rfunction=calc_covariance, Qfunction=calc_covariance){
   
