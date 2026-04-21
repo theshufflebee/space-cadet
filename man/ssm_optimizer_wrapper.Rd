@@ -2,40 +2,27 @@
 % Please edit documentation in R/kalman_builder.R
 \name{ssm_optimizer_wrapper}
 \alias{ssm_optimizer_wrapper}
-\title{Hybrid Optimizer Wrapper}
+\title{Multi-Step State-Space Model Optimizer Wrapper}
 \usage{
 ssm_optimizer_wrapper(
-  nb_loop = 3,
-  theta_start,
-  Y = Y,
-  X = X,
-  mu_t_builder,
-  H_builder,
-  G_builder,
-  M_builder,
-  model_spec,
-  optim_methods = c("Nelder-Mead", "nlminb")
+  ssm,
+  methods = c("Nelder-Mead", "BFGS"),
+  iters = 2,
+  start_par = NULL
 )
 }
 \arguments{
-\item{nb_loop}{Integer. Number of full refinement cycles.}
+\item{ssm}{The fully initialized SSM blueprint object.}
 
-\item{theta_start}{Numeric vector. Initial parameter guesses.}
+\item{methods}{Character vector of methods (e.g., c("Nelder-Mead", "BFGS")).}
 
-\item{Y}{Observed data.}
+\item{iters}{Number of times to cycle through the methods list.}
 
-\item{X}{Exogenous data.}
-
-\item{mu_t_builder, H_builder, G_builder, M_builder}{Matrix builder functions.}
-
-\item{model_spec}{Parameter mapping dictionary.}
-
-\item{optim_methods}{Character vector of optimization methods to cycle through.}
+\item{start_par}{Optional: unconstrained parameters from a previous run (warm start).}
 }
 \value{
-A list containing the optimized \code{params} (transformed) and the raw \code{theta}.
+A list containing the optimized parameters (economic scale), the final fit object, and the unconstrained theta.
 }
 \description{
-Refines model estimates using a multi-method optimization loop (Nelder-Mead and nlminb).
-Useful for avoiding local minima in complex likelihood surfaces.
+Multi-Step State-Space Model Optimizer Wrapper
 }

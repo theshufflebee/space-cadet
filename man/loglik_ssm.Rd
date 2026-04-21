@@ -6,34 +6,48 @@
 \usage{
 loglik_ssm(
   theta,
-  Y,
-  model_spec,
-  mu_t_builder,
-  G_builder,
-  H_builder,
-  M_builder,
-  return_full_res = FALSE
+  ssm,
+  return_full_res = FALSE,
+  diffuse_prior = T,
+  init_guess_state = NULL
 )
 }
 \arguments{
-\item{theta}{Numeric vector of parameters furnished by optimizer}
+\item{theta}{Numeric vector. Unconstrained parameters provided by the optimizer.}
 
-\item{Y}{Observed data matrix.}
+\item{ssm}{A fully initialized SSM object (blueprint) containing data, 
+parameter manifest, and matrix builder functions.}
 
-\item{model_spec}{Parameter transformation dictionary containing restrictions}
+\item{return_full_res}{Logical. If \code{TRUE}, returns the full output of 
+the Kalman Filter (states, covariances, etc.). If \code{FALSE} (default), 
+returns the negative log-likelihood scalar for optimization.}
 
-\item{mu_t_builder}{Builder function for the exogenous component matrix.}
+\item{diffuse_prior}{Logical. If \code{TRUE}, initializes the state variance 
+with a large value (10), representing high uncertainty.}
 
-\item{G_builder}{Builder function  for the measurement link matrix.}
-
-\item{H_builder}{Builder function  for the transition matrix.}
-
-\item{M_builder}{Builder function  for the measurement noise matrix.}
+\item{init_guess_state}{Numeric. Optional manual starting value for the 
+latent state \eqn{\rho_0}. Defaults to the first value of the anchor 
+variable (SPF forecast) in the observation matrix, which is in the second column}
 }
 \value{
-Numeric. The negative log-likelihood.
+If \code{return_full_res = FALSE}, a numeric scalar. If \code{TRUE}, 
+  a list containing filtered states, covariances, and the mapped parameters.
 }
 \description{
-Calculates the negative log-likelihood of a State-Space model given current parameters.
-Integrates parameter mapping, matrix building, and Kalman filtering.
+This function serves as the primary objective function for the SSM optimization. 
+It bridges the unconstrained optimizer space and the State-Space model by mapping 
+parameters, invoking matrix builders, and executing the Kalman Filter.
+}
+\details{
+The function follows a strict execution pipeline:
+\enumerate{
+  \item \bold{Mapping:} Transforms \code{theta} to economic scale using \code{param2model_gen}.
+  \item \bold{Matrix Building:} Calls the builder functions stored in \code{ssm$builders} 
+    to generate \eqn{\mu_t, G, H, M,} and \eqn{N}.
+  \item \bold{Filtering:} Runs the Kalman Filter recursion to calculate prediction 
+    errors and the log-likelihood vector.
+}
+
+For optimization, the function returns the \emph{negative} log-likelihood because 
+standard R optimizers (like \code{optimx}) are minimizers.
 }

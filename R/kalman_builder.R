@@ -3,19 +3,62 @@
 # parameter mapping for keeping them positive if needed
 # ==============================================================================
 
-#' Map Optimizer Parameters to Model Parameters
-#' @param theta Numeric vector. Unconstrained parameters from the optimizer.
-#' @param ssm The SSM Object containing the manifest.
+#' Map Optimizer Parameters to Model Parameters (Economic Scale)
+#'
+#' @description
+#' Transforms unconstrained parameters from the optimizer to their 
+#' constrained economic scale using the rules defined in the SSM manifest.
+#' This is the inverse operation of \code{model2param_gen}.
+#'
+#' @param theta Numeric vector. The unconstrained parameter values (often 
+#' produced by \code{optim} or \code{optimx}).
+#' @param ssm A structured SSM object containing a \code{manifest} list. 
+#' The manifest defines the transformation \code{rule} for each parameter.
+#'
+#' @details
+#' Optimization algorithms often work best in an unconstrained space 
+#' (\eqn{(-\infty, \infty)}). To ensure economic variables like variances 
+#' are positive or persistence is bounded, we apply the following transformations:
+#' \itemize{
+#'   \item \bold{Rule 0 (Linear/Default):} \eqn{f(\theta) = \theta}. No transformation. 
+#'   Used for parameters that can take any real value, such as Okun's Law \eqn{\beta} coefficients.
+#'   \item \bold{Rule 1 (Exponential):} \eqn{f(\theta) = \exp(\theta)}. Constrains 
+#'   the parameter to be strictly positive (\eqn{>0}). Used for measurement and process 
+#'   standard deviations (\eqn{\sigma, \xi}).
+#'   \item \bold{Rule 2 (Logistic):} \eqn{f(\theta) = \frac{1}{1 + \exp(-\theta)}}. 
+#'   Constrains the parameter between 0 and 1. Used for persistence parameters 
+#'   (\eqn{\phi}) to ensure stationarity in the State-Space model.
+#' }
+#'
+#' @return A named list of parameters on their natural economic scale, 
+#' ready to be used by the SSM matrix builders.
+#'
+#' @seealso \code{\link{model2param_gen}} for the forward transformation into 
+#' optimizer space.
+#' @export
 param2model_gen <- function(theta, ssm) {
+  
+  # Extract the manifest from the ssm object
   spec <- ssm$manifest
+  
+  # get all available parameters
   p_names <- names(spec)
+  
+  # Initialize
   out <- list()
   
   for (i in seq_along(p_names)) {
+    # Loop over each parameters and apply the given rule
+    # This takes a guess by the optimizer such as -3 and applies the selected rule
+    # variances have to be positive this is why we would apply exp()
+    # they map one  to one so at the end we just take the last and best guess
+    # from teh optimizer and apply the rule to get the true parameters
     name <- p_names[i]
     rule <- spec[[name]]$rule
     val  <- theta[i]
     
+    # Switch has a default for all non 1 or 2 here -> 0 is exactly that, therefore
+    # if there is no transformation specification it just takes the given value
     out[[name]] <- switch(as.character(rule),
                           "1" = exp(val),                    # Exponential (Variances)
                           "2" = 1 / (1 + exp(-val)),         # Logistic (AR Phi)
@@ -27,9 +70,34 @@ param2model_gen <- function(theta, ssm) {
 
 
 
-#' Map Model Parameters to Optimizer Parameters
-#' @param model_list Named list of model parameters (economic scale).
-#' @param ssm The SSM Object containing the manifest.
+#' Map Model Parameters to Optimizer Parameters (Unconstrained Scale)
+#'
+#' @description
+#' Transforms parameters from their constrained economic scale back to the 
+#' unconstrained scale used by the optimizer. This ensures that initial guesses 
+#' are correctly represented in the search space.
+#'
+#' @param model_list A named list of parameters on their natural economic scale 
+#' (e.g., standard deviations as positive numbers, persistence as values between 0 and 1).
+#' @param ssm A structured SSM object containing a \code{manifest} list. 
+#' The manifest defines the transformation \code{rule} for each parameter.
+#'
+#' @details
+#' This function applies the inverse of the transformations found in \code{param2model_gen}:
+#' \itemize{
+#'   \item \bold{Rule 0 (Linear):} \eqn{g(y) = y}. Used for unconstrained parameters like betas.
+#'   \item \bold{Rule 1 (Logarithmic):} \eqn{g(y) = \log(y)}. The inverse of \eqn{\exp(\theta)}. 
+#'   Ensures that a positive standard deviation maps to a real number.
+#'   \item \bold{Rule 2 (Logit):} \eqn{g(y) = \log\left(\frac{y}{1-y}\right)}. The inverse of the 
+#'   logistic function. Maps a parameter bounded in \eqn{(0, 1)} to the real line \eqn{(-\infty, \infty)}.
+#' }
+#'
+#' @return A numeric vector (\code{theta}) of unconstrained parameters suitable for 
+#' use in \code{optim} or \code{optimx}.
+#'
+#' @seealso \code{\link{param2model_gen}} for the forward transformation used 
+#' within the likelihood function.
+#' @export
 model2param_gen <- function(model_list, ssm) {
   spec <- ssm$manifest
   p_names <- names(spec)
@@ -40,6 +108,8 @@ model2param_gen <- function(model_list, ssm) {
     rule <- spec[[name]]$rule
     val  <- model_list[[name]]
     
+    # Switch has a default for all non 1 or 2 here -> 0 is exactly that, therefore
+    # if there is no transformation specification it just takes the given value
     theta[i] <- switch(as.character(rule),
                        "1" = log(val),
                        "2" = log(val / (1 - val)),        # Logit inverse
@@ -55,28 +125,75 @@ model2param_gen <- function(model_list, ssm) {
 
 
 #' State-Space Log-Likelihood Function
-#' @param theta Numeric vector of parameters furnished by optimizer.
-#' @param ssm The fully initialized SSM object.
-#' @param return_full_res Boolean. Return filter details or just scalar likelihood.
-loglik_ssm <- function(theta, ssm, return_full_res = FALSE) {
+#'
+#' @description
+#' This function serves as the primary objective function for the SSM optimization. 
+#' It bridges the unconstrained optimizer space and the State-Space model by mapping 
+#' parameters, invoking matrix builders, and executing the Kalman Filter.
+#'
+#' @param theta Numeric vector. Unconstrained parameters provided by the optimizer.
+#' @param ssm A fully initialized SSM object (blueprint) containing data, 
+#'   parameter manifest, and matrix builder functions.
+#' @param return_full_res Logical. If \code{TRUE}, returns the full output of 
+#'   the Kalman Filter (states, covariances, etc.). If \code{FALSE} (default), 
+#'   returns the negative log-likelihood scalar for optimization.
+#' @param diffuse_prior Logical. If \code{TRUE}, initializes the state variance 
+#'   with a large value (10), representing high uncertainty.
+#' @param init_guess_state Numeric. Optional manual starting value for the 
+#'   latent state \eqn{\rho_0}. Defaults to the first value of the anchor 
+#'   variable (SPF forecast) in the observation matrix, which is in the second column
+#'
+#' @details
+#' The function follows a strict execution pipeline:
+#' \enumerate{
+#'   \item \bold{Mapping:} Transforms \code{theta} to economic scale using \code{param2model_gen}.
+#'   \item \bold{Matrix Building:} Calls the builder functions stored in \code{ssm$builders} 
+#'     to generate \eqn{\mu_t, G, H, M,} and \eqn{N}.
+#'   \item \bold{Filtering:} Runs the Kalman Filter recursion to calculate prediction 
+#'     errors and the log-likelihood vector.
+#' }
+#' 
+#' For optimization, the function returns the \emph{negative} log-likelihood because 
+#' standard R optimizers (like \code{optimx}) are minimizers.
+#'
+#' @return If \code{return_full_res = FALSE}, a numeric scalar. If \code{TRUE}, 
+#'   a list containing filtered states, covariances, and the mapped parameters.
+#'
+#' @export
+loglik_ssm <- function(theta,
+                       ssm,
+                       return_full_res = FALSE,
+                       diffuse_prior = T,
+                       init_guess_state = NULL) {
   
-  # 1. Map Parameters (Optimizer Space -> Economic Space)
+  sig_init <- if(diffuse_prior) matrix(10, 1, 1) else matrix(0.01, 1, 1)
+  
+  rho_init <- if(is.null(init_guess_state)) {
+    ssm$data$Y[1, 2] 
+  } else {
+    init_guess_state
+  }
+  
+  # Map Parameters (Optimizer Space -> Economic Space)
   model_params <- param2model_gen(theta, ssm)
+
   
-  # 2. Execute builders using the named model_params
-  # Note: Builders now use the ssm$data internal references
+  # Build the matrices with the parameters to create the loglikelihood
+  # The builders themselves are saved in the ssm object. They are functions as
+  # they take in the parameters from the optimizer and calculate it
   mu_t <- ssm$builders$mu_t(model_params, ssm$data$X)
-  G    <- ssm$builders$G()
+  G    <- ssm$builders$G() # G is currently static
   H    <- ssm$builders$H(model_params)
   M    <- ssm$builders$M(model_params)
   N    <- ssm$builders$N(model_params) # Dynamically calculated now
   
-  # 3. Setup static components
+  # Setup static components, 
   T_len <- nrow(ssm$data$Y)
-  nu_t  <- matrix(0, T_len, 1)
+  nu_t  <- matrix(0, T_len, 1) # we have no interceptr so its just 0's
   
-  # 4. Run Kalman Filter
-  # We use the Y data stored inside the object
+  # Run Kalman Filter with the matrices
+  # The Y data is from the ssm object the X data is already in mu_t
+  # we also add initial guesses for the state and give a prior
   res <- kalman_filter(
     Y_t     = ssm$data$Y, 
     nu_t    = nu_t, 
@@ -85,12 +202,16 @@ loglik_ssm <- function(theta, ssm, return_full_res = FALSE) {
     mu_t    = mu_t, 
     G       = G, 
     M       = M, 
-    Sigma_0 = matrix(10, 1, 1), 
-    rho_0   = ssm$data$Y[1, 2] # Starting at first SPF value
+    Sigma_0 = sig_init, # Prior on variance (certainty of guess)
+    rho_0   = rho_init # default is the second value of the Y column or the anchor
   )
   
-  # 5. Output handling
+  # Output handling
+  # The optimizer only needs the loglikelihood, therefore we need that as a return
+  # If we want to run a normal estimatiion with parameters we'd like to see the full
+  # return, we specify this and we get state and all other variables
   if (return_full_res) {
+    res$param_debugs <- model_params
     return(res) 
   } else {
     # Optimizer needs a single scalar to minimize
@@ -116,17 +237,23 @@ ssm_optimizer_wrapper <- function(ssm,
                                   iters = 2, 
                                   start_par = NULL) {
   
-  # 1. Prepare Initial Parameters
+  # Prepare Initial Parameters
   if (is.null(start_par)) {
     # If no warm start, use manifest defaults
-    init_theta_econ <- sapply(ssm$manifest, function(x) x$val)
+    # sapply here simplifies the nested list -> selects val from each element in the list
+    init_theta_econ <- sapply(ssm$manifest, function(x) x$val) 
+    message("Debug for params application before transform", init_theta_econ)
     current_par_opt <- model2param_gen(init_theta_econ, ssm)
+    message("Debug for params application after transform", current_par_opt)
   } else {
     current_par_opt <- start_par
   }
   
   n_par <- length(current_par_opt)
-  message("Starting Multi-Step Optimization...")
+  
+  message("\n--- Transformed Optimizer Space (Theta) ---")
+  message(paste0(names(current_par_opt), ": ", round(current_par_opt, 4), collapse = "\n"))
+  message("Starting Optimization...")
   
   # 2. Run Optimization Loop
   # Cycles through each method for the specified number of iterations
@@ -154,6 +281,8 @@ ssm_optimizer_wrapper <- function(ssm,
   # Final mapping back to Economic Space (Named List)
   final_params_econ <- param2model_gen(current_par_opt, ssm)
   
+  message("\n--- Estimated Parameters after optimization ---")
+  print(final_params_econ)
   message("Optimization Done")
   
   return(list(
@@ -189,24 +318,30 @@ ssm_optimizer_wrapper <- function(ssm,
 #' @param forecast_start The first date to generate a forecast/parameter set for
 #' @param forecast_end End date of rolling window (optional)
 #' @param val_T1 The start date for the Kalman Filter (e.g., 2015-01-01)
-new_get_params_okun_ssm <- function(data,
-                                    forecast_start,
-                                    forecast_end = NULL,
-                                    date_col = "quarter",
-                                    val_T1 = "2015-01-01") {
+rolling_est_okun_ssm <- function(data,
+                                 forecast_start,
+                                 forecast_end = NULL,
+                                 date_col = "quarter",
+                                 val_T1 = "2015-01-01") {
   
-  # 1. Format Dates
+  # Assure correct format
   data[[date_col]] <- as.yearqtr(data[[date_col]])
+  
+  # Select the starting quarter
   start_q <- as.yearqtr(as.Date(forecast_start))
+  
+  # Sleect T = 0
   val_T1 <- as.yearqtr(as.Date(val_T1))
   
+  # Either estimate until last obs or estimate until a given date
   if(is.null(forecast_end)) {
     end_q <- max(data[[date_col]], na.rm = TRUE)
   } else {
     end_q <- as.yearqtr(as.Date(forecast_end))
   }
   
-  # Define the sequence of "Vantage Points" (Today)
+  # Define the sequence of "Vantage Points" (The end of the period on which we estimate)
+  # Is the today (end of information set) for the forecast
   forecast_dates <- data[[date_col]][data[[date_col]] >= start_q & data[[date_col]] <= end_q] 
   
   comp <- list()
@@ -217,23 +352,30 @@ new_get_params_okun_ssm <- function(data,
   
   message(sprintf("Rolling Estimation: %s to %s", start_q, end_q))
   
+  # This always estimates from val_T1 to the forecast vantage point -> today
+  # run parameter estimation on the full information set
   for (i in seq_along(forecast_dates)) {
     target_date <- forecast_dates[i]
     message("\n--- Vantage Point: ", target_date, " ---")
     
-    # 2. Slice Data available "Today"
+    # Slice Data available "Today"
     data_t <- data[data[[date_col]] <= target_date, ]
     
-    # 3. Process Exogenous (HP Filter on full available history)
+    # Process Exogenous Data
+    # HP Filter is estimated inclduing the burn in period before the start of the information set
+    
+    # Error if there ar not enough valid gdp obs 
     valid_gdp_indices <- which(!is.na(data_t$log_gdp))
     if (length(valid_gdp_indices) < 5) {
       message("Skipping ", target_date, ": Not enough GDP data points.")
       next
     }
     
+    # select GDP series
     first_obs_idx <- valid_gdp_indices[1]
     gdp_series    <- data_t$log_gdp[first_obs_idx:nrow(data_t)]
     
+    # Run filter
     hp_res    <- mFilter::hpfilter(gdp_series, freq = 1600)
     gdp_cycle <- as.numeric(hp_res$cycle)
     
@@ -247,7 +389,7 @@ new_get_params_okun_ssm <- function(data,
         gap_l1 = dplyr::lag(gap_l0, 1),
         gap_l2 = dplyr::lag(gap_l0, 2)
       ) %>%
-      # 4. Filter for Estimation Window
+      # Filter for Estimation Window
       filter(quarter >= val_T1) %>%
       filter(complete.cases(unemp_rate, spf_5y_unemp, gap_l0, gap_l1, gap_l2))
     
@@ -256,18 +398,21 @@ new_get_params_okun_ssm <- function(data,
       next
     }
     
-    # 5. Build Matrices
+    # Build Data Matrices
     Y_final <- as.matrix(processed_data[, c("unemp_rate", "spf_5y_unemp")])
     X_final <- as.matrix(processed_data[, c("gap_l0", "gap_l1", "gap_l2")])
     
     message(sprintf("Estimation range: %s to %s (%d obs)", 
                     min(processed_data$quarter), max(processed_data$quarter), nrow(processed_data)))
     
-    # 6. Initialize Blueprint
-    my_ssm_model <- initialize_my_okun_ssm(Y_final, X_final)
+    # Initialize Blueprint
+    my_ssm_model <- initialize_my_okun_ssm(Y_final,
+                                           X_final,
+                                           parameter_guesses = okun_parameter_guess)
     
-    # 7. Optimization: Multi-step wrapper with Warm Start
-    # We use Nelder-Mead and BFGS to ensure global search and local precision
+    # Optimization: Multiple estimations with Warm Start
+    # We use Nelder-Mead and BFGS that are very different for robustnes
+    # each previous result becomes guess for the next
     opt_results <- ssm_optimizer_wrapper(
       ssm       = my_ssm_model, 
       methods   = c("Nelder-Mead", "BFGS"), 
@@ -289,7 +434,7 @@ new_get_params_okun_ssm <- function(data,
     )
     
     cat("Likelihood: ", -final_states$loglik, "Parameters", current_theta)
-    cat(sprintf("[%d/%d] Estimated: %s\n", i, length(forecast_dates), as.character(target_date)))
+    cat(sprintf("\n [%d/%d] Estimated: %s\n", i, length(forecast_dates), as.character(target_date)))
   }
   
   return(comp)

@@ -54,7 +54,7 @@ in Augmented State Vectors in Quadratic Kalman Filters).}
 }
 \value{
 A list containing:
-\item{r}{Filtered variables \eqn{\rho_{t|t}} (size \eqn{T \times nr}).}
+\item{r}{Filtered states \eqn{\rho_{t|t}} (size \eqn{T \times nr}).}
 \item{Sigma_tt}{Filtered state covariance \eqn{\Sigma_{t|t}} stored as flattened vectors.}
 \item{loglik}{Scalar. Total log-likelihood of the model.}
 \item{y_tp1_t}{Forecasted observables \eqn{y_{t+1|t}}.}

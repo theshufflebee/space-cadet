@@ -117,6 +117,15 @@ ts_names <- c(
 # of the GDP Variable
 hp_filter_burn_in <- "2010-01-01"
 
-
+# --- Initial guesses for Okun ---
+# Initial parameters guess for okun model
+okun_parameter_guess <- list(
+  beta1 = -0.1,
+  beta2 = -0.1,
+  beta3 = -0.1,
+  sigma_unemp_rate = 0.01,
+  sigma_spf_5y_unemp = 0.005,
+  xi_n = 0.001
+)
 
 

@@ -2,57 +2,67 @@
 % Please edit documentation in R/ssm_forecasting.R
 \name{forecast_okun_ssm}
 \alias{forecast_okun_ssm}
-\title{This function runs the actual forecast for the okun model}
+\title{Pseudo Out-of-Sample Forecasting for Okun State-Space Model}
 \usage{
 forecast_okun_ssm(
-  params_df = okun_params_df,
+  params_df,
   date_col = "quarter",
   exog_var_col = "log_gdp",
   forecast_h = 8,
-  Y_data_df = df_okun_final,
+  Y_data_df = Y_okun,
   target_variable = "unemp_rate",
   X_data = X_okun,
-  gdp_gap_forecasts = gdp_gap_forecasts
+  gdp_gap_forecasts_input = gdp_gap_forecasts
 )
 }
 \arguments{
-\item{params_df}{a dataframe containing all necessary parameters for forecsting
-and the final state estimate}
+\item{params_df}{A dataframe containing estimated parameters for each vintage. 
+Must include \code{natural_rate}, \code{beta1}, \code{beta2}, and \code{beta3}.}
 
-\item{date_col}{the name of the date column in the data_df}
+\item{date_col}{Character. The name of the date column (default "quarter").}
 
-\item{exog_var_col}{name of the exogenous fata (gdp) column}
+\item{exog_var_col}{Character. The column name for the exogenous GDP data (default "log_gdp").}
 
-\item{forecast_h}{forecast horizon, how many quarters ahead we should forecast}
+\item{forecast_h}{Integer. The forecast horizon in quarters (default 8).}
 
-\item{Y_data_df}{the dataframe containing dependent Y observed data}
+\item{Y_data_df}{Dataframe containing observed dependent variable data (\code{unemp_rate}).}
 
-\item{target_variable}{name of the dependent variable that we want to forecast}
+\item{target_variable}{Character. The variable to be forecast (default "unemp_rate").}
 
-\item{X_data}{Independent regressors added to the data}
+\item{X_data}{Dataframe containing historical exogenous data (log GDP).}
 
-\item{gdp_gap_forecasts}{External forecasts that are used as a forecast in the external regressors}
+\item{gdp_gap_forecasts_input}{Dataframe containing external future GDP forecasts 
+used to extend the HP filter and drive the Okun cyclical component.}
 }
 \value{
-A dataframe whith the forecats of the selected target variable. The fdiagonal contains the
-true observed variables, the values below are the forecats at the column date for the rowdate
-
-The goal of the function is a forecast of the unemployment rate using an Okun model,
-where the gdp gap acts as an external regressor. This function uses as input a parameter df
-which contains estimated up to a certain horizon for a a series of dates. then the function loops over all these dates
-and runs a pseudo out of sample forecast.
-
-The difficulty in this function is the handling of the external regressors. At each date of the pseudo forecast,
-(vantage point) we have to rerun the HP filter to get the cycles we'd have had at that time. To reliably
-forecast the GDP gap we also use an forecast for the next h periods of gdp that we fuse together with the observed gdp
-and then run the filter. We also use a burn in for the HP filter. This means that the estimation window starts in 2015 for this model
-we start calculating the HP filter in 2010.
+A dataframe (Evaluation Matrix) where:
+\itemize{
+  \item \bold{Columns:} Represent the "Vantage Point" (the date the forecast was made).
+  \item \bold{Rows:} Represent the "Target Date" (the date being forecast).
+  \item \bold{Diagonal:} Contains the actual observed values known at that time.
+  \item \bold{Below Diagonal:} Contains the \eqn{h}-step ahead forecasts.
+}
 }
 \description{
-This function runs the actual forecast for the okun model
+This function performs a rolling pseudo out-of-sample forecast for the unemployment rate.
+It iterates through a series of "vantage points" (dates), recalculates the cyclical 
+GDP gap using available history and external GDP forecasts, and applies estimated 
+SSM parameters to generate a forecast path.
+}
+\details{
+\bold{The Pseudo-Real-Time Approach:}
+To mimic actual forecasting conditions, the function:
+\enumerate{
+  \item \bold{Data Fusing:} For each vintage, it combines historical GDP with 
+  external forecasts to create a "complete" series known at that vantage point.
+  \item \bold{Recalibrated Filtering:} It runs the HP filter (\eqn{\lambda = 1600}) 
+  on this fused series to derive the GDP gap. This captures how real-time estimates 
+  of the cycle change as new data arrives.
+  \item \bold{Okun Projection:} The cyclical impact is calculated as 
+  \eqn{X_t \beta} and added to the latent structural trend (\eqn{\rho_T}) 
+  following a random walk assumption for the forecast horizon.
+}
 }
 \seealso{
-[get_ssm_forecast_parameters()]
-
 [predict_ssm_path_rw()]
 }

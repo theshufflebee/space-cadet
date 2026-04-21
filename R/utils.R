@@ -30,6 +30,8 @@ try_install <- function(pkg){
   }
   stop("Failed to install '",pkg,"' from both binary and source, please install manually. Aborting")
 }
+
+
 #' Function to install missing packages from a vector
 #' 
 #' This function takes a vector of required packages as input, find those missing and installed them if necessary
@@ -272,54 +274,39 @@ format_time_series_df <- function(data,
 
 
 
-# parameter Mapper for the models
-# Theta is the parameter vector from the optimizer
-# exp_spec contains the names of the parameters and a list of the index of
-# variables which can only be positive, that get an exp transformation
-# Maps parameter to the model for optimizer
 
-param2model_gen <- function(theta, spec) {
-  
-  output <- list()
-  
-  for (i in seq_along(spec$names)) {
-    name <- spec$names[i]
-    if (i %in% spec$pos_idx) {
-      output[[name]] <- exp(theta[i])
-    } else {
-      output[[name]] <- theta[i]
-    }
-  }
-  return(output)
-}
-
-
-# This does the inverse of above function it converts models back to the 
-
-model2param_gen <- function(input_list, spec) {
-  # Create a numeric vector of the correct length
-  theta <- numeric(length(spec$names))
-  
-  for (i in seq_along(spec$names)) {
-    name <- spec$names[i]
-    val  <- input_list[[name]]
-    
-    # use the log function on values that are constrained
-    if (i %in% spec$pos_idx) {
-      theta[i] <- log(val)
-    } else {
-      theta[i] <- val
-    }
-  }
-  return(theta)
-}
-
-
-
-
-#' Convert Rolling SSM Results to Dataframe
-#' @param results_list The output from new_forecasting_okun_ssm
-#' @return A dataframe with one row per vantage point
+#' Extract Estimated Parameters and States from Rolling SSM Results
+#'
+#' @description
+#' Iterates through the results of a rolling State-Space estimation (pseudo out-of-sample)
+#' and collapses the estimated parameters and the final latent state into a single, 
+#' tidy dataframe.
+#'
+#' @param results_list A nested list, typically the output from \code{new_forecasting_okun_ssm}. 
+#'   Each element of the list must contain \code{target_date}, \code{params} (a named list of 
+#'   economic scale parameters), and \code{states} (the Kalman Filter output containing the state vector \code{r}).
+#'
+#' @details 
+#' For each vantage point (estimation window), the function:
+#' \enumerate{
+#'   \item Converts the list of mapped economic parameters (\eqn{\beta}, \eqn{\sigma}, etc.) into a row.
+#'   \item Extracts the \bold{final} estimated value of the latent state (\eqn{\rho_T}), which 
+#'   represents the Natural Rate of unemployment at that specific point in time.
+#'   \item Appends the specific \code{quarter} to identify the estimation vintage.
+#' }
+#' 
+#' This creates a "Vantage Point Dataframe" where each row represents the model's 
+#' worldview at a specific date in history.
+#'
+#' @return A \code{tibble} or \code{data.frame} containing:
+#' \item{quarter}{The date of the vantage point (estimation end date).}
+#' \item{natural_rate}{The final filtered estimate of the structural trend (\eqn{\rho_T}).}
+#' \item{...}{All estimated model parameters (e.g., beta1, beta2, sigma_unemp_rate).}
+#'
+#' @seealso \code{\link{loglik_ssm}} for the origin of the \code{params} and \code{states} objects.
+#' @seealso [rolling_est_okun_ssm()]
+#' 
+#' @export
 extract_params_df <- function(results_list) {
   
   # Map over each date in the results list

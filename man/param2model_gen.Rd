@@ -2,25 +2,42 @@
 % Please edit documentation in R/kalman_builder.R
 \name{param2model_gen}
 \alias{param2model_gen}
-\title{Map Optimizer Parameters to Model Parameters}
+\title{Map Optimizer Parameters to Model Parameters (Economic Scale)}
 \usage{
-param2model_gen(theta, spec)
+param2model_gen(theta, ssm)
 }
 \arguments{
-\item{theta}{Numeric vector. Unconstrained parameters from the optimizer.}
+\item{theta}{Numeric vector. The unconstrained parameter values (often 
+produced by \code{optim} or \code{optimx}).}
 
-\item{spec}{List. Contains parameter names and their transformation rules.}
+\item{ssm}{A structured SSM object containing a \code{manifest} list. 
+The manifest defines the transformation \code{rule} for each parameter.}
 }
 \value{
-A named list of transformed model parameters.
+A named list of parameters on their natural economic scale, 
+ready to be used by the SSM matrix builders.
 }
 \description{
-Transforms unconstrained values from the optimizer (that gives random values)
-into model-appropriate values according to parameter restictions using specified
-rules (e.g., exponential for variance or non negative parameters, or logistic
-for persistence that are between 0 and 1). These are then transformed and plugged
-into the matrix functions
+Transforms unconstrained parameters from the optimizer to their 
+constrained economic scale using the rules defined in the SSM manifest.
+This is the inverse operation of \code{model2param_gen}.
+}
+\details{
+Optimization algorithms often work best in an unconstrained space 
+(\eqn{(-\infty, \infty)}). To ensure economic variables like variances 
+are positive or persistence is bounded, we apply the following transformations:
+\itemize{
+  \item \bold{Rule 0 (Linear/Default):} \eqn{f(\theta) = \theta}. No transformation. 
+  Used for parameters that can take any real value, such as Okun's Law \eqn{\beta} coefficients.
+  \item \bold{Rule 1 (Exponential):} \eqn{f(\theta) = \exp(\theta)}. Constrains 
+  the parameter to be strictly positive (\eqn{>0}). Used for measurement and process 
+  standard deviations (\eqn{\sigma, \xi}).
+  \item \bold{Rule 2 (Logistic):} \eqn{f(\theta) = \frac{1}{1 + \exp(-\theta)}}. 
+  Constrains the parameter between 0 and 1. Used for persistence parameters 
+  (\eqn{\phi}) to ensure stationarity in the State-Space model.
+}
 }
 \seealso{
-[model2param_gen()]
+\code{\link{model2param_gen}} for the forward transformation into 
+optimizer space.
 }
