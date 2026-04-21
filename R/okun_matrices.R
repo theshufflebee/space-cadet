@@ -76,7 +76,7 @@ build_G <- function() {
 #' Build the M Matrix (Measurement Noise Covariance)
 #'
 #' @description
-#' Constructs the diagonal variance-covariance matrix \eqn{M M'} for the 
+#' Constructs the diagonal standard deviat8ion matrix \eqn{M} for the 
 #' measurement noise \eqn{\varepsilon_t}:
 #' \deqn{y_t = \dots + M\varepsilon_t, \quad \varepsilon_t \sim N(0, I)}
 #'
@@ -88,7 +88,7 @@ build_G <- function() {
 #' diagonal. This ensures the covariance structure is positive semi-definite.
 #'
 #' @return A \eqn{2 \times 2} diagonal matrix \eqn{M} where 
-#' \eqn{M_{ii} = \sigma_i^2}.
+#' \eqn{M_{ii} = \sigma_i}.
 build_M <- function(model_params) {
   
   # 1. Dynamically identify all measurement noise parameters
@@ -107,7 +107,7 @@ build_M <- function(model_params) {
   
   # 3. Create diagonal matrix of variances (SD squared)
   # diag() handles the dimensions based on the length of sigmas
-  M <- diag(sigmas^2, nrow = ny, ncol = ny)
+  M <- diag(sigmas, nrow = ny, ncol = ny)
   
   # Optional: Set row/colnames for easier debugging
   colnames(M) <- rownames(M) <- p_names
@@ -118,7 +118,7 @@ build_M <- function(model_params) {
 #' Build the N Matrix (Process Noise Covariance)
 #'
 #' @description
-#' Constructs the covariance matrix for the state innovation \eqn{\xi_t} 
+#' Constructs the standard deviaton matrix for the state innovation \eqn{\xi_t} 
 #' (the variance of the Natural Rate shocks):
 #' \deqn{\rho_t = \dots + N\xi_t, \quad \xi_t \sim N(0, I)}
 #'
@@ -127,14 +127,14 @@ build_M <- function(model_params) {
 #' @param default_sig_xi Numeric. The default standard deviation if no 
 #' parameter is estimated. Default is 0.01 (variance of 0.0001).
 #'
-#' @return A \eqn{1 \times 1} matrix representing the process noise variance 
-#' \eqn{\xi_n^2}.
-build_N <- function(model_params, default_sig_xi = 0.01) {
+#' @return A \eqn{1 \times 1} matrix representing the process noise sd 
+#' \eqn{\xi_n}.
+build_N <- function(model_params, default_sig_xi = 0.001) {
   
   # Check if a specific state sigma exists that is being estimated.
   # otherwise default to sd 0.01 and therefore variance 0.0001
   xi_n <- if(!is.null(model_params$xi_n)) model_params$xi_n else default_sig_xi
-  matrix(xi_n^2, 1, 1)
+  matrix(xi_n, 1, 1)
 }
 
 
