@@ -59,10 +59,13 @@ source(here("scripts", "03_transform_data.R"))
 #------------------------------------------------------------------------------
 # 4. Run Okun Model
 #------------------------------------------------------------------------------
-source(here("scripts", "04_unemployment_forecasts.R"))
+# source(here("scripts", "04_unemployment_forecasts.R"))
 
 
-
+#------------------------------------------------------------------------------
+# 5. Run Phillips Model
+#------------------------------------------------------------------------------
+source(here("scripts", "05_inflation_forecasts.R"))
 
 
 

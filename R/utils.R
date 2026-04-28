@@ -334,5 +334,3 @@ extract_params_df <- function(results_list) {
   return(params_df)
 }
 
-
-

@@ -46,6 +46,8 @@ X_final <- as.matrix(df_okun_final[, c("y_gap_l0", "y_gap_l1", "y_gap_l2")])
 
 # ------------------------------------------------------------------------------
 
+okun_params_df <- okun_params_df_new
+
 # Extract the latest parameters from the params df containing all param estimation
 final_theta <- okun_params_df %>% filter(quarter == max(quarter))
 

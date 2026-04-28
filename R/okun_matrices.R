@@ -39,6 +39,8 @@ build_mu_t <- function(model_params, X) {
   return(cbind(impact, rep(0, nrow(X))))
 }
 
+
+
 #' Build the H Matrix (State Transition)
 #'
 #' @description

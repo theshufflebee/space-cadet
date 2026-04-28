@@ -41,6 +41,12 @@ gb_json  <- file.path(raw_path, "gov_bonds_metadata.json")
 reer_csv   <- file.path(raw_path, "reer_ppi_eu.csv")
 reer_json  <- file.path(raw_path, "reer_ppi_eu_metadata.json")
 
+ex_eur_av_csv  <- file.path(raw_path, "ex_eur_av.csv")
+ex_eur_av_json  <- file.path(raw_path, "ex_eur_av_metadata.csv")
+
+ex_eur_eom_csv  <- file.path(raw_path, "ex_eur_eom.csv")
+ex_eur_eom_json  <- file.path(raw_path, "ex_eur_eom_metadata.csv")
+
 ### KOF Data
 kof_master <- file.path(raw_path, "kof_consensus_master.csv")
 kof_data_key <- "kof_consensus_forecast_mean"
@@ -75,7 +81,7 @@ to_date <- format(Sys.Date(), "%Y-%m")
 
 # Set True if you want to re-download Data
 # If there is no data, API gets called automatically
-do_api_call <- TRUE
+do_api_call <- FALSE
 
 if (do_api_call) {
   message("do_api_call set to TRUE. Redownloading all files")
@@ -108,7 +114,11 @@ ts_names <- c(
   "kof_5y_unemp", 
   "kof_5y_cpi",
   "kof_3m_interest",
-  "kof_12m_interest"
+  "kof_12m_interest",
+  "ex_av_ts",
+  "ex_eom_ts", 
+  "eu_ppi_ts",
+  "ppi_ch_ts"
 )
 
 # Okun Model Configuration settings
@@ -128,3 +138,8 @@ okun_parameter_guess <- list(
 )
 
 # xi_n = 0.001
+
+
+# FOr model 2 the SNB data is released with a year delay -> more like 3q due to late release of all other data
+SNB_REER_DELAY <- 3
+model_philips_burn_in <- "2010 Q1"

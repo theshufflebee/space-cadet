@@ -15,6 +15,10 @@ gb_5y_ts <- snb_api_data_to_ts(gb_data, "5J", "5y_bond")
 
 gb_10y_ts <- snb_api_data_to_ts(gb_data, "10J", "10y_bond")
 
+ex_av_ts <- format_time_series_df(ex_av_raw, "Date", "Value",  "ex_av", "%Y-%m")
+
+ex_eom_ts  <- format_time_series_df(ex_eom_raw, "Date", "Value",  "ex_eom", "%Y-%m")
+
 
 
 # REER Data does not need that step since it is only one TS in the download
@@ -39,6 +43,32 @@ reer_eu_ppi_ts <- format_time_series_df(reer_ym, "date_ym", "last_value", "reer_
 
 # CPI
 cpi_ts <- format_time_series_df(cpi_raw, "Datum / Date", "38687", "cpi", "%Y-%m-%d")
+
+# PPI
+
+ppi_raw <- read_excel(ppi_csv, sheet = 1, skip = 3)
+
+
+# Extract and Clean
+ppi_ch_raw <- read_excel(ppi_csv, skip = 6, sheet = 1) 
+
+
+library(readxl)
+library(dplyr)
+
+
+# 2. Process step-by-step
+ppi_ch_clean <- ppi_ch_raw %>%
+  select(
+    raw_date = "Datum",
+    values  = "Dez 2020 = 100"
+  ) %>%
+  mutate(
+    date = as.Date(as.numeric(raw_date), origin = "1899-12-30")
+  )
+
+
+ppi_ch_ts <- format_time_series_df(ppi_ch_clean, "date", "values", "ppi_ch", "%Y-%m-%d" )
 
 # Unemployment
 unemployment <- unemployment_raw %>%
@@ -94,6 +124,14 @@ kof_3m_interest <- format_time_series_df(kof_spf_df, "date", kof_cols_to_keep[4]
 kof_12m_interest <- format_time_series_df(kof_spf_df, "date", kof_cols_to_keep[5], "12m_interest_forecast", "%b %Y")
 
 
+# --- EUROSTAT Data ---
+eu_ppi_raw <-read_csv(file.path(raw_path, "eu_ppi_raw.csv")) 
+
+
+eu_ppi_ts <- format_time_series_df(eu_ppi_raw, "date", "ppi_eur", "ppi_eur", "%Y-%m-%d")
+
+
+
 #########################
 # Build Master df
 #########################
@@ -110,5 +148,6 @@ master_df <- ts_names %>%
   arrange(date)
 
 write_csv(master_df, "data/master.csv")
+
 
 message("Data formatting done")

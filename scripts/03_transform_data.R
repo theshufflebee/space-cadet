@@ -25,6 +25,27 @@ master_df$unemp_rate <- master_df$unemployment / (master_df$unemployment + maste
 master_df$spf_5y_unemp <- master_df$`5y_unemp_forecast` / 100
 
 
+# move out later
+base_date <- "2020-12-01"
+# Also maybe need to download other CPI data
+
+master_df <- master_df %>%
+  arrange(date) %>%
+  mutate(
+    # Rebase Swiss PPI (PCH) so Dec 2020 = 100
+    # ppi_ch represents Swiss CPI column
+    ppi_ch_idx = (ppi_ch / ppi_ch[date == base_date]) * 100,
+    
+    # Step B: Rebase Euro PPI (PEUR) so Dec 2020 = 100
+    ppi_eur_idx = (ppi_eur / ppi_eur[date == base_date]) * 100,
+    
+    # Step C: Calculate REER_CREA
+    # Formula: St * (PCH / PEUR)
+    # Using 'ex_eom' as St (ensure it is EUR per 1 CHF)
+    REER_CREA = ex_eom * (ppi_ch_idx / ppi_eur_idx)
+  )
+
+
 # --- Transform df to quarterly
 
 # Most of the models need quarterly data. Therefore we transofrm the df to quarterly
@@ -33,14 +54,26 @@ master_df$spf_5y_unemp <- master_df$`5y_unemp_forecast` / 100
 # We use mean over 3 months comprising a quarter
 # when the data is quarterly we have the na.rm = TRUE, which in that case will take the
 # mean of the only value that is present qhich is just the value itself
+
 master_quarterly <- master_df %>%
   arrange(date) %>%
-  mutate(quarter = yearqtr(date)) %>% # add quarter column
-  group_by(quarter) %>% # then group all data in same quarter together
+  mutate(quarter = yearqtr(date)) %>%
+  group_by(quarter) %>%
   summarise(
-    across(where(is.numeric), ~mean(.x, na.rm = TRUE)), # mean logic
+    # Average all numeric columns except the end of month exchange rate
+    across(where(is.numeric) & !c(ex_eom, REER_CREA), ~mean(.x, na.rm = TRUE)),
+    
+    # Grab the last actual observation for the exchange rate -> end of quarter
+    REER_CREA = last(na.omit(REER_CREA)),
+    ex_eoq = last(na.omit(ex_eom)),
+    
     .groups = "drop"
   )
+
+
+# Otherwise there are NaN and NA values depending on column -> makes all NA
+master_quarterly <- master_quarterly %>%
+  mutate(across(where(is.numeric), ~ifelse(is.nan(.x), NA, .x)))
 
 
 # ---  GDP Transofrmations ---
@@ -126,5 +159,37 @@ X_okun <- master_okun_model_long %>%
 
 message("Okun Data Formatting Done")
 
+
+
+# Here we extract the specific data series that are needed for each model
+
+
+# =================================
+# Data Extraction for Philips Curve Model
+# =================================
+
+# All necessary variables for the model
+
+# Note: As the GDP Gap depends on the horizon it needs to be recalculated for
+# each pseudo forecast. Therefore we only select log gdp
+master_philips <- master_quarterly %>%
+  select(
+    quarter,
+    `5y_cpi_forecast`,
+    cpi,
+    reer_eu_ppi,
+    gdp,
+    log_gdp,
+    ex_av,
+    ex_eoq,
+    ppi_eur_idx,
+    ppi_ch_idx,
+    REER_CREA
+  )
+
+
+
+
+message("Philips Data Formatting Done")
 
 
