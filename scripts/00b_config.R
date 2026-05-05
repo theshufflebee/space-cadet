@@ -17,8 +17,6 @@ source(here("R", "okun_matrices.R"))
 source(here("R", "philips_matrices.R"))
 source(here("R", "arma_forecasting.R"))
 
-
-       
 # ----------------------------------------------------------
 # Data Config Section
 # ----------------------------------------------------------
@@ -123,6 +121,16 @@ ts_names <- c(
   "ppi_ch_ts"
 )
 
+
+################################################################################
+#Forecasting Settings
+################################################################################
+
+# ---  General Settings ---
+forecast_starting_date <- as.yearqtr("2024 Q3")
+
+run_estimation <- TRUE
+  
 # Okun Model Configuration settings
 
 # We run the HP filter to estimate the gap. this determines the first observation

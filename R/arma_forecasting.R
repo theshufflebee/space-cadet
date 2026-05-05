@@ -4,54 +4,81 @@
 #
 ################################################################################
 
-# library(forecast)
-# library(dplyr)
-# library(lubridate)
 
-#' Generate a single h-step forecast for a rolling window
+#' Generate a single h-step ARMA forecast for a rolling window
+#'
+#' Estimates an ARIMA model from a dataset with a data and a date column to a
+#' specific time origin and returns forecast. The data doesn't need to be transformed
+#' and prepared before running the function, i.e logs and differentiation gets handled in
+#' the function (logs) and by the auto arima (diff). Only works on quarterly data.
+#' 
+#' @details
+#' The function performs a log-transformation of the input data before estimation:
+#' 
+#' The ARIMA model is selected automatically and model accounts for non-stationarity
+#' through automatic differencing by the auto.arima function
+#' 
+#' Forecasts are converted back to levels using the exponential function:
+#'
+#' @param current_T The forecast origin date (as a `yearqtr` or character string).
+#' @param T_0 The start date for the training sample (default is "2000 Q1").
+#' @param h Integer. The number of quarters to forecast ahead (default is 8).
+#' @param data A dataframe or tibble containing the time series.
+#' @param data_col Character. The name of the column to be forecasted.
+#' @param date_col Character. The name of the date column (default is "quarter").
+#'
+#' @return A tibble with `origin_date`, `forecast_date`, `h_step`, and `predicted_value`. 
+#' Returns `NULL` if estimation fails or data is insufficient.
+#'
+#' @import tidyverse
+#' @importFrom zoo as.yearqtr
+#' @importFrom forecast auto.arima forecast
+#'
+#' @export
 get_arma_forecast <- function(current_T, T_0 = "2000 Q1", h = 8, data, data_col, date_col = "quarter") {
   
   # Ensure current_T is a yearqtr object
   current_T <- as.yearqtr(current_T)
   
-  # 1. Filter data from start (T_0) until current T
-  train_data <- data %>%
+  # Filter data from start (T_0) until current T / vantage point
+  # The .data allows to access date_col
+  raw_series <- data %>%
     filter(.data[[date_col]] <= current_T) %>%
     filter(.data[[date_col]] >= as.yearqtr(T_0)) %>%
     arrange(.data[[date_col]]) %>%
     pull(.data[[data_col]])
   
-  message("Train Data ARMA Forecast")
-  print(train_data)
+  log_raw_series <- log(raw_series)
   
-  # 2. Check for enough data (24 quarters = 6 years)
-  n_obs <- length(na.omit(train_data))
+  # Check for enough data (24 quarters = 6 years)
+  n_obs <- length(na.omit(log_raw_series))
   if (n_obs < 24) {
     warning(paste("Insufficient data for", data_col, ": only", n_obs, "obs found."))
     return(NULL)
   }
   
-  # 3. Fit ARIMA on log levels
+  # Fit ARIMA
   # auto.arima detects if the series needs differencing (I(1))
   fit <- tryCatch({
-    auto.arima(log(train_data), seasonal = FALSE)
+    auto.arima(log_raw_series, seasonal = FALSE)
   }, error = function(e) {
     warning(paste("auto.arima failed for", data_col, ":", e$message))
     return(NULL)
   })
   
+  # Second debug / warning message
   if (is.null(fit)) {
     message("ARIMA FIT IS NULLL")
     return(NULL)
   }
   
-  # 4. Forecast h steps ahead (h is quarters here)
+  # Forecast h steps ahead
   fc <- forecast(fit, h = h)
   
-  # 5. Convert LOG forecasts back to LEVELS
+  # Convert log forecasts back to levels
   fc_levels <- exp(fc$mean)
   
-  # 6. Create QUARTERLY dates for the forecast
+  # Create quarterly dates for the forecast
   # In zoo, 1 unit = 1 year, so 1/4 = 1 quarter
   fc_dates <- seq(current_T + 1/4, by = 1/4, length.out = h)
   
@@ -61,6 +88,7 @@ get_arma_forecast <- function(current_T, T_0 = "2000 Q1", h = 8, data, data_col,
     forecast_date = as.yearqtr(fc_dates),
     h_step = 1:h,
     predicted_value = as.numeric(fc_levels)
+
   ))
 }
 
@@ -68,43 +96,78 @@ get_arma_forecast <- function(current_T, T_0 = "2000 Q1", h = 8, data, data_col,
 
 #' Forecast REER using Component ARMA and Random Walk
 #' 
-#' @param current_T The origin date (yearqtr)
-#' @param h Horizon (quarters)
-#' @param data Your master quarterly dataframe
-#' @return A tibble with forecasted REER_CREA
+#' @description
+#' This function generates a forecast for the Real Effective Exchange Rate (REER) 
+#' by decomposing it into its constituent parts: the domestic Producer Price Index (PPI), 
+#' the foreign (Euro Area) PPI, and the nominal exchange rate. 
+#' 
+#' @details
+#' The forecast assumes that the nominal exchange rate follows a Random Walk (RW), 
+#' while the price indices follow independent ARMA processes. The REER forecast is 
+#' constructed using the following identity:
+#' 
+#' \deqn{REER_{T+h} = S_{T} \times \left( \frac{PPI^{CH}_{T+h}}{PPI^{EUR}_{T+h}} \right)}
+#' 
+#' Where:
+#' \itemize{
+#'   \item \eqn{S_{T}} is the last observed nominal exchange rate (\code{ex_eoq}) at origin \eqn{T}.
+#'   \item \eqn{PPI^{CH}_{T+h}} is the \eqn{h}-step ahead ARMA forecast of the Swiss PPI.
+#'   \item \eqn{PPI^{EUR}_{T+h}} is the \eqn{h}-step ahead ARMA forecast of the Euro Area PPI.
+#' }
+#' 
+#' Both price index forecasts are generated via \code{\link{get_arma_forecast}}, 
+#' which applies a log-transformation and utilizes \code{forecast::auto.arima} for 
+#' optimal model selection based on unit-root testing and information criteria.
+#' 
+#' @param current_T The origin date (yearqtr object or character convertible to yearqtr).
+#' @param h Integer. The forecast horizon in quarters. Default is 8.
+#' @param data A dataframe containing \code{quarter}, \code{ppi_ch_idx}, \code{ppi_eur_idx}, 
+#' and \code{ex_eoq}.
+#' 
+#' @return A tibble containing:
+#' \itemize{
+#'   \item \code{origin_date}: The date from which the forecast was made.
+#'   \item \code{forecast_date}: The target date of the forecast.
+#'   \item \code{h_step}: The horizon step (1 to \eqn{h}).
+#'   \item \code{predicted_reer}: The reconstructed REER forecast in levels.
+#' }
+#' 
+#' @seealso 
+#' \code{\link{get_arma_forecast}} for the underlying ARMA logic.
+#' 
+#' @import tidyverse
+#' @importFrom zoo as.yearqtr
+#' @importFrom forecast auto.arima
+#' @export
 forecast_reer_components <- function(current_T, h = 8, data) {
   
   raw_data <- data
-  
-  message("Data Date COl")
-  print(head(raw_data[["quarter"]]))
-  
-  # 1. Forecast PPI Switzerland (using your existing function)
+
+  # Forecast PPI Switzerland (using your existing function)
+  # Inside arma function happens: log, and then in the auto arima
+  # there is a automatic detection of need of differentiation
   fc_ppi_ch <- get_arma_forecast(current_T = current_T,
                                  h = h,
                                  data = raw_data,
                                  data_col = "ppi_ch_idx",
                                  date_col = "quarter")
   
-  # 2. Forecast PPI Euro Area
+  # Forecast PPI Euro Area
+  # Inside arma function happens: log, and then in the auto arima
+  # there is a automatic detection of need of differentiation
   fc_ppi_eur <- get_arma_forecast(current_T = current_T,
                                   h = h,
                                   data = raw_data,
                                   data_col = "ppi_eur_idx",
                                   date_col = "quarter")
   
-  # 3. Get the last known Nominal Exchange Rate (Random Walk Assumption)
+  # Get the last known Nominal Exchange Rate
+  # Model assumption is a random walk for exchange rate
   last_ex <- data %>%
     filter(quarter == as.yearqtr(current_T)) %>%
     pull(ex_eoq)
   
-  message("PPI CH Pred")
-  print(head(fc_ppi_ch))
-  
-  message("PPI EUR Pred")
-  print(head(fc_ppi_eur))
-  
-  # 4. Combine and calculate predicted REER
+  # Combine and calculate predicted REER
   # Formula: St * (PCH / PEUR)
   reer_forecast <- fc_ppi_ch %>%
     rename(ppi_ch_pred = predicted_value) %>%
@@ -189,5 +252,58 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
   
   return(series_extended)
 } 
+
+
+
+
+
+###############################################################################
+#' Splice Official SNB REER with CREA Proxy and Component Forecasts
+#' 
+#' @param vantage_quarter The date of the forecast origin.
+#' @param snb_reer_delay Number of quarters SNB data is assumed to be lagging.
+#' @param data Master quarterly dataframe.
+#' @param burn_in Start date for the series history.
+#' @return A tibble with [quarter, reer_simulated] extended h-steps ahead.
+splice_reer_series <- function(vantage_quarter = "2023 Q2",
+                               snb_reer_delay = 3,
+                               data = master_philips,
+                               burn_in = "2010 Q1") {
+  
+  vantage_q <- as.yearqtr(vantage_quarter)
+  cutoff_q  <- vantage_q - snb_reer_delay/4 
+  
+  # 1. Identify anchor values at the last known official data point
+  anchor_data <- data %>%
+    filter(quarter == cutoff_q) %>%
+    select(reer_eu_ppi, REER_CREA)
+  
+  val_snb_T  <- anchor_data$reer_eu_ppi
+  val_crea_T <- anchor_data$REER_CREA
+  
+  # 2. Build the historical segment (SNB data + Proxy for the lag period)
+  series_historical <- data %>%
+    filter(quarter >= as.yearqtr(burn_in), quarter <= vantage_q) %>%
+    mutate(
+      reer_simulated = ifelse(quarter <= cutoff_q,
+                              reer_eu_ppi,
+                              val_snb_T * (REER_CREA / val_crea_T))
+    ) %>%
+    select(quarter, reer_simulated)
+  
+  # 3. Build the forecast segment (h=8)
+  reer_fc <- forecast_reer_components(current_T = vantage_q, h = 8, data = data)
+  
+  series_forecast <- reer_fc %>% 
+    mutate(reer_simulated = val_snb_T * (predicted_reer / val_crea_T)) %>%
+    select(quarter = forecast_date, reer_simulated)
+  
+  # 4. Combine
+  series_full <- bind_rows(series_historical, series_forecast)
+  
+  return(series_full)
+}
+
+
 
 

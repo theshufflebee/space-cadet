@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-library("creaFcstEval")
+message("Starting Forecast Evaluation")
 
 Y_okun_eval <- Y_okun %>%
   select(c("quarter", "unemp_rate")) %>%

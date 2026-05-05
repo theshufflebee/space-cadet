@@ -1,6 +1,4 @@
-library(ggplot2)
-library(zoo)
-library(patchwork)
+
 
 
 #' Plots the philips results
@@ -52,14 +50,6 @@ plot_rolling_philips_results <- function(df) {
   return(combined_plot)
 }
 
-
-
-
-
-
-library(ggplot2)
-library(dplyr)
-library(tidyr)
 
 Y_data <- master_philips %>%
   select(all_of(c("quarter", "log_inflation_diff"))) %>%

@@ -29,7 +29,11 @@ required_packages <- c(
   "conflicted", # to handle conflict between packages
   "mFilter", # HP Filter
   "xts",  # Time series data handling
-  "seasonal" # for seasonality adjustments
+  "seasonal", # for seasonality adjustments
+  "ggplot2", # For plotting
+  "patchwork", # Also for Plotting and combining plots
+  "creaFcstEval", # Internal Package for forecast evaluation
+  "forecast" # For running other forecasts such as ARIMA
   
 )
 

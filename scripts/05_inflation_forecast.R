@@ -4,10 +4,6 @@
 #
 ################################################################################
 
-source(here("R", "arma_forecasting.R"))
-source(here("R", "philips_matrices.R"))
-
-library(forecast)
 
 
 # data_for_arma_forecast <- master_philips%>%
@@ -43,34 +39,40 @@ h <- 8
 
 
 
-full_philips_data_df <- as.data.frame(build_X_data_matrix_philips(T_0 = "2010 Q1"))
+# full_philips_data_df <- as.data.frame(build_X_data_matrix_philips(T_0 = "2010 Q1"))
 
 
 
 
 
+if(run_estimation) {
+  
+  message("Starting Estimation of Model 2: Inflation...")
+  
+  # Run the Rolling estimation
+  params_philips <- rolling_est_philips_ssm(data = master_philips,
+                                            forecast_start = forecast_starting_date
+  )
+  
+  #Turn Estimation output into a df
+  philips_params_df <- extract_params_df(params_philips)
+  
+  # Save the df
+  write_csv(philips_params_df, here("output/parameter_estimation/philips_params.csv"))
+  
+} else {
+  message("run_estimation set to FASE. Loading Inflation Model Parameters from Disk...")
+  philips_params_df <- read_csv(here("output/parameter_estimation/philips_params.csv"))
+}
 
-params_philips <- rolling_est_philips_ssm(data = master_philips,
-                                       forecast_start = "2022 Q3"
-)
 
-params_philips_2 <- params_philips
-
-
-philips_params_df <- extract_params_df(params_philips_2)
-
-
-
-# To use it:
-# my_results_plot <- plot_rolling_philips_results(philips_params_df)
-# print(my_results_plot)
-
-
+# Run the Forecasts based on the Params df
 forecast_df <- forecast_phillips_ssm(philips_params_df,                  
                                   date_col = "quarter",
                                   master_df = master_philips,
                                   forecast_h = 8,
                                   gdp_forecast_data = master_philips)
 
-write_csv(forecast_df, here("output/one_q_lag_inf.csv"))
+# Save the Forecasts
+write_csv(forecast_df, here("output/forecasts/inflation_forecasts.csv"))
 

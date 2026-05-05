@@ -43,28 +43,36 @@ gdp_gap_forecasts <- df_okun_final[c("quarter", "log_gdp")]
 # Estimate Parameters
 # ==============================================================================
 
-# The parameters are estimate in a rolling scheme, i.e from the T = 0 to each date
-# from first valid to last valid
-results <- rolling_est_okun_ssm(df_okun_merged, forecast_start = "2022-07-01")
 
-# Extract the parameters from the results and put them in the correctly formated dataframe
-okun_params_df_new <- extract_params_df(results)
+if(run_estimation){
+  message("Starting Estimation of Model 1: Unemployment...")
+  # The parameters are estimate in a rolling scheme, i.e from the T = 0 to each date
+  # from first valid to last valid
+  params_okun <- rolling_est_okun_ssm(df_okun_merged, forecast_start = forecast_starting_date)
+  
+  # Extract the parameters from the results and put them in the correctly formated dataframe
+  params_okun_df <- extract_params_df(params_okun)
+  
+  write_csv(params_okun_df, here("output/parameter_estimation/okun_params.csv"))
+  
+} else {
+  message("run_estimation set to FASE. Loading Unemployment Model Parameters from Disk...")
+  params_okun_df <- read_csv("output/okun_forecast_parameters.csv")
+  
+}
 
-# View the result
-print(head(okun_params_df_new))
-write_csv(okun_params_df_new, "output/okun_forecast_parameters.csv")
 
 
-okun_params_df <- read_csv("output/okun_forecast_parameters.csv")
+
 # ==============================================================================
 # Create the Actual Forecast
 # ==============================================================================
 
 # Use the estimated parameters from the last step to forecast with the forecasted output gaps
-forecast_okun_df <- forecast_okun_ssm(params_df = okun_params_df_new, Y_data_df = Y_okun)
+forecast_okun_df <- forecast_okun_ssm(params_df = params_okun_df, Y_data_df = Y_okun)
 
 # save the results
-write_csv(forecast_okun_df, "output/forecast_df.csv")
+write_csv(forecast_okun_df, "output/forecasts/unemployment_forecasts.csv")
 
 forecast_okun_df <- read_csv("output/forecast_df.csv")
 
