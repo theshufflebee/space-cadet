@@ -67,13 +67,11 @@ plot_ssm_results <- function(ssm_obj, Y_data) {
   # 2. Extract Observations
   # Pull the specific column and turn it into a numeric vector
   actual_infl <- as.numeric(Y_data$log_inflation_diff)
-  print(actual_infl)
-  message("actual inf above, fit inf below")
+
   # Based on your previous output, fitted_obs is at the top level
   fit_infl    <- as.numeric(ssm_obj$states$fitted_obs[, 1])
   
-  print(fit_infl)
-  
+
   # 3. Create an index
   idx <- 1:length(state_mean)
   

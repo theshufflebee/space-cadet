@@ -171,7 +171,7 @@ forecast_phillips_ssm <- function(params_df,
   
   dates <- parameters %>% pull(quarter)
   
-  # 2. Setup Evaluation Matrix
+  # Setup Evaluation Matrix
   # Rows: All possible dates (History + Forecast Horizon)
   # Cols: The "Vantage Point" (the date the forecast was made)
   extended_rows <- seq(min(dates), by = 0.25, length.out = length(dates) + forecast_h)
@@ -179,7 +179,7 @@ forecast_phillips_ssm <- function(params_df,
   rownames(eval_mat) <- as.character(as.yearqtr(extended_rows))
   colnames(eval_mat) <- as.character(as.yearqtr(dates))
   
-  # 3. Align Actuals (The "h=0" point for each column)
+  # Align Actuals (The "h=0" point for each column)
   # Assuming master_df contains the 'log_inflation_diff' (the target)
   for(i in seq_along(dates)) {
     vantage_str <- as.character(dates[i])

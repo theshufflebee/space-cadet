@@ -418,7 +418,6 @@ build_data_matrix_philips <- function(T_0 = "2015-01-01",
 #' @seealso \code{\link{build_M}} for measurement error covariance structures.
 #' @seealso \code{\link{build_N}} for state innovation covariance matrices.
 #' 
-#' @importFrom stats as.matrix
 #' @export
 initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
   

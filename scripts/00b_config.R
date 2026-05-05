@@ -129,8 +129,11 @@ ts_names <- c(
 forecast_starting_date <- as.yearqtr("2024 Q3")
 
 run_estimation <- TRUE
+
+h <- 8
+
   
-# Okun Model Configuration settings
+# --- Okun Model Configuration settings ---
 
 # We run the HP filter to estimate the gap. this determines the first observation
 # of the GDP Variable
@@ -151,7 +154,7 @@ okun_parameter_guess <- list(
 
 
 
-# --- Initial Guesses for Philips Model
+# --- Initial Guesses for Philips Model ---
 
 philips_parameter_guess <- list(
   beta1 = 0.4,
