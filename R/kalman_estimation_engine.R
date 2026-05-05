@@ -293,8 +293,10 @@ ssm_optimizer_wrapper <- function(ssm,
 
 
 #===============================================================================
-#
+# Rolling Estimation Functions
 #===============================================================================
+
+# Okun I can still implement the HP filter function
 
 #' Rolling Okun SSM Estimation
 #' 
@@ -482,7 +484,7 @@ rolling_est_philips_ssm <- function(data,
     target_date <- forecast_dates[i]
     message("\n--- Vantage Point: ", target_date, " ---")
     
-    data_t <- as.data.frame(build_X_data_matrix_philips(data = master_philips,
+    data_t <- as.data.frame(build_data_matrix_philips(data = master_philips,
                                                         vantage_quarter = target_date,
                                                         T_0 = val_T1))
     

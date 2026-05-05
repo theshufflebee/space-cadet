@@ -10,12 +10,11 @@
 source(here("R", "load_snb_data.R"))
 source(here("R", "load_kof_data.R"))
 source(here("R", "utils.R"))
-source(here("R", "kalman_builder.R"))
-source(here("R", "kalman_procedures.R"))
+source(here("R", "kalman_estimation_engine.R"))
+source(here("R", "kalman_implementation.R"))
 source(here("R", "ssm_forecasting.R"))
-source(here("R", "okun_matrices.R"))
-source(here("R", "philips_matrices.R"))
-source(here("R", "arma_forecasting.R"))
+source(here("R", "build_model_matrices.R"))
+source(here("R", "model_input_preparation.R"))
 
 # ----------------------------------------------------------
 # Data Config Section

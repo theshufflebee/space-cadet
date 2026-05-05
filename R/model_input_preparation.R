@@ -258,7 +258,21 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
 
 
 ###############################################################################
+# These are not yet implemented / tested
+
+
+
+
+
 #' Splice Official SNB REER with CREA Proxy and Component Forecasts
+#' 
+#' @details
+#' To run the pseudo out of sample forecasts correctly we need to take into account
+#' that the SNB REER releases with a delay of 1 year. Therefore we need to remove
+#' that timeframe from the data and replace it with a proxy. Due to teh release delay
+#' of data in reality the delay is usually only 3 quarters, as GDP for example releases
+#' in the middle of the next quarter, at whch point the SNB data is already here.
+#' To be conservative however we still use 4 quarters
 #' 
 #' @param vantage_quarter The date of the forecast origin.
 #' @param snb_reer_delay Number of quarters SNB data is assumed to be lagging.
@@ -266,14 +280,14 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
 #' @param burn_in Start date for the series history.
 #' @return A tibble with [quarter, reer_simulated] extended h-steps ahead.
 splice_reer_series <- function(vantage_quarter = "2023 Q2",
-                               snb_reer_delay = 3,
+                               snb_reer_delay = 4,
                                data = master_philips,
                                burn_in = "2010 Q1") {
   
   vantage_q <- as.yearqtr(vantage_quarter)
   cutoff_q  <- vantage_q - snb_reer_delay/4 
   
-  # 1. Identify anchor values at the last known official data point
+  # Identify anchor values at the last known official data point
   anchor_data <- data %>%
     filter(quarter == cutoff_q) %>%
     select(reer_eu_ppi, REER_CREA)
@@ -281,24 +295,27 @@ splice_reer_series <- function(vantage_quarter = "2023 Q2",
   val_snb_T  <- anchor_data$reer_eu_ppi
   val_crea_T <- anchor_data$REER_CREA
   
-  # 2. Build the historical segment (SNB data + Proxy for the lag period)
+  # Build the historical segment (SNB data until before the cutoff
+  # then the Proxy for the lag period. as the proxy is based on 3
+  # datapoints available at t, it is calculated in the data transofrmation and
+  # just gets added here
   series_historical <- data %>%
     filter(quarter >= as.yearqtr(burn_in), quarter <= vantage_q) %>%
     mutate(
-      reer_simulated = ifelse(quarter <= cutoff_q,
+      reer_simulated = ifelse(quarter < cutoff_q,
                               reer_eu_ppi,
                               val_snb_T * (REER_CREA / val_crea_T))
     ) %>%
     select(quarter, reer_simulated)
   
-  # 3. Build the forecast segment (h=8)
+  # Build the forecast segment (h=8)
   reer_fc <- forecast_reer_components(current_T = vantage_q, h = 8, data = data)
   
   series_forecast <- reer_fc %>% 
     mutate(reer_simulated = val_snb_T * (predicted_reer / val_crea_T)) %>%
     select(quarter = forecast_date, reer_simulated)
   
-  # 4. Combine
+  # Combine
   series_full <- bind_rows(series_historical, series_forecast)
   
   return(series_full)
@@ -306,4 +323,128 @@ splice_reer_series <- function(vantage_quarter = "2023 Q2",
 
 
 
+
+#' Extract Law of One Price (LOP) Gap from Spliced REER
+#' 
+#' @param spliced_df Output from splice_reer_series.
+#' @param hp_freq Frequency parameter for HP Filter (default 1600 for quarterly).
+#' @return A tibble with [quarter, reer_simulated, log_reer, trend, lop_gap].
+extract_lop_gap <- function(spliced_df, hp_freq = 1600) {
+  
+  if (!requireNamespace("mFilter", quietly = TRUE)) stop("Package 'mFilter' required.")
+  
+  res <- spliced_df %>%
+    mutate(
+      log_reer = log(reer_simulated),
+      # Extract trend component using mFilter
+      trend    = as.numeric(mFilter::hpfilter(log_reer, freq = hp_freq)$trend),
+      # Gap is Observed - Trend
+      # A positive gap = Appreciation = Downward inflation pressure
+      lop_gap  = log_reer - trend
+    )
+  
+  return(res)
+}
+
+
+
+#' Extract HP Filter Gap at a specific Vantage Point
+#' 
+#' @description
+#' This function calculates the Hodrick-Prescott (HP) cyclical component (gap) by 
+#' splicing historical observed data untilt valtage point T with forecasted extensions.
+#' This approach mitigates the "end-point bias" of the HP filter in pseudo out-of-sample 
+#' forecasting contexts, and also allows to forecast the Output gap
+#' 
+#' @details
+#' The function constructs an augmented time series \eqn{Y^*} by combining 
+#' observed data up to the vantage point \eqn{T} and forecasted values up to 
+#' \eqn{T+h}:
+#' 
+#' The HP filter is then applied to the entire augmented series to extract the 
+#' cycle Component representing the Output gap. if \code{return_forecasts = FALSE}
+#' it returns the oputput gap until the vantage point, where the forecasts serve
+#' as a stabilizer to mitigate endpoint bias, while if its is set to \code{TRUE}
+#' then it returns both historical and the full forecasts of the Output gap up
+#' to horizon \code{T+h}.
+#' 
+#' @param data A dataframe containing historical observed data.
+#' @param gdp_forecast_data A dataframe containing forecasted values for the series extension.
+#' @param vantage_q The forecast origin date (as a \code{yearqtr} or character string). 
+#' Represents "today" in the pseudo out-of-sample context.
+#' @param h Integer. The number of forecast quarters to append as an extension. Default is 8.
+#' @param gdp_col Character. The name of the column containing the series to be filtered (e.g., "log_gdp").
+#' @param date_col Character. The name of the column containing dates. Default is "quarter".
+#' @param return_forecasts Logical. If \code{FALSE} (default), returns the historical 
+#' gaps up to \eqn{T}. If \code{TRUE}, returns the filtered gaps for the forecast 
+#' horizon \eqn{T+1} to \eqn{T+h}.
+#' 
+#' @return A tibble containing the date column and the calculated \code{gap}. 
+#' Returns \code{NULL} if the fused series contains fewer than 12 observations.
+#' 
+#' @import dplyr
+#' @importFrom zoo as.yearqtr
+#' @importFrom mFilter hpfilter
+#' @importFrom tibble as_tibble
+#' 
+#' @seealso [build_data_matrix_philips()]
+#' 
+#' @export
+get_hp_gap <- function(data,
+                       gdp_forecast_data,
+                       vantage_q,
+                       h = 8,
+                       gdp_col = "log_gdp",
+                       date_col = "quarter",
+                       return_forecasts = FALSE) {
+  
+  vantage_q <- as.yearqtr(vantage_q)
+  vantage_name <- as.character(vantage_q)
+  
+  # from observed data select up until the vantage point
+  # that you have observed at that time
+  obs_data <- data %>%
+    arrange(.data[[date_col]]) %>%
+    filter(.data[[date_col]] <= vantage_q) %>%
+    select(all_of(c(date_col, gdp_col)))
+  
+  # Select the forecast data as t+h extension
+  forecast_data <- gdp_forecast_data %>%
+    arrange(.data[[date_col]]) %>%
+    filter(.data[[date_col]] > vantage_q) %>%
+    slice_head(n = h) %>%
+    select(all_of(c(date_col, gdp_col)))
+  
+  # Fuse and check for enough data
+  extended_df <- bind_rows(obs_data, forecast_data)
+  
+  # Safety check for minimum data points
+  if (nrow(extended_df) < 12) {
+    message("Not enough Data for HP Filter")
+    return(NULL)
+  }
+  
+  # Apply HP Filter
+  y <- extended_df[[gdp_col]]
+  hp_obj <- hpfilter(y, freq = 1600)
+  
+  # Build Result Dataframe
+  result_df <- extended_df %>%
+    mutate(gap = as.numeric(hp_obj$cycle))
+  
+  # return logic either for estimation ->return until vantage point t
+  if (!return_forecasts) {
+    # Standard historical gap return
+    return(result_df %>% 
+             filter(.data[[date_col]] <= vantage_q) %>% 
+             select(all_of(date_col), gap))
+  } else {
+    # return for forecasting just forecasted gdp gap
+    return(result_df %>%
+             filter(.data[[date_col]] > vantage_q) %>%
+             slice_head(n = h) %>%
+             select(all_of(date_col), gap)
+    )
+  }
+}
 
