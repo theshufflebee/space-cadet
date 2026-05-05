@@ -55,6 +55,7 @@ print(head(okun_params_df_new))
 write_csv(okun_params_df_new, "output/okun_forecast_parameters.csv")
 
 
+okun_params_df <- read_csv("output/okun_forecast_parameters.csv")
 # ==============================================================================
 # Create the Actual Forecast
 # ==============================================================================
@@ -65,12 +66,17 @@ forecast_okun_df <- forecast_okun_ssm(params_df = okun_params_df_new, Y_data_df 
 # save the results
 write_csv(forecast_okun_df, "output/forecast_df.csv")
 
+forecast_okun_df <- read_csv("output/forecast_df.csv")
+
 # Turn the Dataframe into a square where we know the true values
 # (Normal DF has h rows more than columns, we drop them by dropping dates without observations)
-last_origin <- as.yearqtr(tail(colnames(forecast_okun_df), 1))
+last_origin <- ncol(forecast_okun_df)
 
-# turn the data frame into a quadratic matrix for estimation
-okun_eval_square <- forecast_okun_df[as.yearqtr(rownames(forecast_okun_df)) <= last_origin, ]
+okun_eval_square <- forecast_okun_df[1:last_origin, 1:last_origin]
 
 # CheckThe number of rows should now equal the number of columns
 dim(okun_eval_square)
+
+
+
+

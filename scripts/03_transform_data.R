@@ -146,7 +146,8 @@ Y_okun <- master_okun_model_long %>%
   filter(variable %in% c("unemp_rate", "spf_5y_unemp")) %>%
   pivot_wider(names_from = variable,
               values_from = value)%>%
-  arrange(quarter)
+  arrange(quarter) %>%
+  mutate(`spf_5y_unemp` = `spf_5y_unemp`)
 
 # Get the Exogenous variable
 X_okun <- master_okun_model_long %>%
@@ -172,6 +173,15 @@ message("Okun Data Formatting Done")
 
 # Note: As the GDP Gap depends on the horizon it needs to be recalculated for
 # each pseudo forecast. Therefore we only select log gdp
+
+master_quarterly <- master_quarterly %>%
+  mutate(
+    cpi = as.numeric(cpi),
+    log_inflation_diff = log(cpi) - dplyr::lag(log(cpi), 4),
+    lag_log_inflation_diff = dplyr::lag(log_inflation_diff, 1),
+    `5y_cpi_forecast` = `5y_cpi_forecast` / 4
+    )
+
 master_philips <- master_quarterly %>%
   select(
     quarter,
@@ -184,7 +194,9 @@ master_philips <- master_quarterly %>%
     ex_eoq,
     ppi_eur_idx,
     ppi_ch_idx,
-    REER_CREA
+    REER_CREA,
+    log_inflation_diff,
+    lag_log_inflation_diff
   )
 
 

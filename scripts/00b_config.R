@@ -14,6 +14,8 @@ source(here("R", "kalman_builder.R"))
 source(here("R", "kalman_procedures.R"))
 source(here("R", "ssm_forecasting.R"))
 source(here("R", "okun_matrices.R"))
+source(here("R", "philips_matrices.R"))
+source(here("R", "arma_forecasting.R"))
 
 
        
@@ -134,11 +136,24 @@ okun_parameter_guess <- list(
   beta2 = -0.1,
   beta3 = -0.1,
   sigma_unemp_rate = 0.01,
-  sigma_spf_5y_unemp = 0.005
+  sigma_spf_5y_unemp = 0.005,
+  xi_n = 0.001
 )
 
 # xi_n = 0.001
 
+
+
+# --- Initial Guesses for Philips Model
+
+philips_parameter_guess <- list(
+  beta1 = 0.4,
+  beta2 = 0.2,
+  beta3 = 0.2,
+  sigma_cpi = 0.001,
+  sigma_spf = 0.001,
+  xi_n = 0.001
+)
 
 # FOr model 2 the SNB data is released with a year delay -> more like 3q due to late release of all other data
 SNB_REER_DELAY <- 3

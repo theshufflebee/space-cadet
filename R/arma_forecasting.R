@@ -4,9 +4,9 @@
 #
 ################################################################################
 
-library(forecast)
-library(dplyr)
-library(lubridate)
+# library(forecast)
+# library(dplyr)
+# library(lubridate)
 
 #' Generate a single h-step forecast for a rolling window
 get_arma_forecast <- function(current_T, T_0 = "2000 Q1", h = 8, data, data_col, date_col = "quarter") {
@@ -21,20 +21,29 @@ get_arma_forecast <- function(current_T, T_0 = "2000 Q1", h = 8, data, data_col,
     arrange(.data[[date_col]]) %>%
     pull(.data[[data_col]])
   
+  message("Train Data ARMA Forecast")
   print(train_data)
   
   # 2. Check for enough data (24 quarters = 6 years)
-  if (length(na.omit(train_data)) < 24) return(NULL)
+  n_obs <- length(na.omit(train_data))
+  if (n_obs < 24) {
+    warning(paste("Insufficient data for", data_col, ": only", n_obs, "obs found."))
+    return(NULL)
+  }
   
   # 3. Fit ARIMA on log levels
   # auto.arima detects if the series needs differencing (I(1))
   fit <- tryCatch({
     auto.arima(log(train_data), seasonal = FALSE)
   }, error = function(e) {
+    warning(paste("auto.arima failed for", data_col, ":", e$message))
     return(NULL)
   })
   
-  if (is.null(fit)) return(NULL)
+  if (is.null(fit)) {
+    message("ARIMA FIT IS NULLL")
+    return(NULL)
+  }
   
   # 4. Forecast h steps ahead (h is quarters here)
   fc <- forecast(fit, h = h)
@@ -67,6 +76,9 @@ forecast_reer_components <- function(current_T, h = 8, data) {
   
   raw_data <- data
   
+  message("Data Date COl")
+  print(head(raw_data[["quarter"]]))
+  
   # 1. Forecast PPI Switzerland (using your existing function)
   fc_ppi_ch <- get_arma_forecast(current_T = current_T,
                                  h = h,
@@ -85,6 +97,12 @@ forecast_reer_components <- function(current_T, h = 8, data) {
   last_ex <- data %>%
     filter(quarter == as.yearqtr(current_T)) %>%
     pull(ex_eoq)
+  
+  message("PPI CH Pred")
+  print(head(fc_ppi_ch))
+  
+  message("PPI EUR Pred")
+  print(head(fc_ppi_eur))
   
   # 4. Combine and calculate predicted REER
   # Formula: St * (PCH / PEUR)
@@ -166,8 +184,10 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
     mutate(
       log_reer = log(reer_simulated),
       trend    = hpfilter(log_reer, freq = 1600)$trend,
-      lop_gap  = log_reer - trend
+      lop_gap  = log_reer - trend   # inverse so a positive beta is the correct one
     )
   
   return(series_extended)
 } 
+
+

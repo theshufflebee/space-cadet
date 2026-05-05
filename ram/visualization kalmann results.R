@@ -2,6 +2,10 @@ library(dplyr)
 library(tidyr)
 library(mFilter)
 
+
+
+
+
 # Prepare GDP: Filter, ensure numeric, and remove any hidden NAs
 gdp_prepared <- master_okun_model_long %>%
   filter(variable == "gdp", quarter >= as.yearqtr(hp_filter_burn_in)) %>%
@@ -251,7 +255,7 @@ library(ggplot2)
 library(tidyr)
 library(dplyr)
 
-final_forecast_matrix <- okun_eval_df
+final_forecast_matrix <- forecast_df
 
 # 1. Transform Matrix to Long Format
 spaghetti_long <- final_forecast_matrix %>%
@@ -299,5 +303,40 @@ ggplot() +
 ggsave("output/forecast_spaghetti_plot.pdf", width = 10, height = 6)
 
 
+################################################################################
 
+plot_model_parameters <- function(df) {
+
+  # 1. Transform data to long format for plotting
+  # We exclude 'quarter' from the gathering process
+  plot_data <- df %>%
+    mutate(quarter = as.yearqtr(quarter)) %>%
+    pivot_longer(
+      cols = -quarter, 
+      names_to = "parameter", 
+      values_to = "value"
+    )
+
+  # 2. Create the plot
+  ggplot(plot_data, aes(x = quarter, y = value, color = parameter)) +
+    geom_line(size = 1) +
+    geom_point() +
+    # facet_wrap creates the 'stacked' effect
+    # scales = "free_y" is crucial as beta values and sigma values have different magnitudes
+    facet_wrap(~parameter, ncol = 1, scales = "free_y") +
+    theme_minimal() +
+    labs(
+      title = "Evolution of Model Parameters Over Recursive Windows",
+      x = "Forecast Origin (Vantage Point)",
+      y = "Estimated Value"
+    ) +
+    theme(
+      legend.position = "none",
+      strip.text = element_text(face = "bold", size = 10),
+      panel.spacing = unit(1, "lines")
+    )
+}
+
+# Example Usage:
+plot_model_parameters(philips_params_df)
 
