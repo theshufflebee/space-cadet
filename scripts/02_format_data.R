@@ -4,8 +4,22 @@
 #
 ################################################################################
 
-
+ 
 # --- Format SNB Data ---
+
+# Aggregate SNB Data by firs calculating the mean between upper and lower goal of
+# LIBOR which was target until 12.06.2019, after its the policy rate
+
+snb_policy_rate_ts <- snb_policy_rate %>%
+  pivot_wider(names_from = D0, values_from = Value) %>%
+  mutate(
+    # Use the point rate (LZ) if it exists, otherwise calculate the midpoint
+    policy_rate = if_else(is.na(LZ), (UG0 + OG0) / 2, LZ)
+  ) %>%
+  select(all_of(c("Date", "policy_rate"))) %>%
+  arrange(Date) %>% 
+  mutate(date = as.yearmon(Date))
+
 
 saron_ts <- snb_api_data_to_ts(mm_data, "SARON", "saron")
 
@@ -39,6 +53,7 @@ reer_ym <- reer_raw %>%
 reer_eu_ppi_ts <- format_time_series_df(reer_ym, "date_ym", "last_value", "reer_eu_ppi", "%b %Y")
 
 
+
 # --- Format BFS Data ---
 
 # CPI
@@ -57,7 +72,7 @@ library(readxl)
 library(dplyr)
 
 
-# 2. Process step-by-step
+# Process PPI by indexing in 2020 and formating date correlcty
 ppi_ch_clean <- ppi_ch_raw %>%
   select(
     raw_date = "Datum",

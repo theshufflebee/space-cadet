@@ -15,7 +15,7 @@
 
 # --- Unemployment Rate ---
 
-# We divide the unemployment nu,ber by the employment numbers to get the unemployment rate
+# We divide the unemployment number by the employment numbers to get the unemployment rate
 master_df$unemp_rate <- master_df$unemployment / (master_df$unemployment + master_df$employment)
 
 # The data is in the format where 5% is 0.05. The spf data is in format 5.00 for 5%
@@ -43,7 +43,9 @@ master_df <- master_df %>%
     # Formula: St * (PCH / PEUR)
     # Using 'ex_eom' as St (ensure it is EUR per 1 CHF)
     REER_CREA = ex_eom * (ppi_ch_idx / ppi_eur_idx)
-  )
+  ) %>%
+  mutate(
+    forward_rate = calculate_forward_rate(`5y_bond`, `10y_bond`))
 
 
 # --- Transform df to quarterly
@@ -61,11 +63,12 @@ master_quarterly <- master_df %>%
   group_by(quarter) %>%
   summarise(
     # Average all numeric columns except the end of month exchange rate
-    across(where(is.numeric) & !c(ex_eom, REER_CREA), ~mean(.x, na.rm = TRUE)),
+    across(where(is.numeric) & !c(ex_eom, REER_CREA, policy_rate), na.omit(~mean(.x, na.rm = TRUE))),
     
     # Grab the last actual observation for the exchange rate -> end of quarter
     REER_CREA = last(na.omit(REER_CREA)),
     ex_eoq = last(na.omit(ex_eom)),
+    snb_policy_rate = last(na.omit(policy_rate)),
     
     .groups = "drop"
   )
@@ -203,5 +206,35 @@ master_philips <- master_quarterly %>%
 
 
 message("Philips Data Formatting Done")
+
+
+master_taylor <- master_quarterly %>%
+  select(
+    quarter,
+    saron,
+    `3m_libor`,
+    `5y_bond`,
+    `10y_bond`,
+    forward_rate,
+    `3m_interest_forecast`,
+    `12m_interest_forecast`,
+    log_gdp,
+    cpi
+  )
+
+master_taylor <- master_taylor %>%
+  mutate(
+    # Ensure quarter is recognized as a yearqtr object first
+    quarter_idx = as.yearqtr(quarter),
+    
+    # Apply the transition specified in 0_technical_note.pdf
+    saron_libor_splice = if_else(
+      quarter_idx < as.yearqtr("2021 Q1"), 
+      `3m_libor`, 
+      saron
+    ),
+    saron_libor_splice = saron_libor_splice / 100
+  ) %>%
+  select(-quarter_idx) #clean up helper column
 
 

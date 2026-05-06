@@ -48,27 +48,39 @@ get_snb_data_wrapper(reer_csv,
                      D2 ="I")
 
 # Load the Data as a df
-reer_raw <- read.table(reer_csv, skip=3, header = TRUE, sep=";")
+reer_raw <- read.table(data_save_paths$raw$reer_ppi_eu_csv, skip=3, header = TRUE, sep=";")
 
 # Load the Metadata as a df
-reer_meta_data <- fromJSON(paste(readLines(reer_json, encoding = "UTF8", warn = FALSE), collapse=""), )
+reer_meta_data <- fromJSON(paste(readLines(data_save_paths$raw$reer_ppi_eu_json,
+                                           encoding = "UTF8",
+                                           warn = FALSE),
+                                 collapse=""), )
 
 # --- Exchange Rate ---
-get_snb_data_wrapper(ex_eur_av_csv, do_api_call, "devkum", "ex_eur_av",  
+get_snb_data_wrapper(data_save_paths$raw$ex_eur_av_csv, do_api_call, "devkum", "ex_eur_av",  
                      D0 = "M0",
                      D1 = "EUR1")
 
+
 # Load the Data as a df
-ex_av_raw <- read.table(ex_eur_av_csv, skip=3, header = TRUE, sep=";")
+ex_av_raw <- read.table(data_save_paths$raw$ex_eur_av_csv, skip=3, header = TRUE, sep=";")
 
 
 
-get_snb_data_wrapper(ex_eur_eom_csv, do_api_call, "devkum", "ex_eur_eom",  
+get_snb_data_wrapper(data_save_paths$raw$ex_eur_eom_csv, do_api_call, "devkum", "ex_eur_eom",  
                      D0 = "M1",
                      D1 = "EUR1")
 
 # Load the Data as a df
-ex_eom_raw <- read.table(ex_eur_eom_csv, skip=3, header = TRUE, sep=";")
+ex_eom_raw <- read.table(data_save_paths$raw$ex_eur_eom_csv, skip=3, header = TRUE, sep=";")
+
+
+#--- Policy Rate ---
+get_snb_data_wrapper(data_save_paths$raw$snb_policy_csv, do_api_call, "snboffzisa", "snb_policy_rate",  
+                     D0 = "LZ,OG0,UG0")
+
+snb_policy_rate <- read.table(data_save_paths$raw$snb_policy_csv, skip=3, header = TRUE, sep=";")
+
 
 
 # ----------------------------------------------
@@ -77,19 +89,19 @@ ex_eom_raw <- read.table(ex_eur_eom_csv, skip=3, header = TRUE, sep=";")
 
 
 # --- CPI Data ---
-bfs_wrapper(cpi_asset_id, cpi_xlsx, do_api_call = FALSE, type = "asset")
+bfs_wrapper(cpi_asset_id, data_save_paths$raw$cpi_series_xlsx, do_api_call = FALSE, type = "asset")
   
 # Load Excel: selected sheet number and skip after inspecting file
-cpi_raw <- read_excel(cpi_xlsx, sheet = 1, skip = 3) 
+cpi_raw <- read_excel(data_save_paths$raw$cpi_series_xlsx, sheet = 1, skip = 3) 
 
 
 # --- Unemployment Data ---
 # Note: BFS 'ts' files are often Excel (.xlsx), so check the extension
-bfs_wrapper(unemp_asset_id, unemp_csv, do_api_call = FALSE, type = "asset")
+bfs_wrapper(unemp_asset_id, data_save_paths$raw$unemployment_csv, do_api_call = FALSE, type = "asset")
 
 
 unemployment_raw <- read.table(
-  unemp_csv, 
+  data_save_paths$raw$unemployment_csv, 
   header = TRUE, 
   sep = ",",           
   strip.white = TRUE,   # Cleans up whitespace
@@ -99,18 +111,15 @@ unemployment_raw <- read.table(
 
 
 # --- Employment Data
-bfs_wrapper(emp_asset_id, emp_csv, do_api_call = FALSE, type = "data")
+bfs_wrapper(emp_asset_id, data_save_paths$raw$employment_csv, do_api_call = FALSE, type = "data")
 
-emp_raw <- read.csv(emp_csv)
+emp_raw <- read.csv(data_save_paths$raw$employment_csv)
 
 # --- PPI Data ---
 
-ppi_asset_id <- "36532319"
-ppi_csv <- file.path(raw_path, "ppi_ch.xlsx")
 
 
-
-bfs_wrapper(ppi_asset_id, ppi_csv, do_api_call = FALSE, type = "asset")
+bfs_wrapper(ppi_asset_id, data_save_paths$raw$ppi_csv, do_api_call = FALSE, type = "asset")
 
 
 
@@ -119,10 +128,10 @@ bfs_wrapper(ppi_asset_id, ppi_csv, do_api_call = FALSE, type = "asset")
 # ---------------------------------------
 
 download_url_csv_wrapper(url = url_gdp_csv,
-                         filepath  = gdp_csv,
+                         filepath  = data_save_paths$raw$gdp_seco_csv,
                          do_api_call = do_api_call)
   
-data_gdp_raw <- read_csv(gdp_csv)                   
+data_gdp_raw <- read_csv(data_save_paths$raw$gdp_seco_csv)                   
 
 
 
@@ -131,12 +140,15 @@ data_gdp_raw <- read_csv(gdp_csv)
 # ------------------------------------------
 
 
-download_kof_data_wrapper(file=kof_master,
+download_kof_data_wrapper(file = data_save_paths$raw$kof_master_csv,
                           kof_data_key = kof_data_key,
                           do_api_call = do_api_call)
 
 
-master_kof_consensus_forecast <- read.table(kof_master, header = TRUE, sep = ",", check.names = FALSE)
+master_kof_consensus_forecast <- read.table(data_save_paths$raw$kof_master_csv,
+                                            header = TRUE,
+                                            sep = ",",
+                                            check.names = FALSE)
 
 
 

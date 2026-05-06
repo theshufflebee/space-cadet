@@ -65,11 +65,11 @@ download_kof_data_wrapper <- function(file, kof_data_key = kof_data_key, do_api_
     success <- download_kof_data(file_path = file, dataset = kof_data_key, api_key = kof_api_key)
     
     if (success){
-      message("Successfully downloaded from KOF Package to ", file)
+      message("Successfully downloaded from KOF Package to: ", file)
     } else {
-      warning("Error in downloading ", file)
+      warning("Error in downloading: ", file)
     }
   } else {
-    message("KOF Data already exists at", file)
+    message("KOF Data already exists at: ", file)
   }
 }

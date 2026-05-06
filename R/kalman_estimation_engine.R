@@ -172,15 +172,15 @@ loglik_ssm <- function(theta,
   
   rho_init <- if(is.null(rho_guess)) {ssm$data$Y[1,2]} else {rho_guess}
   
+  
   # Map Parameters (Optimizer Space -> Economic Space)
   model_params <- param2model_gen(theta, ssm)
-
   
   # Build the matrices with the parameters to create the loglikelihood
   # The builders themselves are saved in the ssm object. They are functions as
   # they take in the parameters from the optimizer and calculate it
   mu_t <- ssm$builders$mu_t(model_params, ssm$data$X)
-  G    <- ssm$builders$G() # G is currently static
+  G    <- ssm$builders$G() # G is not static anymore need to remove before running other models
   H    <- ssm$builders$H(model_params)
   M    <- ssm$builders$M(model_params)
   N    <- ssm$builders$N(model_params) # Dynamically calculated now
@@ -264,9 +264,8 @@ ssm_optimizer_wrapper <- function(ssm,
         method  = m,
         control = list(
           maximize = FALSE, 
-          maxit    = 1000,  
-          itnmax   = 1000    
-        )
+          maxit    = 1000
+          )
       )
       
       # Update current_par_opt for the next step in the loop

@@ -53,11 +53,11 @@ if(run_estimation){
   # Extract the parameters from the results and put them in the correctly formated dataframe
   params_okun_df <- extract_params_df(params_okun)
   
-  write_csv(params_okun_df, here("output/parameter_estimation/okun_params.csv"))
+  write_csv(params_okun_df, output_save_paths$params$rolling_param_est_okun)
   
 } else {
   message("run_estimation set to FASE. Loading Unemployment Model Parameters from Disk...")
-  params_okun_df <- read_csv("output/okun_forecast_parameters.csv")
+  params_okun_df <- read_csv(output_save_paths$params$rolling_param_est_okun)
   
 }
 
@@ -72,9 +72,9 @@ if(run_estimation){
 forecast_okun_df <- forecast_okun_ssm(params_df = params_okun_df, Y_data_df = Y_okun)
 
 # save the results
-write_csv(forecast_okun_df, "output/forecasts/unemployment_forecasts.csv")
+write_csv(forecast_okun_df, output_save_paths$forecasts$forecast_df_okun)
 
-forecast_okun_df <- read_csv("output/forecast_df.csv")
+forecast_okun_df <- read_csv(output_save_paths$forecasts$forecast_df_okun)
 
 # Turn the Dataframe into a square where we know the true values
 # (Normal DF has h rows more than columns, we drop them by dropping dates without observations)

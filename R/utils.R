@@ -187,7 +187,7 @@ bfs_wrapper <- function(id, dest_file, do_api_call = FALSE, type = "data") {
     success <- TRUE
   }
   
-  return(success)
+  return(message("Download successful == ", success))
 }
 
 
@@ -333,4 +333,34 @@ extract_params_df <- function(results_list) {
   
   return(params_df)
 }
+
+
+
+
+#' Calculate 5y-5y Forward Rate
+#' 
+#' @description 
+#' Implements the forward rate formula:
+#' i_f = ((1 + i_t2) / (1 + i_t1))^(1 / (t2 - t1)) - 1
+#'
+#' @param yield_5y Numeric vector of 5-year government bond yields.
+#' @param yield_10y Numeric vector of 10-year government bond yields.
+#' @param input_as_percent Logical; if TRUE, divides yields by 100 before calculation.
+#' 
+#' @return A numeric vector containing the calculated 5y-5y forward rate.
+calculate_forward_rate <- function(yield_5y, yield_10y, input_as_percent = TRUE) {
+  
+  # Ensure data is in decimal form if provided as percentages
+  if(input_as_percent) {
+    yield_5y <- yield_5y / 100
+    yield_10y <- yield_10y / 100
+  }
+  
+  # Calculate the 5y-5y Forward Rate
+  # Based on t1 = 5 and t2 = 10, the maturity gap (t2 - t1) is 5
+  forward_rate_5y5y <- ((1 + yield_10y)^10 / (1 + yield_5y)^5)^(1 / 5) - 1
+  
+  return(forward_rate_5y5y)
+}
+
 

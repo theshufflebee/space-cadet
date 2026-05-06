@@ -329,6 +329,10 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
 project_state_forward <- function(rho, H, nu_t) {
   # nu_t_step should be the specific row for time t: nu_t[t, ]
   # Ensure rho is a column vector
+
+  
+  rho <- as.numeric(rho)  # ADDED due to Bug in third model worked fine first two
+  
   rho_pred <- (H %*% matrix(rho)) + matrix(nu_t)
   
   return(rho_pred)

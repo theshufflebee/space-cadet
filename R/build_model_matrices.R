@@ -482,3 +482,188 @@ initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
   return(ssm)
 }
 
+
+################################################################################
+#
+# Taylor Rule / Policy Rate Model Forecast
+#
+################################################################################
+
+
+# --- Matrices ---
+
+
+#' Build the H Matrix (State Transition)
+#' @param model_params A named list containing "rho_tp" for the cyclical term premium.
+#' @return A 3 x 3 matrix defining the transition dynamics.
+build_H_taylor <- function(model_params) {
+  # rho_tp determines the persistence of the cyclical term premium component
+  rho_tp <- if(!is.null(as.numeric(model_params$rho_tp))) model_params$rho_tp else 0.9
+  
+  H <- matrix(0, 3, 3)
+  H[1,1] <- 1.0     # Natural rate random walk
+  H[2,2] <- 1.0     # Trend term premium random walk
+  H[3,3] <- rho_tp  # Cyclical term premium AR(1)
+  
+  return(matrix(H))
+}
+
+
+
+#' Build the G Matrix (Factor Loadings)
+#' @param model_params A named list containing the smoothing parameter "rho".
+#' @return A 2 x 3 matrix of factor loadings.
+build_G_taylor <- function(model_params) {
+  # rho is the interest rate smoothing parameter
+  rho_val <- if(!is.null(model_params$rho)) model_params$rho else 0.8
+  
+  G <- matrix(0, 2, 3)
+  
+  # Row 1: Policy Rate loads on natural rate i_t
+  G[1,1] <- (1 - rho_val)
+  
+  # Row 2: Forward Rate loads on i_t + trend TP + cyclical TP
+  G[2,1] <- 1
+  G[2,2] <- 1
+  G[2,3] <- 1
+  
+  return(G)
+}
+
+
+#' Build the M Matrix (Measurement Noise Covariance)
+#' @description 
+#' Maps measurement noise for (1) Policy Rate and (2) Forward Rate.
+#' If sigma_fwd is missing, it defaults to 0.
+build_M_taylor <- function(model_params) {
+  
+  # 1. Extract Policy Rate noise (Required)
+  s_policy <- as.numeric(model_params$sigma_policy)
+  
+  # 2. Extract Forward Rate noise with a safety default
+  # Checks if the name exists and is not NULL
+  if ("sigma_fwd" %in% names(model_params) && !is.null(model_params$sigma_fwd)) {
+    s_fwd <- as.numeric(model_params$sigma_fwd)
+  } else {
+    s_fwd <- 0
+  }
+  
+  # 3. Construct the 2x2 matrix
+  # Dimensions must match the Y data: [Policy Rate, Forward Rate]
+  M <- matrix(0, 2, 2)
+  
+  M[1, 1] <- s_policy  # Variance of Taylor Rule residual
+  M[2, 2] <- s_fwd   # Variance of Forward Rate measurement
+  
+  return(M)
+}
+
+#' Build the N Matrix (Process Noise Covariance)
+build_N_taylor <- function(model_params, default_sig = 0.01) {
+  # Extract state innovation standard deviations
+  # xi_i: natural rate, xi_tp_trend: trend TP, xi_tp_cycl: cyclical TP
+  xi_i        <- if(!is.null(model_params$xi_i)) model_params$xi_i else default_sig
+  xi_tp_trend <- if(!is.null(model_params$xi_tp_trend)) model_params$xi_tp_trend else default_sig
+  xi_tp_cycl  <- if(!is.null(model_params$xi_tp_cycl)) model_params$xi_tp_cycl else default_sig
+  
+  N <- diag(c(xi_i, xi_tp_trend, xi_tp_cycl), 3, 3)
+  
+  return(N)
+}
+
+
+# --- The External Data Matrix ---
+build_mu_t_taylor <- function(params, X_data) {
+  
+  # Ensure parameters are numeric scalars
+  rho      <- as.numeric(params$rho)
+  gamma_pi <- as.numeric(params$gamma_pi)
+  gamma_y  <- as.numeric(params$gamma_y)
+  
+  # Ensure X_data columns are numeric vectors
+  # Using drop = FALSE or as.numeric ensures we don't have a list-column issue
+  lag_r   <- as.numeric(X_data[, "lag_rate"])
+  gdp_g   <- as.numeric(X_data[, "gdp_gap"])
+  inf_g   <- as.numeric(X_data[, "inf_gap"])
+  
+  # The Taylor Rule Exogenous Component
+  # Formula: rho*i(t-1) + (1-rho)*(gamma_y*y_gap + gamma_pi*pi_gap)
+  ex_comp <- (rho * lag_r) + 
+    ((1 - rho) * (gamma_y * gdp_g + gamma_pi * inf_g))
+  
+  # Measurement 1: Policy Rate (i_t)
+  # Measurement 2: Forward Rate (5y5y)
+  return(cbind(ex_comp, rep(0, nrow(X_data))))
+}
+
+
+#' Initialize Taylor Rule State-Space Model
+#'
+#' @description
+#' Bundles data, parameters, and builders for Model 3 as defined in 0_technical_note.pdf.
+#' Variables include the natural rate (i_bar), term premium trend (TP_bar), 
+#' and term premium cycle (TP_tilde).
+initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
+  
+  # 1. Define Required Parameters for Taylor Rule and Term Premium
+  # gamma_pi: Response to inflation gap
+  # gamma_y: Response to output gap
+  # rho: Interest rate smoothing
+  # rho_tp: Persistence of cyclical term premium
+  required_params <- c("gamma_pi", "gamma_y", "rho", "rho_tp", 
+                       "sigma_policy", "sigma_fwd", "xi_i", "xi_tp_bar", "xi_tp_cycl")
+  
+  if (!all(required_params %in% names(parameter_guesses))) {
+    stop("Missing required parameters for Taylor SSM (Model 3)!")
+  }
+  
+  # 2. Build the Manifest
+  # Rules: 0 = Linear, 1 = Exponential (>0), 2 = Logit (0 to 1)
+  manifest <- list(
+    # Taylor Rule Coefficients (Unconstrained or slightly positive)
+    gamma_pi    = list(val = parameter_guesses$gamma_pi, rule = 0),
+    gamma_y     = list(val = parameter_guesses$gamma_y,  rule = 0),
+    
+    # Smoothing and Persistence (Bounded 0-1 for stability)
+    rho         = list(val = parameter_guesses$rho,     rule = 2),
+    rho_tp      = list(val = parameter_guesses$rho_tp,  rule = 2),
+    
+    # Measurement Noise (Must be positive) 
+    # sigma_i: Policy rate noise | sigma_fwd: Forward rate noise
+    sigma_policy     = list(val = parameter_guesses$sigma_policy,   rule = 1),
+    sigma_fwd   = list(val = parameter_guesses$sigma_fwd, rule = 1),
+    
+    # State Innovation Noise (Must be positive)
+    # ibar: Natural rate | tp_bar: TP trend | tp_tilde: TP cycle
+    xi_i     = list(val = parameter_guesses$xi_i,     rule = 1),
+    xi_tp_bar   = list(val = parameter_guesses$xi_tp_bar,   rule = 1),
+    xi_tp_cycl = list(val = parameter_guesses$xi_tp_cycl, rule = 1)
+  )
+  
+  # 3. Handle Optional SPF Anchors (Optional Specifications) 
+  if ("sigma_spf3m" %in% names(parameter_guesses)) {
+    manifest$sigma_spf3m <- list(val = parameter_guesses$sigma_spf3m, rule = 1)
+  }
+  
+  if ("sigma_spf12m" %in% names(parameter_guesses)) {
+    manifest$sigma_spf12m <- list(val = parameter_guesses$sigma_spf12m, rule = 1)
+  }
+  
+  # 4. Bundle Blueprint
+  ssm <- list(
+    data = list(
+      Y = as.matrix(Y_data), # Should contain policy rate, forward rate
+      X = as.matrix(X_data)  # Should contain inf_gap, gdp_gap, and lag_rate
+    ),
+    manifest = manifest,
+    builders = list(
+      mu_t = build_mu_t_taylor, 
+      H    = build_H_taylor,   
+      G    = build_G_taylor,   
+      M    = build_M_taylor,  
+      N    = build_N_taylor   
+    )
+  )
+  
+  return(ssm)
+}

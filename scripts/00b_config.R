@@ -60,6 +60,12 @@ emp_csv <- file.path(raw_path, "employment_data.csv")
 unemp_asset_id <- "36453929" # Id from package Catalogue
 unemp_csv <- file.path(raw_path, "unemployment_canton.csv")
 
+ppi_asset_id <- "36532319"
+ppi_csv <- file.path(raw_path, "ppi_ch.xlsx")
+
+
+
+
 # SECO Data
 gdp_csv <- file.path(raw_path, "gdp.csv")
 url_gdp_csv <-
@@ -86,6 +92,81 @@ if (do_api_call) {
   message("do_api_call set to TRUE. Redownloading all files")
   
 }
+
+
+
+
+# ----------------------------------------------------------
+# Data Config Section
+# ----------------------------------------------------------
+######################################################################3
+
+# between two is a work in progress
+# Set Base Data Paths
+data_base_path <- here("data")
+raw_base_path  <- here("data", "raw")
+
+# Create folder for raw data if it doesn't exist
+if (!dir.exists(raw_base_path)) dir.create(raw_base_path, recursive = TRUE)
+
+
+# Organize Data Paths into a structured list
+# sub-lists correspond to the data processing stage (raw vs processed/master)
+data_save_paths <- list(
+  
+  # --- Raw Data: Source files directly from APIs or URLs ---
+  raw = list(
+    ## SNB Data
+    money_market_csv    = here(raw_base_path, "money_market.csv"),
+    money_market_json   = here(raw_base_path, "money_market_metadata.json"),
+    
+    gov_bonds_csv       = here(raw_base_path, "gov_bonds.csv"),
+    gov_bonds_json      = here(raw_base_path, "gov_bonds_metadata.json"),
+    
+    reer_ppi_eu_csv     = here(raw_base_path, "reer_ppi_eu.csv"),
+    reer_ppi_eu_json    = here(raw_base_path, "reer_ppi_eu_metadata.json"),
+    
+    ex_eur_av_csv       = here(raw_base_path, "ex_eur_av.csv"),
+    ex_eur_av_json      = here(raw_base_path, "ex_eur_av_metadata.json"),
+    
+    ex_eur_eom_csv      = here(raw_base_path, "ex_eur_eom.csv"),
+    ex_eur_eom_json     = here(raw_base_path, "ex_eur_eom_metadata.json"),
+    
+    snb_policy_csv     = here(raw_base_path, "snb_policy_rate.csv"),
+    snb_policy_json    = here(raw_base_path, "snb_policy_rate_metadata.json"),
+    
+    ## KOF Data
+    kof_master_csv      = here(raw_base_path, "kof_consensus_master.csv"),
+    
+    ## BFS Data
+    cpi_series_xlsx     = here(raw_base_path, "cpi_series.xlsx"),
+    employment_csv      = here(raw_base_path, "employment_data.csv"),
+    unemployment_csv    = here(raw_base_path, "unemployment_canton.csv"),
+    ppi_csv             = here(raw_base_path, "ppi_ch.xlsx"),
+    
+    ## SECO Data
+    gdp_seco_csv        = here(raw_base_path, "gdp.csv")
+  ),
+  
+  # --- Processed Data: Formatted and joined datasets ---
+  processed = list(
+    master_df_csv       = here(data_base_path, "master.csv")
+  )
+)
+
+# --- External Metadata and IDs ---
+# IDs for programmatic downloads via BFS/KOF wrappers
+data_external_ids <- list(
+  bfs_cpi        = "36483229",
+  bfs_employment = "px-x-0602000000_101",
+  bfs_unemployment = "36453929",
+  kof_forecast   = "kof_consensus_forecast_mean",
+  url_seco_gdp   = "https://www.seco.admin.ch/dam/seco/de/dokumente/Wirtschaft/Wirtschaftslage/BIP_Daten/ch_seco_gdp_csv.csv.download.csv/ch_seco_gdp.csv"
+)
+
+
+####################################################
+
 
 
 # --- Names of Data to keep ---
@@ -117,7 +198,8 @@ ts_names <- c(
   "ex_av_ts",
   "ex_eom_ts", 
   "eu_ppi_ts",
-  "ppi_ch_ts"
+  "ppi_ch_ts",
+  "snb_policy_rate_ts"
 )
 
 
@@ -157,14 +239,73 @@ okun_parameter_guess <- list(
 # --- Initial Guesses for Philips Model ---
 
 philips_parameter_guess <- list(
+  
+  # Parameters on exogenous variables
   beta1 = 0.4,
   beta2 = 0.2,
   beta3 = 0.2,
+  
+  # sd on measurement variables
   sigma_cpi = 0.001,
   sigma_spf = 0.001,
+  
+  # state innovation
   xi_n = 0.001
+)
+
+# --- Initial guesses for Taylor Rule / SNB Policy Rate ---
+# Initial parameters guess for the Taylor Rule State-Space Model
+snb_rate_parameter_guess <- list(
+  # Taylor Rule Parameters (Unconstrained)
+  gamma_pi            = 1.5,    # Inflation gap coefficient
+  gamma_y             = 0.5,    # Output gap coefficient
+  
+  # Persistence Parameters (Rule 2: Logit 0 to 1)
+  rho                 = 0.8,    # Interest rate smoothing (it = rho*i_t-1 + ...)
+  rho_tp              = 0.9,    # Persistence of cyclical term premium component
+  
+  # Measurement Noise Standard Deviations (Rule 1: Exponential > 0)
+  sigma_policy        = 0.01,   # Error in the shadow policy rate equation
+  sigma_fwd       = 0.02,   # Error in the 5y-5y forward rate identification
+  
+  # State Innovation Standard Deviations (Rule 1: Exponential > 0)
+  xi_i                = 0.005,  # Shock to the nominal natural rate (random walk)
+  xi_tp_bar         = 0.002,  # Shock to the trend term premium (random walk)
+  xi_tp_cycl          = 0.01    # Shock to the cyclical term premium (AR1)
 )
 
 # FOr model 2 the SNB data is released with a year delay -> more like 3q due to late release of all other data
 SNB_REER_DELAY <- 3
 model_philips_burn_in <- "2010 Q1"
+
+
+
+# --- Output Save paths ---
+
+# Only concerns the output folder
+
+# Define the base output directory
+output_base <- here("output")
+
+# Organize paths into a structured list 
+# The Lists inside the List correspond to teh folders inside the output folder
+# Naming: always first what then model last
+output_save_paths <- list(
+  params = list(
+    rolling_param_est_okun    = here(output_base, "parameter_estimation/okun_params.csv"),
+    rolling_param_est_philips = here(output_base, "parameter_estimation/philips_params.csv")
+  ),
+  plots = list(
+    params_okun    = here(output_base, "plots/params_okun_model.png"),
+    params_philips = here(output_base, "plots/params_philips_model.png"),
+    spaghetti_okun      = here(output_base, "plots/spaghetti_okun.png"),
+    spaghetti_philips      = here(output_base, "plots/spaghetti_philips.png")
+    
+  ),
+  forecasts = list(
+    forecast_df_okun    = here(output_base, "forecasts/unemployment_forecasts.csv"),
+    forecast_df_philips = here(output_base, "forecasts/inflation_forecasts.csv")
+  )
+)
+
+

@@ -36,16 +36,12 @@ result <- creaFcstEval::run_evaluation(
   fcst_df         = fcst_df_fixed,
   model_name      = "Okun Model",
   benchmark_model = "RW",
-  output_path     = "output/evaluation_okun.csv"
+  output_path     = "output/forecasts/forecast_evaluation_okun.csv"
 )
 
 fcst_eval_results_okun <- result$table
 
-creaFcstEval::spaghetti_plot(
-  df          = Y_okun_eval,
-  fcst_df     = fcst_df_fixed,
-  output_path = "output/spaghetti_okun.png"
-)
+
 
 ################################################################################
 
@@ -86,18 +82,14 @@ result_philips <- creaFcstEval::run_evaluation(
   fcst_df         = fcst_df_inf,
   model_name      = "Philips Model",
   benchmark_model = "RW",
-  output_path     = "output/evaluation_philips.csv"
+  output_path     = "output/forecasts/forecast_evaluation_philips.csv"
 )
 
 fcst_eval_results_philips <- result_philips$table
 
 
 
-creaFcstEval::spaghetti_plot(
-  df          = Y_philips,
-  fcst_df     = fcst_df_inf,
-  output_path = "output/spaghetti_philips.png"
-)
+
 
 
 
