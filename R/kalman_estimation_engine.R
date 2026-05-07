@@ -180,6 +180,8 @@ loglik_ssm <- function(theta,
   # Map Parameters (Optimizer Space -> Economic Space)
   model_params <- param2model_gen(theta, ssm)
   
+  print(model_params)
+  
   # Build the matrices with the parameters to create the loglikelihood
   # The builders themselves are saved in the ssm object. They are functions as
   # they take in the parameters from the optimizer and calculate it
@@ -292,7 +294,8 @@ ssm_optimizer_wrapper <- function(ssm,
           follow.on = TRUE,    # Method 2 starts where Method 1 ends
           dowarn = FALSE, 
           maximize = FALSE,
-          itnmax = 2000 ,
+          itnmax = 1000,  # For bobyqa/optimx
+          maxit = 1000,
           reltol = 1e-6,  # Stop if relative improvement is less than this
           abstol = 1e-4  # Stop if absolute improvement is less than this
         )
@@ -301,6 +304,19 @@ ssm_optimizer_wrapper <- function(ssm,
       
       # Update current_par_opt for the next step in the loop
       proposed_par <- as.numeric(fit[1, 1:n_par])
+      
+      
+      formatted_theta_opt <- paste0(
+        sprintf("  %-20s : %.4f", names(proposed_par), proposed_par), 
+        collapse = "\n")
+      
+      #Message for Debugging of parameters
+      cat("\n", rep("=", 45), "\n", sep = "")
+      cat("ESTIMATED OPTIMIZER PARAMETERS (Economic Space)\n")
+      cat(rep("-", 45), "\n", sep = "")
+      cat(formatted_theta_opt, "\n")
+      cat(rep("-", 45), "\n")
+      print(proposed_par)
       
       #Validation Check: Ensure the optimizer didn't return NA or NaN
       if (any(is.na(proposed_par)) || any(is.infinite(proposed_par))) {

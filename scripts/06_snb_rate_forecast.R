@@ -23,11 +23,12 @@ data_prep_taylor <- master_taylor %>%
   # Fix: Added comma between "lag_rate" and "gdp_gap"
   select(all_of(c("quarter", "saron_libor_splice",
                   "forward_rate", "lag_rate", "gdp_gap",
-                  "inf_gap", "yoy_inflation")))
+                  "inf_gap", "yoy_inflation", "12m_interest_forecast"))) %>%
+  filter(!is.na(`12m_interest_forecast`))
 
 
 Y_data_taylor <- data_prep_taylor %>%
-  select(all_of(c("saron_libor_splice", "forward_rate")))
+  select(all_of(c("saron_libor_splice", "12m_interest_forecast", "forward_rate")))
 
 X_data_taylor <- data_prep_taylor %>%
   select(all_of(c("lag_rate", "gdp_gap", "inf_gap")))
@@ -48,11 +49,6 @@ ssm_taylor <- initialize_taylor_ssm(Y_data = Y_data_taylor,
 output_estim <- ssm_optimizer_wrapper(ssm = ssm_taylor)
 
 
-ssm_taylor$builders$mu_t()
-
-
-print(head(Y_data_taylor
-      ))
 
 
 

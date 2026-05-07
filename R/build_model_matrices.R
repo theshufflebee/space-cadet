@@ -523,15 +523,20 @@ build_G_taylor <- function(model_params) {
   # rho is the interest rate smoothing parameter
   rho_val <- if(!is.null(model_params$rho)) model_params$rho else 0.8
   
-  G <- matrix(0, 2, 3)
+  G <- matrix(0, 3, 3)
   
   # Row 1: Policy Rate loads on natural rate i_t
   G[1,1] <- (1 - rho_val)
   
-  # Row 2: Forward Rate loads on i_t + trend TP + cyclical TP
+  # Row 2: Forward Rate loads on spf
   G[2,1] <- 1
-  G[2,2] <- 1
-  G[2,3] <- 1
+  G[2,2] <- 0
+  G[2,3] <- 0
+  
+  # Row 3: Forward Rate loads on i_t + trend TP + cyclical TP
+  G[3,1] <- 1
+  G[3,2] <- 1
+  G[3,3] <- 1
   
   return(G)
 }
@@ -545,21 +550,27 @@ build_M_taylor <- function(model_params) {
   
   # 1. Extract Policy Rate noise (Required)
   s_policy <- as.numeric(model_params$sigma_policy)
+  s_spf <- as.numeric(model_params$sigma_spf)
   
   # 2. Extract Forward Rate noise with a safety default
   # Checks if the name exists and is not NULL
   if ("sigma_fwd" %in% names(model_params) && !is.null(model_params$sigma_fwd)) {
     s_fwd <- as.numeric(model_params$sigma_fwd)
   } else {
-    s_fwd <- 1e-9
+    s_fwd <- 1e-9  # small bit of variance instead of 0 so the filter can update
+  }
+  
+  if(is.null(model_params$sigma_spf)) {
+    print("ERROR IN SPF VARIANCE")
   }
   
   # 3. Construct the 2x2 matrix
   # Dimensions must match the Y data: [Policy Rate, Forward Rate]
-  M <- matrix(0, 2, 2)
+  M <- matrix(0, 3, 3)
   
   M[1, 1] <- s_policy  # Variance of Taylor Rule residual
-  M[2, 2] <- s_fwd   # Variance of Forward Rate measurement
+  M[2, 2] <- s_spf   # Variance of Interest rate SPF measurement
+  M[3, 3] <- s_fwd   # Variance of Forward Rate measurement
   
   return(M)
 }
@@ -579,12 +590,12 @@ build_N_taylor <- function(model_params, default_sig = 0.01) {
 
 
 # --- The External Data Matrix ---
-build_mu_t_taylor <- function(params, X_data) {
+build_mu_t_taylor <- function(model_params, X_data) {
   
   # Ensure parameters are numeric scalars
-  rho      <- as.numeric(params$rho)
-  gamma_pi <- as.numeric(params$gamma_pi)
-  gamma_y  <- as.numeric(params$gamma_y)
+  rho      <- as.numeric(model_params$rho)
+  gamma_pi <- as.numeric(model_params$gamma_pi)
+  gamma_y  <- as.numeric(model_params$gamma_y)
   
   # Ensure X_data columns are numeric vectors
   # Using drop = FALSE or as.numeric ensures we don't have a list-column issue
@@ -599,7 +610,7 @@ build_mu_t_taylor <- function(params, X_data) {
   
   # Measurement 1: Policy Rate (i_t)
   # Measurement 2: Forward Rate (5y5y)
-  return(cbind(ex_comp, rep(0, nrow(X_data))))
+  return(cbind(ex_comp, rep(0, nrow(X_data)), rep(0, nrow(X_data))))
 }
 
 
@@ -617,7 +628,7 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
   # rho: Interest rate smoothing
   # rho_tp: Persistence of cyclical term premium
   required_params <- c("gamma_pi", "gamma_y", "rho", "rho_tp", 
-                       "sigma_policy", "sigma_fwd", "xi_i", "xi_tp_bar", "xi_tp_cycl")
+                       "sigma_policy", "sigma_fwd", "sigma_spf", "xi_i", "xi_tp_bar", "xi_tp_cycl")
   
   if (!all(required_params %in% names(parameter_guesses))) {
     stop("Missing required parameters for Taylor SSM (Model 3)!")
@@ -627,8 +638,8 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
   # Rules: 0 = Linear, 1 = Exponential (>0), 2 = Logit (0 to 1)
   manifest <- list(
     # Taylor Rule Coefficients (Unconstrained or slightly positive)
-    gamma_pi    = list(val = parameter_guesses$gamma_pi, rule = 0),
-    gamma_y     = list(val = parameter_guesses$gamma_y,  rule = 0),
+    gamma_pi    = list(val = parameter_guesses$gamma_pi, rule = 1),
+    gamma_y     = list(val = parameter_guesses$gamma_y,  rule = 1),
     
     # Smoothing and Persistence (Bounded 0-1 for stability)
     rho         = list(val = parameter_guesses$rho,     rule = 2),
@@ -638,6 +649,7 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
     # sigma_i: Policy rate noise | sigma_fwd: Forward rate noise
     sigma_policy     = list(val = parameter_guesses$sigma_policy,   rule = 1),
     sigma_fwd   = list(val = parameter_guesses$sigma_fwd, rule = 1),
+    sigma_spf    = list(val = parameter_guesses$sigma_spf, rule = 1),
     
     # State Innovation Noise (Must be positive)
     # ibar: Natural rate | tp_bar: TP trend | tp_tilde: TP cycle

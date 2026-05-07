@@ -257,7 +257,7 @@ philips_parameter_guess <- list(
 # Initial parameters guess for the Taylor Rule State-Space Model
 snb_rate_parameter_guess <- list(
   # Taylor Rule Parameters (Unconstrained)
-  gamma_pi            = 1.5,    # Inflation gap coefficient
+  gamma_pi            = 0.9,    # Inflation gap coefficient
   gamma_y             = 0.5,    # Output gap coefficient
   
   # Persistence Parameters (Rule 2: Logit 0 to 1)
@@ -265,13 +265,14 @@ snb_rate_parameter_guess <- list(
   rho_tp              = 0.9,    # Persistence of cyclical term premium component
   
   # Measurement Noise Standard Deviations (Rule 1: Exponential > 0)
-  sigma_policy        = 0.01,   # Error in the shadow policy rate equation
-  sigma_fwd       = 0.02,   # Error in the 5y-5y forward rate identification
+  sigma_policy        = 0.1,   # Error in the shadow policy rate equation
+  sigma_fwd           = 0.2,   # Error in the 5y-5y forward rate identification
+  sigma_spf           = 0.2,   # Error for the spf observations
   
   # State Innovation Standard Deviations (Rule 1: Exponential > 0)
-  xi_i                = 0.005,  # Shock to the nominal natural rate (random walk)
-  xi_tp_bar         = 0.002,  # Shock to the trend term premium (random walk)
-  xi_tp_cycl          = 0.01    # Shock to the cyclical term premium (AR1)
+  xi_i                = 0.2,  # Shock to the nominal natural rate (random walk)
+  xi_tp_bar         = 0.2,  # Shock to the trend term premium (random walk)
+  xi_tp_cycl          = 0.1    # Shock to the cyclical term premium (AR1)
 )
 
 # FOr model 2 the SNB data is released with a year delay -> more like 3q due to late release of all other data
