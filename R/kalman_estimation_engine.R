@@ -60,7 +60,7 @@ param2model_gen <- function(theta, ssm) {
     # Switch has a default for all non 1 or 2 here -> 0 is exactly that, therefore
     # if there is no transformation specification it just takes the given value
     out[[name]] <- switch(as.character(rule),
-                          "1" = exp(val),                    # Exponential (Variances)
+                          "1" = exp(val) + 1e-7,                    # Exponential (Variances) I sthis okay to do
                           "2" = 1 / (1 + exp(-val)),         # Logistic (AR Phi)
                           val                                # Default / Rule 0 (Betas)
     )
@@ -163,16 +163,20 @@ model2param_gen <- function(model_list, ssm) {
 loglik_ssm <- function(theta,
                        ssm,
                        return_full_res = FALSE,
-                       diffuse_prior = T,
-                       init_guess_state = NULL,
-                       rho_guess = NULL) {
+                       rho_guess = 0.1) {
   
-  sig_init <- if(diffuse_prior){
-    matrix(10, 1, 1)} else {matrix(init_guess_state, 1, 1)}
+  # Initial State Vector (rho_0)
+  # Ensure it is a 3x1 column vector for Model 3
   
-  rho_init <- if(is.null(rho_guess)) {ssm$data$Y[1,2]} else {rho_guess}
+  rho_init <- matrix(ssm$rho_guess, nrow = length(ssm$rho_guess), ncol = 1)
+
+  # Determine Number of States (nr = 3 for Model 3, others 1)
+  nr <- nrow(rho_init) 
   
-  
+  # Initial Covariance Matrix (Sigma_0)
+  # Uses a diagonal structure to represent initial uncertainty
+  sig_init <- diag(as.numeric(ssm$sigma_guess), nr)
+
   # Map Parameters (Optimizer Space -> Economic Space)
   model_params <- param2model_gen(theta, ssm)
   
@@ -180,14 +184,22 @@ loglik_ssm <- function(theta,
   # The builders themselves are saved in the ssm object. They are functions as
   # they take in the parameters from the optimizer and calculate it
   mu_t <- ssm$builders$mu_t(model_params, ssm$data$X)
-  G    <- ssm$builders$G() # G is not static anymore need to remove before running other models
+  # G    <- ssm$builders$G() # G is not static anymore need to remove before running other models
   H    <- ssm$builders$H(model_params)
   M    <- ssm$builders$M(model_params)
   N    <- ssm$builders$N(model_params) # Dynamically calculated now
   
+  args_expected <- names(formals(ssm$builders$G))
+  
+  if ("model_params" %in% args_expected) {
+    G <- ssm$builders$G(model_params)
+  } else {
+    G <- ssm$builders$G()
+  }
+  
   # Setup static components, 
   T_len <- nrow(ssm$data$Y)
-  nu_t  <- matrix(0, T_len, 1) # we have no interceptr so its just 0's
+  nu_t  <- matrix(0, T_len, nr) # we have no interceptr so its just 0's -> added to nr because needed number of states
   
   # Run Kalman Filter with the matrices
   # The Y data is from the ssm object the X data is already in mu_t
@@ -208,6 +220,9 @@ loglik_ssm <- function(theta,
   # The optimizer only needs the loglikelihood, therefore we need that as a return
   # If we want to run a normal estimatiion with parameters we'd like to see the full
   # return, we specify this and we get state and all other variables
+  
+  cat(sprintf("Log Likelihood: %.4f\n", -sum(res$loglik.vector)))
+  
   if (return_full_res) {
     res$param_debugs <- model_params
     return(res) 
@@ -231,7 +246,7 @@ loglik_ssm <- function(theta,
 #'
 #' @return A list containing the optimized parameters (economic scale), the final fit object, and the unconstrained theta.
 ssm_optimizer_wrapper <- function(ssm, 
-                                  methods = c("Nelder-Mead", "BFGS"), 
+                                  methods = c("Nelder-Mead", "bobyqa", "BFGS"), 
                                   iters = 2, 
                                   start_par = NULL) {
   
@@ -240,18 +255,28 @@ ssm_optimizer_wrapper <- function(ssm,
     # If no warm start, use manifest defaults
     # sapply here simplifies the nested list -> selects val from each element in the list
     init_theta_econ <- sapply(ssm$manifest, function(x) x$val) 
-    message("Debug for params application before transform", init_theta_econ)
+    
+    
+    param_string <- paste(names(init_theta_econ), "=", round(init_theta_econ, 4), collapse = ", ")
+    message("Debug: Economic Params (Initial): ", param_string)
+    
     current_par_opt <- model2param_gen(init_theta_econ, ssm)
-    message("Debug for params application after transform", current_par_opt)
+    
+    opt_string <- paste(names(current_par_opt), "=", round(current_par_opt, 4), collapse = ", ")
+    message("Debug: Optimizer Params (Theta): ", opt_string)
+    
   } else {
     current_par_opt <- start_par
+    
+    message("\n--- Transformed Optimizer Space (Theta) ---")
+    # This creates a "Name: Value" pair on each new line
+    formatted_list <- paste0(names(current_par_opt), ": ", round(current_par_opt, 4), collapse = "\n")
+    message(formatted_list)
   }
   
   n_par <- length(current_par_opt)
   
-  message("\n--- Transformed Optimizer Space (Theta) ---")
-  message(paste0(names(current_par_opt), ": ", round(current_par_opt, 4), collapse = "\n"))
-  message("Starting Optimization...")
+  
   
   # 2. Run Optimization Loop
   # Cycles through each method for the specified number of iterations
@@ -263,24 +288,65 @@ ssm_optimizer_wrapper <- function(ssm,
         ssm     = ssm,
         method  = m,
         control = list(
-          maximize = FALSE, 
-          maxit    = 1000
-          )
+          all.methods = FALSE, # Run them in order
+          follow.on = TRUE,    # Method 2 starts where Method 1 ends
+          dowarn = FALSE, 
+          maximize = FALSE,
+          itnmax = 2000 ,
+          reltol = 1e-6,  # Stop if relative improvement is less than this
+          abstol = 1e-4  # Stop if absolute improvement is less than this
+        )
       )
+    }
       
       # Update current_par_opt for the next step in the loop
-      current_par_opt <- as.numeric(fit[1, 1:n_par])
-      print(current_par_opt)
+      proposed_par <- as.numeric(fit[1, 1:n_par])
+      
+      #Validation Check: Ensure the optimizer didn't return NA or NaN
+      if (any(is.na(proposed_par)) || any(is.infinite(proposed_par))) {
+        
+        cat("\n!!! WARNING: Optimizer failed to converge (NA/Inf detected) !!!\n")
+        formatted_theta <- paste0(
+          sprintf("  %-20s : %.4f", names(proposed_par), proposed_par), 
+          collapse = "\n"
+        )
+        cat(formatted_theta, "\n")
+        cat(rep("-", 45), "\n")
+
+      } else {
+        
+        # 2. Success: Update current_par_opt for the next vintage
+        current_par_opt <- proposed_par
+        
+        formatted_theta <- paste0(
+          sprintf("  %-20s : %.4f", names(current_par_opt), current_par_opt), 
+          collapse = "\n"
+        )
+        cat(formatted_theta, "\n")
+        cat(rep("-", 45), "\n")
     }
   }
+  
+  
   
   # 3. Extract and Transform Results
   # Final mapping back to Economic Space (Named List)
   final_params_econ <- param2model_gen(current_par_opt, ssm)
   
-  message("\n--- Estimated Parameters after optimization ---")
-  print(final_params_econ)
-  message("Optimization Done")
+  # 1. Format the parameter names and values into a clean list
+  # This calculates the width needed to align the ":" signs
+  formatted_params <- paste0(
+    sprintf("  %-20s : %.6f", names(final_params_econ), final_params_econ), 
+    collapse = "\n"
+  )
+  
+  # 2. Construct the full message
+  cat("\n", rep("=", 45), "\n", sep = "")
+  cat("ESTIMATED ECONOMETRIC PARAMETERS (Economic Space)\n")
+  cat(rep("-", 45), "\n", sep = "")
+  cat(formatted_params, "\n")
+  cat(rep("=", 45), "\n", sep = "")
+  message("Optimization successful. Results stored.")
   
   return(list(
     params = final_params_econ, # Economic scale (Named List)
@@ -422,6 +488,12 @@ rolling_est_okun_ssm <- function(data,
     # Update current_theta for the next vantage point (Warm Start)
     current_theta <- opt_results$theta
     
+    if(any(is.na(current_theta))) {
+      message("Warning: Optimizer crashed. Resetting to manifest defaults.")
+      current_theta <- NULL
+    }
+    
+    
     # 8. Final Extraction of States
     final_states <- loglik_ssm(current_theta, my_ssm_model, return_full_res = TRUE)
     
@@ -492,7 +564,6 @@ rolling_est_philips_ssm <- function(data,
     
     
     message("FULL DATA_T")
-    print(tail(data_t))
     # Process Exogenous Data
     # HP Filter is estimated inclduing the burn in period before the start of the information set
     

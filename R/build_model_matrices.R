@@ -251,7 +251,11 @@ initialize_my_okun_ssm <- function(Y_data, X_data, parameter_guesses) {
       G    = build_G,
       M    = build_M,
       N    = build_N
-    )
+    ),
+    name = "OKUN",
+    rho_guess = c(0.1),
+    sigma_guess = c(10)
+    
   )
   
   return(ssm)
@@ -476,7 +480,11 @@ initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
       G    = build_G,
       M    = build_M,
       N    = build_N
-    )
+    ),
+    name = "PHILIPS",
+    rho_guess = c(0.1),
+    sigma_guess = c(10)
+    
   )
   
   return(ssm)
@@ -500,12 +508,10 @@ build_H_taylor <- function(model_params) {
   # rho_tp determines the persistence of the cyclical term premium component
   rho_tp <- if(!is.null(as.numeric(model_params$rho_tp))) model_params$rho_tp else 0.9
   
-  H <- matrix(0, 3, 3)
-  H[1,1] <- 1.0     # Natural rate random walk
-  H[2,2] <- 1.0     # Trend term premium random walk
+  H <- diag(3)  # Natural rate random walk // Trend term premium random walk
   H[3,3] <- rho_tp  # Cyclical term premium AR(1)
   
-  return(matrix(H))
+  return(H)
 }
 
 
@@ -545,7 +551,7 @@ build_M_taylor <- function(model_params) {
   if ("sigma_fwd" %in% names(model_params) && !is.null(model_params$sigma_fwd)) {
     s_fwd <- as.numeric(model_params$sigma_fwd)
   } else {
-    s_fwd <- 0
+    s_fwd <- 1e-9
   }
   
   # 3. Construct the 2x2 matrix
@@ -662,7 +668,10 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
       G    = build_G_taylor,   
       M    = build_M_taylor,  
       N    = build_N_taylor   
-    )
+    ),
+    name = "TAYLOR",
+    rho_guess = c(0.1, 0.1, 0.1),
+    sigma_guess = c(10)
   )
   
   return(ssm)

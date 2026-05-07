@@ -1,10 +1,8 @@
 message("Starting SNB Policy Rate Forecast")
 
+source(here("R", "kalman_implementation.R"))
 
-Y_data_taylor <- master_taylor %>%
-  select(all_of(c("quarter", "saron_libor_splice", "forward_rate")))
-
-X_data_taylor <- master_taylor %>%
+data_prep_taylor <- master_taylor %>%
   mutate(
     # 1. Output Gap: HP filter on log GDP
     gdp_gap = mFilter::hpfilter(log_gdp, freq = 1600)$cycle,
@@ -18,13 +16,27 @@ X_data_taylor <- master_taylor %>%
     # 3. Temporary Trend: HP filter 'trend' component of yoy_inflation
     # Note: Using $trend extracts the trend to subtract from the actual
     inf_gap = mFilter::hpfilter(yoy_inflation, freq = 1600)$cycle,
-
+    
     # 4. Lagged Policy Rate
     lag_rate = lag(saron_libor_splice, 1)
   ) %>%
   # Fix: Added comma between "lag_rate" and "gdp_gap"
-  select(quarter, lag_rate, gdp_gap, inf_gap, yoy_inflation)
+  select(all_of(c("quarter", "saron_libor_splice",
+                  "forward_rate", "lag_rate", "gdp_gap",
+                  "inf_gap", "yoy_inflation")))
 
+
+Y_data_taylor <- data_prep_taylor %>%
+  select(all_of(c("saron_libor_splice", "forward_rate")))
+
+X_data_taylor <- data_prep_taylor %>%
+  select(all_of(c("lag_rate", "gdp_gap", "inf_gap")))
+  
+
+
+
+nrow(Y_data_taylor
+     )
 
 ################
 

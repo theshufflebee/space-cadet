@@ -105,6 +105,9 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
   #     that there is consistency in the augmented state vector (x,vec(xx')).
   
   # Number of observed variables:
+  
+
+
   ny = NCOL(Y_t)
   # Number of unobs. variables:
   nr = NCOL(G)
@@ -156,7 +159,8 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     #rho_tp1_t[1,] = nu_t[1,] + t(H %*% rho_0) # rho_0 is initial guess, calculates first obs rho, nu_t 
     rho_tp1_t[t,] <- project_state_forward(rho = rho,
                                            H = H,
-                                           nu_t = nu_step)
+                                           nu_t = nu_step,
+                                           nr = nr)
     
     
     # Calculate the Noise, these square M and N are the shocks hitting the system
@@ -171,12 +175,20 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
       rho_tp1_t[t, indic_pos==1] = pmax(rho_tp1_t[t, indic_pos==1], 0)
     }
     
-    aux_Sigma_tp1_t = Q + H %*% matrix(Sigma, nr, nr) %*% t(H) # predict sigma from t-1 var of state vector
+    # to put H into form
+
+    H_mat     <- matrix(as.numeric(H), nrow = nr, ncol = nr)
     
+    # Old way
+    # aux_Sigma_tp1_t = Q + H %*% matrix(Sigma, nr, nr) %*% t(H) # predict sigma from t-1 var of state vector
+    
+    #new way
+    aux_Sigma_tp1_t = Q + H_mat %*% matrix(Sigma, nr, nr) %*% t(H_mat)
     
     # Forecast the measurement using the previously forecasted state from t-1
     # the equation below is in function
     #y_tp1_t[t,] = mu_t[t,] + t(G %*% rho_tp1_t[t,]) # forecast the measurement from t-1
+    
     
     y_tp1_t[t,] <- forecast_measurement_eq(mu_t = mu_t[t,], G = G, rho = rho)
       
@@ -189,7 +201,7 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     
     # The equation below is repaced with the function
     #aux_Sigma_tp1_t <- Q + H %*% Sigma %*% t(H)
-    aux_Sigma_tp1_t <- project_covariance(Q, Sigma, H)
+    aux_Sigma_tp1_t <- project_covariance_H(Q, Sigma, H, nr = nr)
     
     
     # Save sigma here in the storage again by turning it into a single vector
@@ -200,7 +212,7 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     
     # The euqation below is replaced with the following function
     # omega = R + G %*% aux_Sigma_tp1_t %*% t(G) # sums up noise from measurements (R) and predicted state uncertainty
-    omega <- project_covariance(R, aux_Sigma_tp1_t, G)
+    omega <- project_covariance_G(R, aux_Sigma_tp1_t, G, nr = nr, ny = ny)
     Omega_tp1_t[t,] = matrix(omega, 1, ny*ny) # flattens the whole thing again, for storage
     
     
@@ -326,14 +338,18 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
 #'
 #' @return A matrix representing the predicted latent state.
 #' @export
-project_state_forward <- function(rho, H, nu_t) {
+project_state_forward <- function(rho, H, nu_t, nr) {
   # nu_t_step should be the specific row for time t: nu_t[t, ]
   # Ensure rho is a column vector
 
-  
   rho <- as.numeric(rho)  # ADDED due to Bug in third model worked fine first two
   
-  rho_pred <- (H %*% matrix(rho)) + matrix(nu_t)
+  H_mat <- matrix(H, nrow = nr, ncol = nr) # resize H from vector to matrix
+  
+  
+  rho_mat <- matrix(rho, nrow = nr, ncol = 1) # risize rho into correct form -> maight be able to zse t() check later
+  
+  rho_pred <- (H_mat %*% rho_mat) + matrix(nu_t)
   
   return(rho_pred)
 }
@@ -352,9 +368,16 @@ project_state_forward <- function(rho, H, nu_t) {
 #' @export
 forecast_measurement_eq <- function(mu_t, G, rho) {
   
-  y_tp1_t <- (G %*% matrix(rho)) + matrix(mu_t)
+  obs_row <- nrow(G)
   
-  return(t(y_tp1_t))
+  mu_num  <- as.numeric(mu_t)
+  mu_vec <- matrix(mu_num, nrow = obs_row, ncol = 1)
+  
+  
+  y_tp1_t <- (G %*% matrix(rho)) + matrix(mu_vec)
+  
+
+  return(as.vector(y_tp1_t))
 }
 
 
@@ -387,9 +410,27 @@ calc_covariance <- function(SD_matrix, RHO = NULL, t = 0) {
 #'
 #' @return A projected covariance matrix representing updated uncertainty.
 #' @export
-project_covariance <- function(noise, sigma_base, transform_matrix) {
+project_covariance_H <- function(noise, sigma_base, transform_matrix, nr = nr) {
   
-  uncertainty <- noise + transform_matrix %*% sigma_base %*% t(transform_matrix)
+  H_mat <- matrix(transform_matrix, nrow = nr, ncol = nr)
+  
+  
+  sig_mat <- matrix(sigma_base, nrow = nr, ncol = nr)
+
+  uncertainty <- noise + H_mat %*% sig_mat %*% t(H_mat)
+  
+  return(uncertainty)
+}
+
+project_covariance_G <- function(noise, sigma_base, transform_matrix, nr, ny) {
+  
+  G_mat <- matrix(transform_matrix, nrow = ny, ncol = nr)
+  
+  sig_mat <- matrix(sigma_base, nrow = nr, ncol = nr)
+  
+
+  
+  uncertainty <- noise + G_mat %*% sig_mat %*% t(G_mat)
   
   return(uncertainty)
 }
