@@ -1,6 +1,6 @@
 message("Starting SNB Policy Rate Forecast")
 
-source(here("R", "kalman_implementation.R"))
+source(here("R", "kalman_implementation_shadow.R"))
 
 data_prep_taylor <- master_taylor %>%
   mutate(
@@ -20,6 +20,13 @@ data_prep_taylor <- master_taylor %>%
     # 4. Lagged Policy Rate
     lag_rate = lag(saron_libor_splice, 1)
   ) %>%
+  mutate(
+    saron_libor_splice = case_when(
+      # Use as.yearqtr to match the column type
+      quarter >= zoo::as.yearqtr("2009 Q1") & quarter <= zoo::as.yearqtr("2022 Q2") ~ NA_real_,
+      TRUE ~ saron_libor_splice
+    )
+  ) %>%
   # Fix: Added comma between "lag_rate" and "gdp_gap"
   select(all_of(c("quarter", "saron_libor_splice",
                   "forward_rate", "lag_rate", "gdp_gap",
@@ -28,7 +35,7 @@ data_prep_taylor <- master_taylor %>%
 
 
 Y_data_taylor <- data_prep_taylor %>%
-  select(all_of(c("saron_libor_splice", "12m_interest_forecast", "forward_rate")))
+  select(all_of(c("saron_libor_splice", "forward_rate")))
 
 X_data_taylor <- data_prep_taylor %>%
   select(all_of(c("lag_rate", "gdp_gap", "inf_gap")))
@@ -46,7 +53,7 @@ ssm_taylor <- initialize_taylor_ssm(Y_data = Y_data_taylor,
                                     parameter_guesses =snb_rate_parameter_guess)
 
 
-output_estim <- ssm_optimizer_wrapper(ssm = ssm_taylor)
+output_estim <- ssm_optimizer_wrapper_shadow(ssm = ssm_taylor)
 
 
 

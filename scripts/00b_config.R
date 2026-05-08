@@ -261,17 +261,16 @@ snb_rate_parameter_guess <- list(
   gamma_y             = 0.5,    # Output gap coefficient
   
   # Persistence Parameters (Rule 2: Logit 0 to 1)
-  rho                 = 0.8,    # Interest rate smoothing (it = rho*i_t-1 + ...)
-  rho_tp              = 0.9,    # Persistence of cyclical term premium component
+  phi                 = 0.5,    # Interest rate smoothing (it = rho*i_t-1 + ...)
+  rho_tp              = 0.6,    # Persistence of cyclical term premium component
   
   # Measurement Noise Standard Deviations (Rule 1: Exponential > 0)
   sigma_policy        = 0.1,   # Error in the shadow policy rate equation
   sigma_fwd           = 0.2,   # Error in the 5y-5y forward rate identification
-  sigma_spf           = 0.2,   # Error for the spf observations
-  
+
   # State Innovation Standard Deviations (Rule 1: Exponential > 0)
-  xi_i                = 0.2,  # Shock to the nominal natural rate (random walk)
-  xi_tp_bar         = 0.2,  # Shock to the trend term premium (random walk)
+  xi_i                = 0.1,  # Shock to the nominal natural rate (random walk)
+  xi_tp_bar         = 0.1,  # Shock to the trend term premium (random walk)
   xi_tp_cycl          = 0.1    # Shock to the cyclical term premium (AR1)
 )
 
