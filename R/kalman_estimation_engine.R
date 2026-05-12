@@ -62,6 +62,11 @@ param2model_gen <- function(theta, ssm) {
     out[[name]] <- switch(as.character(rule),
                           "1" = exp(val) + 1e-7,                    # Exponential (Variances) I sthis okay to do
                           "2" = 1 / (1 + exp(-val)),         # Logistic (AR Phi)
+                          "3" = {                           # Rule 3: Bounded
+                            low  <- spec[[name]]$low
+                            high <- spec[[name]]$high
+                            low + (high - low) / (1 + exp(-val))
+                          },
                           val                                # Default / Rule 0 (Betas)
     )
   }
@@ -113,6 +118,12 @@ model2param_gen <- function(model_list, ssm) {
     theta[i] <- switch(as.character(rule),
                        "1" = log(val),
                        "2" = log(val / (1 - val)),        # Logit inverse
+                       "3" = {
+                         low  <- spec[[name]]$low
+                         high <- spec[[name]]$high
+                         # Inverse: Maps [low, high] back to (-inf, inf)
+                         log((val - low) / (high - val))
+                       },
                        val
     )
   }
@@ -250,7 +261,8 @@ loglik_ssm <- function(theta,
 ssm_optimizer_wrapper <- function(ssm, 
                                   methods = c("Nelder-Mead", "bobyqa", "BFGS"), 
                                   iters = 2, 
-                                  start_par = NULL) {
+                                  start_par = NULL,
+                                  set_silent = TRUE) {
   
   # Prepare Initial Parameters
   if (is.null(start_par)) {
@@ -296,7 +308,7 @@ ssm_optimizer_wrapper <- function(ssm,
           maximize = FALSE,
           itnmax = 1000,  # For bobyqa/optimx
           maxit = 1000,
-          reltol = 1e-6,  # Stop if relative improvement is less than this
+          reltol = 1e-4,  # Stop if relative improvement is less than this
           abstol = 1e-4  # Stop if absolute improvement is less than this
         )
       )
@@ -723,14 +735,7 @@ rolling_est_taylor_ssm <- function(data,
   
     # Build Data Matrices
     Y_final <- as.matrix(processed_data[, c("saron_libor_splice", "forward_rate")])
-    X_final <- as.matrix(processed_data[, c("gdp_gap", "inf_gap")])
-    
-    print("Y_final")
-    print(Y_final)
-    
-    print("X_final")
-    print(X_final)
-    
+    X_final <- as.matrix(processed_data[, c("gdp_gap", "inf_gap")])d
     
     message(sprintf("Estimation range: %s to %s (%d obs)", 
                     min(processed_data$quarter), max(processed_data$quarter), nrow(processed_data)))

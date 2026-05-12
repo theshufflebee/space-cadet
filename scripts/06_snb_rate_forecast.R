@@ -47,6 +47,17 @@ data_prep_taylor <- master_taylor %>%
     inf_gap = yoy_inflation - 1 
   )
 
+
+true_rate <- master_taylor %>%
+  select(quarter, saron_libor_splice) %>%
+  rename(true_snb_rate = saron_libor_splice)%>%
+  mutate(true_snb_rate = true_snb_rate * 100 )
+
+data_prep_taylor <- data_prep_taylor %>%
+  left_join(true_rate, by = "quarter" )
+
+
+
 Y_data_taylor <- data_prep_taylor %>%
   select(all_of(c("saron_libor_splice", "forward_rate")))
 
@@ -68,11 +79,13 @@ output_estim <- ssm_optimizer_wrapper_shadow(ssm = ssm_taylor)
 if(run_estimation){
   
   taylor_param_est <- rolling_est_taylor_ssm(data = data_prep_taylor,
-                                             forecast_start = as.yearqtr("2024 Q1"))
+                                             forecast_start = as.yearqtr("2018 Q1"))
+  
+  saveRDS(taylor_param_est, file = "output/temp/rolling_results_taylor_2018_const_smooth.rds")
   
   taylor_params <- extract_params_df(taylor_param_est, extract_fitted_obs = TRUE)
   
-  write.csv(taylor_params, "output/parameter_estimation/taylor_params.csv")
+  write.csv(taylor_params, "output/parameter_estimation/taylor_params_2018_const_smooth.csv")
   
 }else{
   
@@ -141,12 +154,17 @@ taylor_forecast_df <- forecast_taylor_ssm(params_df = taylor_params,
                                 date_col = "quarter",
                                 master_df = data_prep_taylor,
                                 forecast_h = 8,
-                                exogenous_forecast_data = data_prep_taylor,
-                                zlb_floor)
+                                exogenous_forecast_data = data_prep_taylor)
 
 
 
 
+last_origin <- ncol(taylor_forecast_df)
+
+taylor_eval_square <- taylor_forecast_df[1:last_origin, 1:last_origin]
+
+# CheckThe number of rows should now equal the number of columns
+dim(taylor_eval_square)
 
 
 

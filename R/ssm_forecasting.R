@@ -261,7 +261,16 @@ forecast_taylor_ssm <- function(params_df,
                                 master_df,
                                 forecast_h = 8,
                                 exogenous_forecast_data,
-                                zlb_floor = -0.75) {
+                                floor_zlb = -0.75,
+                                hp_inf_gap = FALSE,
+                                inf_target = 1,
+                                zlb_start = "2009 Q2",
+                                zlb_end = "2022 Q2") {
+  
+  floor <- floor_zlb
+
+  zlb_start <- zoo::as.yearqtr(zlb_start)
+  zlb_end   <- zoo::as.yearqtr(zlb_end)
   
   parameters <- params_df %>%
     mutate(quarter = zoo::as.yearqtr(!!sym(date_col)))
@@ -284,7 +293,7 @@ forecast_taylor_ssm <- function(params_df,
     # Using the observed Policy Rate (SARON/LIBOR) as the starting point
     actual_val <- master_df %>% 
       filter(quarter == dates[i]) %>% 
-      pull(saron_libor_splice) 
+      pull(true_snb_rate) 
     
     if(length(actual_val) > 0) eval_mat[vantage_str, i] <- actual_val
   }
@@ -295,58 +304,95 @@ forecast_taylor_ssm <- function(params_df,
     
     # Parameters for this specific vintage (Economic Space)
     current_params <- parameters[i, ]
-    i_star <- current_params$natural_rate # The filtered i* at T
+    
+
+    i_bar <- current_params$natural_rate 
     g_pi   <- current_params$gamma_pi
     g_y    <- current_params$gamma_y
     phi    <- current_params$phi
-    y_t_t  <- current_params$y_t_t  # Rename correctly
+    
+    # 
+    if (forecast_origin >= zlb_start & forecast_origin <= zlb_end) {
+      # Inside ZLB: Use the latent estimate
+      y_t_t <- current_params$fitted_obs
+    } else {
+      # Outside ZLB: Use the actual observed SARON / LIBOR
+      y_t_t <- master_df %>% 
+        filter(quarter == forecast_origin) %>% 
+        pull(true_snb_rate)
+    }
     
     gdp_forecasts <- get_hp_gap(vantage_q = forecast_origin,
                                 h = forecast_h,
                                 data = master_df,
-                                gdp_forecast_data = master_df,
+                                gdp_forecast_data = exogenous_forecast_data,
                                 return_forecasts = TRUE)
+    
     
     
     # replace with inflation
-    inf_forecasts <- get_hp_gap(vantage_q = forecast_origin,
-                                h = forecast_h,
-                                data = master_df,
-                                gdp_forecast_data = master_df,
-                                return_forecasts = TRUE)
     
-    X_future <- gdp_forecasts %>%
-      left_join(inf_forecasts, by = "quarter") %>%
-      filter("quarter" > forecast_origin)
-    
-    # Remove Later
-    if(h != nrow(X_future)){
-      warning("WARNING HORIZON MISSMATCH IN FORECAST DATA")
+    if(hp_inf_gap){
+      inf_forecasts <- get_hp_gap(vantage_q = forecast_origin,
+                                  h = forecast_h,
+                                  data = master_df,
+                                  gdp_forecast_data = exogenous_forecast_data,
+                                  gdp_col = "log_cpi",
+                                  return_forecasts = TRUE)
+      
+    } else {
+      
+      inf_forecasts <- exogenous_forecast_data %>%
+        select(quarter, yoy_inflation) %>%
+        filter(quarter > forecast_origin) %>%
+        slice(1:forecast_h) %>%
+        # Calculate the gap relative to the target (e.g., 1.0%)
+        # Renaming to 'gap' ensures it matches the HP filter output format
+        mutate(gap = yoy_inflation - inf_target) %>%
+        select(quarter, gap)
     }
     
-    h_available <- nrow(X_future)
     
+    
+    X_future <- gdp_forecasts %>%
+      rename(gdp_gap = gap) %>%
+      left_join(inf_forecasts %>% rename(inf_gap = gap), by = "quarter") %>%
+      filter(quarter > forecast_origin)
+    
+    
+    h_available <- nrow(X_future)
     
     if (h_available > 0) {
       # Initialize the 'running' shadow rate with the last filtered shadow rate
       # This ensures the smoothing (phi) starts from the 'true' latent state
       current_shadow_rate <- y_t_t 
       
+      
       for (h in 1:h_available) {
+        
+        # print(forecast_origin)
         fdate <- forecast_origin + h/4
+        
         fdate_str <- as.character(fdate)
         
+
         # Get Exogenous components
         exog_now <- X_future %>% filter(quarter == fdate)
         
+
         # Calculate the forecasts
         inf_gap_h <- exog_now$inf_gap 
+        gdp_gap_h <- exog_now$gdp_gap
         
-        target_rate <- i_star + (g_pi * inf_gap_h) + (g_y * exog_now$gap)
+
+        
+        # Taylor rule part 
+        target_rate <- i_bar + (g_pi * inf_gap_h) + (g_y * gdp_gap_h)
         new_shadow_rate <- (phi * current_shadow_rate) + (1 - phi) * target_rate
         
+
         # 3. Apply the ZLB for the OBSERVED forecast
-        observed_forecast <- max(zlb_floor, new_shadow_rate)
+        observed_forecast <- max(floor, new_shadow_rate)
         
         # 4. Update the 'running' lag for the next h
         current_shadow_rate <- new_shadow_rate

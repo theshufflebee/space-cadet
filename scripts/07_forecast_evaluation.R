@@ -89,8 +89,37 @@ fcst_eval_results_philips <- result_philips$table
 
 
 
+##################################333
+
+colnames(taylor_eval_square) <- format(as.yearqtr(colnames(taylor_eval_square)), "%YQ%q")
+
+rownames(taylor_eval_square) <- format(as.yearqtr(colnames(taylor_eval_square)), "%YQ%q")
+
+fcst_df_policy_rate <- taylor_eval_square %>%
+  as.data.frame() %>%
+  rownames_to_column(var = "date")
+
+Y_taylor <- data_prep_taylor %>%
+  select(quarter, true_snb_rate) %>%
+  rename(date = quarter,
+         value = true_snb_rate) %>%
+  mutate(date = format(as.yearqtr(date), "%YQ%q"))
 
 
 
+result_taylor <- creaFcstEval::run_evaluation(
+  df              = Y_taylor,
+  fcst_df         = fcst_df_policy_rate,
+  model_name      = "Taylor Model",
+  benchmark_model = "RW",
+  output_path     = "output/forecasts/forecast_evaluation_taylor.csv"
+)
 
+fcst_eval_results_taylor_shadow_rate <- result_taylor$table
+
+creaFcstEval::spaghetti_plot(
+  df              = Y_taylor,
+  fcst_df         = fcst_df_policy_rate,
+  output_path     = "output/plots/taylor_spaghetti_plot.png"
+)
 

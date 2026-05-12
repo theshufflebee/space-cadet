@@ -650,7 +650,11 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
     gamma_y     = list(val = parameter_guesses$gamma_y,  rule = 1),
     
     # Smoothing and Persistence (Bounded 0-1 for stability)
-    phi         = list(val = parameter_guesses$phi,     rule = 2),
+    phi         = list(val  = 0.8,    # Initial guess
+                       rule = 3,      # Use the new Bounded Logistic rule
+                       low  = 0.5,    # Minimum smoothing
+                       high = 0.99    # Maximum smoothing
+                       ),
     rho_tp      = list(val = parameter_guesses$rho_tp,  rule = 2),
     
     # Measurement Noise (Must be positive) 
@@ -690,7 +694,7 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
       ar_mat = build_AR_matrix
     ),
     name = "TAYLOR",
-    rho_guess = c(1, 1, 0.1),
+    rho_guess = c(6, 1, 0.1),
     sigma_guess = c(10)
   )
   

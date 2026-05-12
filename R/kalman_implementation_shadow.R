@@ -45,6 +45,8 @@
 #' @param Qfunction Function. Defines the transition noise covariance. Defaults to \code{calc_covariance}.
 #' @param reconciliationf Function. Define a modification for \code{rho_tt} (e.g., for consistency 
 #'   in Augmented State Vectors in Quadratic Kalman Filters).
+#' @param ar_matrix Matrix to add an AR(1) component to the estimation that either takes 
+#'   the observed Y or the estimated Y in case of missing values
 #'
 #' @return A list containing:
 #' \item{r}{Filtered states \eqn{\rho_{t|t}} (size \eqn{T \times nr}).}
@@ -56,16 +58,21 @@
 #' \item{loglik.vector}{Vector of date-specific log-likelihoods.}
 #' \item{Omega_tp1_t}{Innovation covariance \eqn{\Omega_{t+1|t}}.}
 #' \item{M}{The measurement scaling matrix used.}
-#' \item{fitted_obs}{Estimated observables given filtered states (\eqn{\hat{y}_t|t}).}
+#' \item{fitted_obs_t_t}{Estimated observables given filtered states (\eqn{\hat{y}_t|t}).}
 #' 
 #' @importFrom MASS ginv
+#' 
+#' @seealso
+#' \code{\link{project_state_forward}} for the transition step, 
+#' \code{\link{forecast_measurement_eq}} for the observation step, and 
+#' \code{\link{ssm_optimizer_wrapper_shadow}} for the higher-level estimation loop.
 #' 
 #' @note 
 #' If \code{reconciliationf} is provided, \code{rho_tt} is modified to ensure consistency 
 #' defined by the function (used in QKF for augmented state vectors).
 #' 
 #' @export
-kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
+kalman_filter_taylor <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
                           indic_pos=0,
                           Rfunction=calc_covariance, Qfunction=calc_covariance,
                           reconciliationf = function(x,opt){x},
@@ -330,13 +337,11 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
 
   }
   
-  fitted_obs <- mu_t + rho_tt %*% t(G) # fitted observables -> estimate of y_hat_t given t
-  
   # Create output list
   output = list(r=rho_tt,Sigma_tt=Sigma_tt,loglik=logl,y_tp1_t=y_tp1_t,
                 S_tp1_t=Sigma_tp1_t,r_tp1_t=rho_tp1_t,
                 loglik.vector = loglik.vector,Omega_tp1_t=Omega_tp1_t,M=M,
-                fitted_obs=fitted_obs, fitted_obs_t_t = fitted_obs_t_t)
+                fitted_obs_t_t = fitted_obs_t_t)
   return(output)
 }
 
@@ -347,16 +352,23 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
 #===============================================================================
 
 
-#' Project Latent State Forward
+#' Project Latent State Forward (Transition Equation)
 #'
-#' Computes the predicted state for the next period based on the transition equation: 
+#' @description
+#' Computes the a priori state estimate for the next period: 
 #' \eqn{\rho_{t|t-1} = H \rho_{t-1} + \nu_t}.
 #'
-#' @param rho The current state estimate (column vector or scalar).
-#' @param H The transition matrix defining state persistence.
-#' @param nu_t The state intercept or drift term for the current step.
+#' @param rho Numeric vector. The filtered state from the previous period (\eqn{\rho_{t-1|t-1}}).
+#' @param H Matrix. The transition matrix defining the dynamics (AR components) of the states.
+#' @param nu_t Vector. The state intercept or exogenous drift term for the current step.
+#' @param nr Integer. The number of latent states (dimensions of the state vector).
 #'
-#' @return A matrix representing the predicted latent state.
+#' @return A column matrix representing the predicted latent state vector.
+#' 
+#' @seealso 
+#' \code{\link{kalman_filter_taylor}} for where this prediction is utilized and
+#' \code{\link{project_covariance_H}} for the uncertainty propagation associated with this step.
+#' 
 #' @export
 project_state_forward <- function(rho, H, nu_t, nr) {
   # nu_t_step should be the specific row for time t: nu_t[t, ]
@@ -375,16 +387,26 @@ project_state_forward <- function(rho, H, nu_t, nr) {
 }
 
 
-#' Forecast Measurement Equation
+#' Forecast Measurement Equation (Observation Equation)
 #'
-#' Calculates the predicted observation for the next period based on the 
-#' measurement equation: \eqn{y_{t|t-1} = G \rho_{t|t-1} + \mu_t}.
+#' @description
+#' Calculates the predicted observation for the current period:
+#' \eqn{y_{t|t-1} = \mu_t + G \rho_{t|t-1} + \Phi y_{t-1}}.
+#' This function handles the "Shadow Rate" logic by choosing between the 
+#' observed lag or the model's previous fitted estimate during ZLB periods.
 #'
-#' @param mu_t The intercept or exogenous component (e.g., Okun cyclical impact).
-#' @param G The observation matrix (loadings).
-#' @param rho The predicted latent state (\eqn{\rho_{t|t-1}}).
+#' @param mu_t Vector. Intercept or exogenous component (e.g., Taylor Rule gaps).
+#' @param G Matrix. The observation matrix mapping states to observables.
+#' @param rho Vector. The predicted latent state (\eqn{\rho_{t|t-1}}).
+#' @param ar_mat Vector. The autoregressive coefficients (smoothing parameter \eqn{\phi}).
+#' @param lag_val Scalar. The lagged value of the dependent variable (Hybrid lag).
 #'
-#' @return A row vector of predicted observations.
+#' @return A numeric vector of predicted observations.
+#' 
+#' @seealso 
+#' \code{\link{kalman_filter_taylor}} for the main loop integration and
+#' \code{\link{forecast_taylor_ssm}} for the out-of-sample forecasting implementation.
+#' 
 #' @export
 forecast_measurement_eq <- function(mu_t, G, rho, ar_mat, lag_val) {
   
@@ -392,22 +414,23 @@ forecast_measurement_eq <- function(mu_t, G, rho, ar_mat, lag_val) {
   ny_total <- length(ar_mat)
   obs_row <- nrow(G) # Number of variables NOT NA in this step
   
-  # 1. Apply the lag value to get the persistence component (rho * i_{t-1})
+  # Apply the lag value to get the persistence component (rho * i_{t-1})
+  #here rho is the state
   # We do this on the full vector first
   full_ar_comp <- ar_mat * lag_val
   
-  # 2. Subset the AR component to match the dimensions of G
+  # Reduce (if necessary) th AR component to match the dimensions of G
   # If obs_row is 2 (Policy is NA), we take elements 2 and 3 (the 0s)
   # If obs_row is 3 (Full data), we take all elements
   if (obs_row < ny_total) {
     # If the first row (Policy) is NA, G represents variables 2 and 3.
-    # We take the last 'obs_row' elements.
+    # We take the last 'obs_row' number of elements.
     ar_vec_final <- tail(full_ar_comp, obs_row)
   } else {
     ar_vec_final <- full_ar_comp
   }
   
-  # 3. Standard Matrix Math
+  # Standard Matrix Math for projection
   mu_vec <- matrix(as.numeric(mu_t), nrow = obs_row, ncol = 1)
   ar_vec <- matrix(as.numeric(ar_vec_final), nrow = obs_row, ncol = 1)
   state_comp <- G %*% matrix(as.numeric(rho))
@@ -428,6 +451,11 @@ forecast_measurement_eq <- function(mu_t, G, rho, ar_mat, lag_val) {
 #' @param t Reserved for future time-varying covariance implementation.
 #'
 #' @return A symmetric, positive semi-definite covariance matrix.
+#' 
+#' @seealso 
+#' \code{\link{project_covariance_H}} and \code{\link{project_covariance_G}} 
+#' for functions that utilize these covariance matrices in state propagation.
+#' 
 #' @export
 calc_covariance <- function(SD_matrix, RHO = NULL, t = 0) {
   # Standard formula: Var = SD * SD'
@@ -435,22 +463,28 @@ calc_covariance <- function(SD_matrix, RHO = NULL, t = 0) {
 }
 
 
-#' Project Covariance Matrix Forward
+#' Project Covariance Matrix (Uncertainty Propagation)
 #'
-#' Updates the uncertainty (covariance) matrix for either the state transition 
-#' or the measurement prediction. Implements the quadratic form: 
-#' \eqn{\Sigma_{pred} = T \Sigma_{base} T' + \Omega}.
+#' @description
+#' Updates the state uncertainty matrix for the prediction step:
+#' \eqn{\Sigma_{t|t-1} = H \Sigma_{t-1|t-1} H' + Q}.
+#' It propagates the estimation error forward in time and adds process noise.
 #'
-#' @param noise The additive covariance matrix (Process noise \eqn{N} or Measurement noise \eqn{M}).
-#' @param sigma_base The starting covariance matrix (\eqn{\Sigma_{t-1}} or \eqn{\Sigma_{t|t-1}}).
-#' @param transform_matrix The linear operator (\eqn{H} for states or \eqn{G} for observations).
+#' @param noise Matrix. The process noise covariance matrix (\eqn{Q = N N'}).
+#' @param sigma_base Matrix. The filtered covariance from the previous step (\eqn{\Sigma_{t-1|t-1}}).
+#' @param transform_matrix Matrix. The transition matrix (\eqn{H}).
+#' @param nr Integer. Number of latent states.
 #'
-#' @return A projected covariance matrix representing updated uncertainty.
+#' @return A symmetric matrix representing the predicted state uncertainty.
+#' 
+#' @seealso 
+#' \code{\link{kalman_filter_taylor}} for the filtering context and
+#' \code{\link{calc_covariance}} for the initial noise matrix construction.
+#' 
 #' @export
 project_covariance_H <- function(noise, sigma_base, transform_matrix, nr = nr) {
   
   H_mat <- matrix(transform_matrix, nrow = nr, ncol = nr)
-  
   
   sig_mat <- matrix(sigma_base, nrow = nr, ncol = nr)
 
@@ -459,13 +493,32 @@ project_covariance_H <- function(noise, sigma_base, transform_matrix, nr = nr) {
   return(uncertainty)
 }
 
+
+#' Calculate Innovation Covariance
+#'
+#' @description
+#' Maps state uncertainty into observation space:
+#' \eqn{\Omega_t = G \Sigma_{t|t-1} G' + R}.
+#' This represents the total expected variance of the forecast error.
+#'
+#' @param noise Matrix. Measurement noise covariance (\eqn{R = M M'}).
+#' @param sigma_base Matrix. Predicted state covariance (\eqn{\Sigma_{t|t-1}}).
+#' @param transform_matrix Matrix. The observation matrix (\eqn{G}).
+#' @param nr Integer. Number of latent states.
+#' @param ny Integer. Number of observed variables.
+#'
+#' @return A matrix representing the innovation covariance.
+#' 
+#' @seealso 
+#' \code{\link{kalman_filter_taylor}} for the filtering context and
+#' \code{\link{calc_covariance}} for the initial noise matrix construction.
+#' 
+#' @export
 project_covariance_G <- function(noise, sigma_base, transform_matrix, nr, ny) {
   
   G_mat <- matrix(transform_matrix, nrow = ny, ncol = nr)
   
   sig_mat <- matrix(sigma_base, nrow = nr, ncol = nr)
-  
-
   
   uncertainty <- noise + G_mat %*% sig_mat %*% t(G_mat)
   
@@ -475,15 +528,23 @@ project_covariance_G <- function(noise, sigma_base, transform_matrix, nr, ny) {
 
 #' Calculate Kalman Gain
 #'
-#' Computes the optimal Kalman gain matrix (K) for the state update step.
-#' 
-#' @param sigma State estimation covariance matrix (Sigma_{t|t-1}).
-#' @param G Observation/Mapping matrix.
-#' @param R Observation noise covariance matrix.
+#' @description
+#' Computes the optimal weighting matrix (K) that determines how much the 
+#' "surprise" (innovation) in new data should update the latent state estimates.
+#' \eqn{K_t = \Sigma_{t|t-1} G' \Omega_t^{-1}}.
+#'
+#' @param sigma Matrix. Predicted state covariance (\eqn{\Sigma_{t|t-1}}).
+#' @param G Matrix. Observation matrix (\eqn{G}).
+#' @param R Matrix. Observation noise covariance (\eqn{R}).
 #'
 #' @return A matrix representing the Kalman gain.
+#' @importFrom MASS ginv
 #' 
 #' @importFrom MASS ginv
+#' @seealso 
+#' \code{\link{kalman_filter_taylor}} for the full update step logic and
+#' \code{\link{project_covariance_G}} for the innovation covariance calculation (\Omega).
+#' 
 #' @export
 calculate_kalman_gain <- function(sigma, G, R){
   
@@ -496,28 +557,80 @@ calculate_kalman_gain <- function(sigma, G, R){
 
 # ==============================================================================
 
-
+#' Log-Likelihood Function for the Taylor-Rule State-Space Model
+#'
+#' @description
+#' Calculates the negative log-likelihood of a state-space model given a set of 
+#' unconstrained parameters. This function acts as the primary interface between 
+#' the numerical optimizer and the Kalman Filter, handling parameter mapping, 
+#' matrix construction, and numerical safeguards.
+#'
+#' @param theta A numeric vector of unconstrained parameters provided by the optimizer.
+#' @param ssm A list/object of class 'ssm' containing data matrices (Y, X), 
+#'   initial guesses, and builder functions for system matrices.
+#' @param return_full_res Logical; if \code{TRUE}, returns the full Kalman Filter 
+#'   output list (useful for debugging and final estimation). If \code{FALSE} (default), returns 
+#'   the scalar negative log-likelihood for the optimizer.
+#' @param rho_guess Initial guess for the state vector. Defaults to 1 (legacy support).
+#' @param set_silent Logical; if \code{TRUE} (default), suppresses parameter 
+#'   debug messages. Set to \code{FALSE} only for low-iteration debugging to avoid 
+#'   console flooding.
+#'
+#' @details
+#' The function follows these steps:
+#' \enumerate{
+#'   \item \bold{Initialization:} Sets up the initial state vector (\code{rho_0}) 
+#'         and covariance (\code{Sigma_0}) based on the model dimensions (e.g., 
+#'         3 states for Model 3).
+#'   \item \bold{Mapping:} Transforms parameters from unconstrained optimizer 
+#'         space to constrained economic space using \code{param2model_gen}.
+#'   \item \bold{Matrix Building:} Invokes dynamic builder functions to 
+#'         construct \code{mu_t}, \code{H}, \code{M}, \code{N}, \code{G}, and 
+#'         the autoregressive components.
+#'   \item \bold{Filtering:} Executes the Kalman Filter to calculate the 
+#'         likelihood vector.
+#'   \item \bold{Safeguards:} Returns a high penalty value (\code{1e10}) if 
+#'         numerical instability (NAs or Infs) is detected, ensuring the 
+#'         optimizer stays within valid regions of the parameter space.
+#' }
+#'
+#' @return If \code{return_full_res = FALSE}, a single numeric value representing 
+#'   the negative log-likelihood. If \code{TRUE}, a list containing the Kalman 
+#'   Filter results and the mapped economic parameters.
+#'   
+#' @importFrom stats matrix diag
+#' @import optimx
+#'
+#' @seealso 
+#' \code{\link{kalman_filter_taylor}} for the underlying filtering algorithm, 
+#' \code{\link{param2model_gen}} for the parameter transformation logic, and
+#' \code{\link{initialize_taylor_ssm}} for setting up the SSM object.
+#'
+#' @export
 loglik_ssm_shadow <- function(theta,
                        ssm,
                        return_full_res = FALSE,
-                       rho_guess = 1,
+                       rho_guess = c(1, 1, 0),
                        set_silent = TRUE) {
   
   # Initial State Vector (rho_0)
-  # Ensure it is a 3x1 column vector for Model 3
-  
+  # For model 3 its a 3x1 vector, for all others a 1x1 vector
   rho_init <- matrix(ssm$rho_guess, nrow = length(ssm$rho_guess), ncol = 1)
   
-  # Determine Number of States (nr = 3 for Model 3, others 1)
+  # Determine Number of States (nr = 3 for Model 3, others 1) from rho_init (rho_guess)
   nr <- nrow(rho_init)  
   
   # Initial Covariance Matrix (Sigma_0)
-  # Uses a diagonal structure to represent initial uncertainty
+  # Uses a diagonal structure to represent initial uncertainty, use nr to make sure dimensions fit
+  # this allows to use just one guess for all variances or 3 different one for the third model
   sig_init <- diag(as.numeric(ssm$sigma_guess), nr)
   
   # Map Parameters (Optimizer Space -> Economic Space)
+  # turns parameters from optimizer (unconstrained) into constrained space such as 
   model_params <- param2model_gen(theta, ssm)
   
+  # This is an artifact from initial debugging issues, for later use if needed,
+  # do not run the full estimation with set silent to false
   if(!set_silent){
     param_names <- names(model_params)
     param_values <- unlist(model_params)
@@ -533,9 +646,12 @@ loglik_ssm_shadow <- function(theta,
   # G    <- ssm$builders$G() # G is not static anymore need to remove before running other models
   H    <- ssm$builders$H(model_params)
   M    <- ssm$builders$M(model_params)
-  N    <- ssm$builders$N(model_params) # Dynamically calculated now
-  ar_mat <- ssm$builders$ar_mat(model_params, ssm$data$Y)
+  N    <- ssm$builders$N(model_params) 
+  ar_mat <- ssm$builders$ar_mat(model_params, ssm$data$Y) # the new matrix fo rthe AR process, Y passed in here for dimensions
   
+  
+  # CAN BE CUT NOW
+  # formals checks for inputs, if an input is demanded it gives it to the builder, else it doesnt and just initializes it
   args_expected <- names(formals(ssm$builders$G))
   
   if ("model_params" %in% args_expected) {
@@ -546,12 +662,12 @@ loglik_ssm_shadow <- function(theta,
   
   # Setup static components, 
   T_len <- nrow(ssm$data$Y)
-  nu_t  <- matrix(0, T_len, nr) # we have no interceptr so its just 0's -> added to nr because needed number of states
+  nu_t  <- matrix(0, T_len, nr) # we have no intercept so its just 0's ->  nr because needed number of states for proper math
   
   # Run Kalman Filter with the matrices
   # The Y data is from the ssm object the X data is already in mu_t
   # we also add initial guesses for the state and give a prior
-  res <- kalman_filter(
+  res <- kalman_filter_taylor(
     Y_t     = ssm$data$Y, 
     nu_t    = nu_t, 
     H       = H, 
@@ -566,7 +682,7 @@ loglik_ssm_shadow <- function(theta,
   
   # Output handling
   # The optimizer only needs the loglikelihood, therefore we need that as a return
-  # If we want to run a normal estimatiion with parameters we'd like to see the full
+  # If we want to run a normal estimation with parameters we'd like to see the full
   # return, we specify this and we get state and all other variables
   
   # Numerical Saveguard. if calculation crashes return a high penalization value
@@ -581,6 +697,8 @@ loglik_ssm_shadow <- function(theta,
   if (total_loglik > 50000) return(1e10)
   
   cat(sprintf("Log Likelihood: %.4f\n", total_loglik))  
+  
+  # For Debuggung you can have it return the full res
   if (return_full_res) {
     res$param_debugs <- model_params
     return(res) 
@@ -595,22 +713,63 @@ loglik_ssm_shadow <- function(theta,
 
 # ==============================================================================
 
-
-# ==============================================================================
-# wrapper function for the optimizer to run one estimation
-# ==============================================================================
 #' Multi-Step State-Space Model Optimizer Wrapper
 #'
-#' @param ssm The fully initialized SSM blueprint object.
-#' @param methods Character vector of methods (e.g., c("Nelder-Mead", "BFGS")).
-#' @param iters Number of times to cycle through the methods list.
-#' @param start_par Optional: unconstrained parameters from a previous run (warm start).
+#' @description
+#' An optimization wrapper that cycles through multiple numerical 
+#' optimization methods to find the global maximum of the state-space model 
+#' likelihood. It supports "warm starts" for rolling estimations and implements 
+#' early stopping if the likelihood improvement plateaus.
 #'
-#' @return A list containing the optimized parameters (economic scale), the final fit object, and the unconstrained theta.
+#' @param ssm The fully initialized SSM blueprint object containing data, 
+#'   manifest definitions, and builder functions.
+#' @param methods A character vector of optimization algorithms available in 
+#'   \code{optimx} (e.g., \code{"Nelder-Mead"}, \code{"bobyqa"}, \code{"BFGS"}).
+#' @param iters Number of times to cycle through the entire list of \code{methods}. 
+#'   Defaults to 2.
+#' @param start_par Optional; a numeric vector of unconstrained parameters 
+#'   (\code{theta}) from a previous estimation to be used as a warm start.
+#' @param set_silent Logical; if \code{TRUE} (default), suppresses detailed 
+#'   initialization debug messages in the console.
+#'
+#' @details
+#' The wrapper performs the following sequence:
+#' \enumerate{
+#'   \item \bold{Parameter Preparation:} If no \code{start_par} is provided, it 
+#'         extracts defaults from the \code{ssm$manifest} and transforms them 
+#'         to unconstrained space.
+#'   \item \bold{Sequential Optimization:} Iteratively calls \code{optimx} for 
+#'         each method. It uses \code{follow.on = TRUE} so each algorithm 
+#'         begins where the previous one finished.
+#'   \item \bold{Convergence Monitoring:} Calculates the absolute difference 
+#'         between the current and previous best log-likelihood. If the 
+#'         improvement is less than \code{0.0001}, it triggers an early stop.
+#'   \item \bold{Validation:} Checks for \code{NA} or \code{Inf} values in 
+#'         the results to identify numerical divergence.
+#'   \item \bold{Transformation:} Maps the final unconstrained parameters back 
+#'         to economic space for reporting and forecasting.
+#' }
+#'
+#' @return A list containing:
+#' \itemize{
+#'   \item \bold{params}: Named list of optimized parameters in economic space.
+#'   \item \bold{theta}: Numeric vector of optimized parameters in unconstrained space.
+#'   \item \bold{fit_summary}: The raw summary object from the last \code{optimx} call.
+#'   \item \bold{ssm}: The original SSM object for traceability.
+#' }
+#'
+#' @import optimx
+#' 
+#' @seealso 
+#' \code{\link{loglik_ssm_shadow}} for the objective function being minimized, 
+#' \code{\link{model2param_gen}} for the unconstraining transformation logic.
+#'
+#' @export
 ssm_optimizer_wrapper_shadow <- function(ssm, 
                                   methods = c("Nelder-Mead", "bobyqa", "BFGS"), 
                                   iters = 2, 
-                                  start_par = NULL) {
+                                  start_par = NULL,
+                                  set_silent = TRUE) {
   
   # Prepare Initial Parameters
   if (is.null(start_par)) {
@@ -618,30 +777,34 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
     # sapply here simplifies the nested list -> selects val from each element in the list
     init_theta_econ <- sapply(ssm$manifest, function(x) x$val) 
     
-    
-    param_string <- paste(names(init_theta_econ), "=", round(init_theta_econ, 4), collapse = ", ")
-    message("Debug: Economic Params (Initial): ", param_string)
-    
     current_par_opt <- model2param_gen(init_theta_econ, ssm)
     
-    opt_string <- paste(names(current_par_opt), "=", round(current_par_opt, 4), collapse = ", ")
-    message("Debug: Optimizer Params (Theta): ", opt_string)
+    if(!set_silent){
+      
+      param_string <- paste(names(init_theta_econ), "=", round(init_theta_econ, 4), collapse = ", ")
+      message("Debug: Economic Params (Initial): ", param_string)
+      
+      opt_string <- paste(names(current_par_opt), "=", round(current_par_opt, 4), collapse = ", ")
+      message("Debug: Optimizer Params (Theta): ", opt_string)
+    }
     
   } else {
     current_par_opt <- start_par
     
-    message("\n--- Transformed Optimizer Space (Theta) ---")
-    # This creates a "Name: Value" pair on each new line
-    formatted_list <- paste0(names(current_par_opt), ": ", round(current_par_opt, 4), collapse = "\n")
-    message(formatted_list)
+    if(!set_silent){
+      message("\n--- Transformed Optimizer Space (Theta) ---")
+      formatted_list <- paste0(names(current_par_opt), ": ", round(current_par_opt, 4), collapse = "\n")
+      message(formatted_list)
+    }
   }
   
   n_par <- length(current_par_opt)
   
-  
-  
-  # 2. Run Optimization Loop
+  # Run Optimization Loop
+  # ----------------------------------------------------------------------------
   # Cycles through each method for the specified number of iterations
+  
+  # Sets up a break of the method partloglik loop if repeated estimation doesn't lead to improvement 
   last_best_lik <- Inf
   
   for (i in 1:iters) {
@@ -652,10 +815,14 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
         ssm     = ssm,
         method  = m,
         control = list(
-          follow.on = TRUE, 
-          itnmax    = 1000,
-          # reltolis relatie improvement, if likelihood is -300 it will stop if improvement is less than 0.0003
-          reltol    = 1e-6
+          all.methods = FALSE, # Run them in order
+          follow.on = TRUE,    # Method 2 starts where Method 1 ends
+          dowarn = FALSE, 
+          maximize = FALSE,
+          itnmax = 1000,  # For bobyqa/optimx
+          maxit = 1000,
+          reltol = 1e-4,  # Stop if relative improvement is less than this
+          abstol = 1e-4  # Stop if absolute improvement is less than this
         )
       )
       
@@ -663,13 +830,12 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
       current_lik <- fit$value[1]
       current_par_opt <- as.numeric(fit[1, 1:n_par])
       
-      # --- THE PLATEAU CHECK ---
+      # check if there is important improvement
       # If the improvement is less than 0.0001, stop the whole process
       lik_diff <- abs(last_best_lik - current_lik)
       if (lik_diff < 0.0001) {
         message(sprintf("Stopping early: Likelihood converged (diff: %.6f)", lik_diff))
-        # This breaks the inner 'methods' loop. To break the 'iters' loop, 
-        # you might need a flag.
+        # This breaks the inner 'methods' loop. 
         break 
       }
       
@@ -680,6 +846,7 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
     proposed_par <- as.numeric(fit[1, 1:n_par])
     
     
+    # COnsole output message result
     formatted_theta_opt <- paste0(
       sprintf("  %-20s : %.4f", names(proposed_par), proposed_par), 
       collapse = "\n")
@@ -690,9 +857,8 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
     cat(rep("-", 45), "\n", sep = "")
     cat(formatted_theta_opt, "\n")
     cat(rep("-", 45), "\n")
-    print(proposed_par)
-    
-    #Validation Check: Ensure the optimizer didn't return NA or NaN
+
+    #VValidating results if there are no inf or NaN
     if (any(is.na(proposed_par)) || any(is.infinite(proposed_par))) {
       
       cat("\n!!! WARNING: Optimizer failed to converge (NA/Inf detected) !!!\n")
@@ -705,7 +871,7 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
       
     } else {
       
-      # 2. Success: Update current_par_opt for the next vintage
+      # if the check doesnt throw alarms, update current_par_opt for the next vintage
       current_par_opt <- proposed_par
       
       formatted_theta <- paste0(
@@ -719,25 +885,26 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
   
   
   
-  # 3. Extract and Transform Results
-  # Final mapping back to Economic Space (Named List)
+  # Extract and transform Results
+  # Map back to Economic Space
   final_params_econ <- param2model_gen(current_par_opt, ssm)
   
-  # 1. Format the parameter names and values into a clean list
-  # This calculates the width needed to align the ":" signs
+  # Format the parameter names and values into a clean list
+  # This is so the console message looks good
   formatted_params <- paste0(
     sprintf("  %-20s : %.6f", names(final_params_econ), final_params_econ), 
     collapse = "\n"
   )
   
-  # 2. Construct the full message
+  # Construct the full console output message
   cat("\n", rep("=", 45), "\n", sep = "")
   cat("ESTIMATED ECONOMETRIC PARAMETERS (Economic Space)\n")
   cat(rep("-", 45), "\n", sep = "")
   cat(formatted_params, "\n")
   cat(rep("=", 45), "\n", sep = "")
-  message("Optimization successful. Results stored.")
+  message("Optimization loop finished. Results stored.")
   
+  # format return
   return(list(
     params = final_params_econ, # Economic scale (Named List)
     theta  = current_par_opt,   # Unconstrained scale (Vector for next warm start)
@@ -745,11 +912,4 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
     ssm = ssm
   ))
 }
-
-
-
-
-# forecast rolling ssm
-
-
 
