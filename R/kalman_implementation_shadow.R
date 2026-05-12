@@ -336,7 +336,7 @@ kalman_filter <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
   output = list(r=rho_tt,Sigma_tt=Sigma_tt,loglik=logl,y_tp1_t=y_tp1_t,
                 S_tp1_t=Sigma_tp1_t,r_tp1_t=rho_tp1_t,
                 loglik.vector = loglik.vector,Omega_tp1_t=Omega_tp1_t,M=M,
-                fitted_obs=fitted_obs)
+                fitted_obs=fitted_obs, fitted_obs_t_t = fitted_obs_t_t)
   return(output)
 }
 
@@ -500,7 +500,8 @@ calculate_kalman_gain <- function(sigma, G, R){
 loglik_ssm_shadow <- function(theta,
                        ssm,
                        return_full_res = FALSE,
-                       rho_guess = 0.1) {
+                       rho_guess = 1,
+                       set_silent = TRUE) {
   
   # Initial State Vector (rho_0)
   # Ensure it is a 3x1 column vector for Model 3
@@ -508,7 +509,7 @@ loglik_ssm_shadow <- function(theta,
   rho_init <- matrix(ssm$rho_guess, nrow = length(ssm$rho_guess), ncol = 1)
   
   # Determine Number of States (nr = 3 for Model 3, others 1)
-  nr <- nrow(rho_init) 
+  nr <- nrow(rho_init)  
   
   # Initial Covariance Matrix (Sigma_0)
   # Uses a diagonal structure to represent initial uncertainty
@@ -516,6 +517,14 @@ loglik_ssm_shadow <- function(theta,
   
   # Map Parameters (Optimizer Space -> Economic Space)
   model_params <- param2model_gen(theta, ssm)
+  
+  if(!set_silent){
+    param_names <- names(model_params)
+    param_values <- unlist(model_params)
+    debug_msg <- paste0(param_names, " = ", round(param_values, 6), collapse = ", ")
+    
+    message("DEBUG [Economic Space]: ", debug_msg)  
+  }
   
   # Build the matrices with the parameters to create the loglikelihood
   # The builders themselves are saved in the ssm object. They are functions as
@@ -560,8 +569,18 @@ loglik_ssm_shadow <- function(theta,
   # If we want to run a normal estimatiion with parameters we'd like to see the full
   # return, we specify this and we get state and all other variables
   
-  cat(sprintf("Log Likelihood: %.4f\n", -sum(res$loglik.vector)))
+  # Numerical Saveguard. if calculation crashes return a high penalization value
+  if (is.null(res) || any(is.na(res$loglik.vector)) || any(is.infinite(res$loglik.vector))) {
+    # Return a massive penalty value so the optimizer moves away
+    return(1e10) 
+  }
   
+  total_loglik <- -sum(res$loglik.vector)
+  
+  # If the likelihood is extremely high such as due to failed filter or bad jump, return very high value as "punishment"
+  if (total_loglik > 50000) return(1e10)
+  
+  cat(sprintf("Log Likelihood: %.4f\n", total_loglik))  
   if (return_full_res) {
     res$param_debugs <- model_params
     return(res) 
@@ -623,6 +642,8 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
   
   # 2. Run Optimization Loop
   # Cycles through each method for the specified number of iterations
+  last_best_lik <- Inf
+  
   for (i in 1:iters) {
     for (m in methods) {
       fit <- optimx::optimx(
@@ -631,16 +652,28 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
         ssm     = ssm,
         method  = m,
         control = list(
-          all.methods = FALSE, # Run them in order
-          follow.on = TRUE,    # Method 2 starts where Method 1 ends
-          dowarn = FALSE, 
-          maximize = FALSE,
-          itnmax = 1000,  # For bobyqa/optimx
-          maxit = 1000,
-          reltol = 1e-6,  # Stop if relative improvement is less than this
-          abstol = 1e-4  # Stop if absolute improvement is less than this
+          follow.on = TRUE, 
+          itnmax    = 1000,
+          # reltolis relatie improvement, if likelihood is -300 it will stop if improvement is less than 0.0003
+          reltol    = 1e-6
         )
       )
+      
+      # Extract the new likelihood and parameters
+      current_lik <- fit$value[1]
+      current_par_opt <- as.numeric(fit[1, 1:n_par])
+      
+      # --- THE PLATEAU CHECK ---
+      # If the improvement is less than 0.0001, stop the whole process
+      lik_diff <- abs(last_best_lik - current_lik)
+      if (lik_diff < 0.0001) {
+        message(sprintf("Stopping early: Likelihood converged (diff: %.6f)", lik_diff))
+        # This breaks the inner 'methods' loop. To break the 'iters' loop, 
+        # you might need a flag.
+        break 
+      }
+      
+      last_best_lik <- current_lik
     }
     
     # Update current_par_opt for the next step in the loop
@@ -714,6 +747,9 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
 }
 
 
+
+
+# forecast rolling ssm
 
 
 

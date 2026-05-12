@@ -307,7 +307,7 @@ format_time_series_df <- function(data,
 #' @seealso [rolling_est_okun_ssm()]
 #' 
 #' @export
-extract_params_df <- function(results_list) {
+extract_params_df <- function(results_list, extract_fitted_obs = FALSE) {
   
   # Map over each date in the results list
   params_df <- purrr::map_dfr(results_list, function(item) {
@@ -322,6 +322,12 @@ extract_params_df <- function(results_list) {
     # extract the natural rate
     state_vec <- as.vector(item$states$r)
     params$natural_rate <- state_vec[length(state_vec)] # length selects the last obs of the vector
+    
+    if(extract_fitted_obs){
+      fitted_obs <- as.vector(item$states$fitted_obs_t_t)
+      params$fitted_obs <- fitted_obs[length(fitted_obs)] # length selects the last obs of the vector
+      
+    }
     
     # Add the date as a column
     params <- params %>%

@@ -254,3 +254,116 @@ forecast_phillips_ssm <- function(params_df,
 }
 
 
+#############################################################################
+
+forecast_taylor_ssm <- function(params_df,
+                                date_col = "quarter",
+                                master_df,
+                                forecast_h = 8,
+                                exogenous_forecast_data,
+                                zlb_floor = -0.75) {
+  
+  parameters <- params_df %>%
+    mutate(quarter = zoo::as.yearqtr(!!sym(date_col)))
+  
+  dates <- parameters %>% pull(quarter)
+  
+  # Setup empty output df
+  extended_rows <- seq(min(dates), by = 0.25, length.out = length(dates) + forecast_h)
+  
+  # Setup size -> + h rows so we can forecast into the future
+  eval_mat <- matrix(NA, nrow = length(extended_rows), ncol = length(dates))
+  
+  # Setup Names
+  rownames(eval_mat) <- as.character(zoo::as.yearqtr(extended_rows))
+  colnames(eval_mat) <- as.character(zoo::as.yearqtr(dates))
+  
+  
+  for(i in seq_along(dates)) {
+    vantage_str <- as.character(dates[i])
+    # Using the observed Policy Rate (SARON/LIBOR) as the starting point
+    actual_val <- master_df %>% 
+      filter(quarter == dates[i]) %>% 
+      pull(saron_libor_splice) 
+    
+    if(length(actual_val) > 0) eval_mat[vantage_str, i] <- actual_val
+  }
+  
+  # Main Forecast Loop
+  for (i in seq_along(dates)) {
+    forecast_origin <- dates[i] 
+    
+    # Parameters for this specific vintage (Economic Space)
+    current_params <- parameters[i, ]
+    i_star <- current_params$natural_rate # The filtered i* at T
+    g_pi   <- current_params$gamma_pi
+    g_y    <- current_params$gamma_y
+    phi    <- current_params$phi
+    y_t_t  <- current_params$y_t_t  # Rename correctly
+    
+    gdp_forecasts <- get_hp_gap(vantage_q = forecast_origin,
+                                h = forecast_h,
+                                data = master_df,
+                                gdp_forecast_data = master_df,
+                                return_forecasts = TRUE)
+    
+    
+    # replace with inflation
+    inf_forecasts <- get_hp_gap(vantage_q = forecast_origin,
+                                h = forecast_h,
+                                data = master_df,
+                                gdp_forecast_data = master_df,
+                                return_forecasts = TRUE)
+    
+    X_future <- gdp_forecasts %>%
+      left_join(inf_forecasts, by = "quarter") %>%
+      filter("quarter" > forecast_origin)
+    
+    # Remove Later
+    if(h != nrow(X_future)){
+      warning("WARNING HORIZON MISSMATCH IN FORECAST DATA")
+    }
+    
+    h_available <- nrow(X_future)
+    
+    
+    if (h_available > 0) {
+      # Initialize the 'running' shadow rate with the last filtered shadow rate
+      # This ensures the smoothing (phi) starts from the 'true' latent state
+      current_shadow_rate <- y_t_t 
+      
+      for (h in 1:h_available) {
+        fdate <- forecast_origin + h/4
+        fdate_str <- as.character(fdate)
+        
+        # Get Exogenous components
+        exog_now <- X_future %>% filter(quarter == fdate)
+        
+        # Calculate the forecasts
+        inf_gap_h <- exog_now$inf_gap 
+        
+        target_rate <- i_star + (g_pi * inf_gap_h) + (g_y * exog_now$gap)
+        new_shadow_rate <- (phi * current_shadow_rate) + (1 - phi) * target_rate
+        
+        # 3. Apply the ZLB for the OBSERVED forecast
+        observed_forecast <- max(zlb_floor, new_shadow_rate)
+        
+        # 4. Update the 'running' lag for the next h
+        current_shadow_rate <- new_shadow_rate
+        
+        # 5. Store the observed (capped) rate in the evaluation matrix
+        eval_mat[fdate_str, i] <- observed_forecast
+      }
+    }
+  }
+  
+  return(eval_mat)
+}
+
+
+
+
+
+
+
+

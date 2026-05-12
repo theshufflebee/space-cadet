@@ -210,7 +210,7 @@ ts_names <- c(
 # ---  General Settings ---
 forecast_starting_date <- as.yearqtr("2024 Q3")
 
-run_estimation <- TRUE
+run_estimation <- FALSE
 
 h <- 8
 
@@ -266,12 +266,12 @@ snb_rate_parameter_guess <- list(
   
   # Measurement Noise Standard Deviations (Rule 1: Exponential > 0)
   sigma_policy        = 0.1,   # Error in the shadow policy rate equation
-  sigma_fwd           = 0.2,   # Error in the 5y-5y forward rate identification
+  # sigma_fwd           = 0.2,   # Error in the 5y-5y forward rate identification
 
   # State Innovation Standard Deviations (Rule 1: Exponential > 0)
   xi_i                = 0.1,  # Shock to the nominal natural rate (random walk)
-  xi_tp_bar         = 0.1,  # Shock to the trend term premium (random walk)
-  xi_tp_cycl          = 0.1    # Shock to the cyclical term premium (AR1)
+  xi_tp_bar         = 0.05,  # Shock to the trend term premium (random walk)
+  xi_tp_cycl          = 0.05    # Shock to the cyclical term premium (AR1)
 )
 
 # FOr model 2 the SNB data is released with a year delay -> more like 3q due to late release of all other data

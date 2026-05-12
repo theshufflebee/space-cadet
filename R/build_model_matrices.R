@@ -567,12 +567,12 @@ build_M_taylor <- function(model_params) {
 }
 
 #' Build the N Matrix (Process Noise Covariance)
-build_N_taylor <- function(model_params, default_sig = 0.01) {
+build_N_taylor <- function(model_params, default_sig_trend = 0.1, default_sig_cycle = 0.5) {
   # Extract state innovation standard deviations
   # xi_i: natural rate, xi_tp_trend: trend TP, xi_tp_cycl: cyclical TP
   xi_i        <- if(!is.null(model_params$xi_i)) model_params$xi_i else default_sig
-  xi_tp_trend <- if(!is.null(model_params$xi_tp_trend)) model_params$xi_tp_trend else default_sig
-  xi_tp_cycl  <- if(!is.null(model_params$xi_tp_cycl)) model_params$xi_tp_cycl else default_sig
+  xi_tp_trend <- if(!is.null(model_params$xi_tp_trend)) model_params$xi_tp_trend else default_sig_trend
+  xi_tp_cycl  <- if(!is.null(model_params$xi_tp_cycl)) model_params$xi_tp_cycl else default_sig_cycle
   
   N <- diag(c(xi_i, xi_tp_trend, xi_tp_cycl), 3, 3)
   
@@ -589,11 +589,13 @@ build_mu_t_taylor <- function(model_params, X_data) {
   gamma_y  <- as.numeric(model_params$gamma_y)
   phi  <- as.numeric(model_params$phi)
   
-  
+
   # Ensure X_data columns are numeric vectors
   # Using drop = FALSE or as.numeric ensures we don't have a list-column issue
   gdp_g   <- as.numeric(X_data[, "gdp_gap"])
+  
   inf_g   <- as.numeric(X_data[, "inf_gap"])
+  
   
   # The Taylor Rule Exogenous Component
   # Formula: rho*i(t-1) + (1-rho)*(gamma_y*y_gap + gamma_pi*pi_gap)
@@ -601,9 +603,6 @@ build_mu_t_taylor <- function(model_params, X_data) {
   
   # Measurement 1: Policy Rate (i_t)
   # Measurement 2: Forward Rate (5y5y)
-  
-  print("mu_t DONE")
-  
   
   return(cbind(ex_comp, rep(0, nrow(X_data)) ))
 }
@@ -618,8 +617,7 @@ build_AR_matrix <- function(model_params, Y_data) {
   ar_mat <- matrix(0, nrow = nr, ncol = nc)
   
   ar_mat[ ,1] <- phi
-  print("AR MAT DONE")
-  
+
   return(ar_mat)
 }
 
@@ -638,7 +636,7 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
   # rho: Interest rate smoothing
   # rho_tp: Persistence of cyclical term premium
   required_params <- c("gamma_pi", "gamma_y", "phi", "rho_tp", 
-                       "sigma_policy", "sigma_fwd", "xi_i", "xi_tp_bar", "xi_tp_cycl")
+                       "sigma_policy", "xi_i", "xi_tp_bar", "xi_tp_cycl")
   
   if (!all(required_params %in% names(parameter_guesses))) {
     stop("Missing required parameters for Taylor SSM (Model 3)!")
@@ -658,7 +656,7 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
     # Measurement Noise (Must be positive) 
     # sigma_i: Policy rate noise | sigma_fwd: Forward rate noise
     sigma_policy     = list(val = parameter_guesses$sigma_policy,   rule = 1),
-    sigma_fwd   = list(val = parameter_guesses$sigma_fwd, rule = 1),
+    # sigma_fwd   = list(val = parameter_guesses$sigma_fwd, rule = 1),
 
     # State Innovation Noise (Must be positive)
     # ibar: Natural rate | tp_bar: TP trend | tp_tilde: TP cycle
@@ -692,7 +690,7 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
       ar_mat = build_AR_matrix
     ),
     name = "TAYLOR",
-    rho_guess = c(0.1, 0.1, 0.1),
+    rho_guess = c(1, 1, 0.1),
     sigma_guess = c(10)
   )
   

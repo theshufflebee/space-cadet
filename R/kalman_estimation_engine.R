@@ -629,6 +629,149 @@ rolling_est_philips_ssm <- function(data,
 
 
 
+rolling_est_taylor_ssm <- function(data,
+                                 forecast_start,
+                                 forecast_end = NULL,
+                                 date_col = "quarter",
+                                 val_T1 = "1991-01-01") {
+  
+  # Assure correct format
+  
+  data <- as.data.frame(data)
+  
+  data[[date_col]] <- as.yearqtr(data[[date_col]])
+  
+  print(data)
+  # Select the starting quarter
+  start_q <- as.yearqtr(as.Date(forecast_start))
+  
+  # Sleect T = 0
+  val_T1 <- as.yearqtr(as.Date(val_T1))
+  
+  # Either estimate until last obs or estimate until a given date
+  if(is.null(forecast_end)) {
+    end_q <- max(data[[date_col]], na.rm = TRUE)
+  } else {
+    end_q <- as.yearqtr(as.Date(forecast_end))
+  }
+  
+  # Define the sequence of "Vantage Points" (The end of the period on which we estimate)
+  # Is the today (end of information set) for the forecast
+  forecast_dates <- data[[date_col]][data[[date_col]] >= start_q & data[[date_col]] <= end_q] 
+  
+  comp <- list()
+  
+  # Initial setup for the first warm start
+  # We initialize with NULL so the wrapper uses manifest defaults for the first run
+  current_theta <- NULL 
+  
+  message(sprintf("Rolling Estimation: %s to %s", start_q, end_q))
+  
+  # This always estimates from val_T1 to the forecast vantage point -> today
+  # run parameter estimation on the full information set
+  for (i in seq_along(forecast_dates)) {
+    target_date <- forecast_dates[i]
+    message("\n--- Vantage Point: ", target_date, " ---")
+    
+    # Slice Data available "Today"
+    data_t <- data[data[[date_col]] <= target_date, ]
+    
+    # Process Exogenous Data
+    # HP Filter is estimated inclduing the burn in period before the start of the information set
+    
+    # Error if there ar not enough valid gdp obs 
+    valid_inf_indices <- which(!is.na(data_t$log_cpi))
+    if (length(valid_inf_indices) < 5) {
+      message("Stopping: Not enough GDP data points.")
+      stop()
+    }
+    
+    # select GDP series
+    first_obs_idx <- valid_inf_indices[1]
+    inf_series    <- data_t$log_cpi[first_obs_idx:nrow(data_t)]
+    
+    gdp_gap_data <- get_hp_gap(data = data_t,
+                               gdp_forecast_data = data_t, # forecast data
+                               vantage_q = target_date
+                              )
+    
+    # inf_gap_data <- get_hp_gap(data = data_t,
+    #                            gdp_forecast_data = data_t, # forecast data
+    #                            vantage_q = target_date,
+    #                            gdp_col = "log_cpi"
+    #) 
+    
+    inf_gap_data <- data_t %>%
+      select(all_of(c("quarter", "inf_gap")))
+    
+    
+    processed_data <- data_t %>%
+      select(quarter, saron_libor_splice, forward_rate, yoy_inflation) %>%
+      left_join(gdp_gap_data %>% select(quarter, gdp_gap = gap), by = "quarter") %>%
+      left_join(inf_gap_data %>% select(quarter, inf_gap), by = "quarter") %>%
+      filter(quarter >= as.yearqtr(val_T1)) %>%
+      arrange(quarter) %>%
+      filter(complete.cases("gdp_gap", "inf_gap"))
+    
+    
+    if (nrow(processed_data) < 20) { # 20 is a safe minimum for a 3-state SSM
+      message(sprintf("Skipping %s: Insufficient observations after filtering (%d obs)", 
+                      target_date, nrow(processed_data)))
+      next # Skip to the next quarter in the rolling loop
+    }
+    
+  
+    # Build Data Matrices
+    Y_final <- as.matrix(processed_data[, c("saron_libor_splice", "forward_rate")])
+    X_final <- as.matrix(processed_data[, c("gdp_gap", "inf_gap")])
+    
+    print("Y_final")
+    print(Y_final)
+    
+    print("X_final")
+    print(X_final)
+    
+    
+    message(sprintf("Estimation range: %s to %s (%d obs)", 
+                    min(processed_data$quarter), max(processed_data$quarter), nrow(processed_data)))
+    
+    # Initialize Blueprint
+    my_ssm_model <- initialize_taylor_ssm(Y_data = Y_final,
+                                           X_data =X_final,
+                                           parameter_guesses = snb_rate_parameter_guess)
+    
+    # Optimization: Multiple estimations with Warm Start
+    # We use Nelder-Mead and BFGS that are very different for robustnes
+    # each previous result becomes guess for the next
+    opt_results <- ssm_optimizer_wrapper_shadow(
+      ssm = my_ssm_model
+    )
+    
+    # Update current_theta for the next vantage point (Warm Start)
+    current_theta <- opt_results$theta
+    
+    if(any(is.na(current_theta))) {
+      message("Warning: Optimizer crashed. Resetting to manifest defaults.")
+      current_theta <- NULL
+    }
+    
+    
+    # 8. Final Extraction of States
+    final_states <- loglik_ssm_shadow(current_theta, my_ssm_model, return_full_res = TRUE)
+    
+    # Store results
+    comp[[as.character(target_date)]] <- list(
+      target_date = target_date,
+      params      = opt_results$params,
+      states      = final_states
+    )
+    
+    cat("Likelihood: ", -final_states$loglik, "Parameters", current_theta)
+    cat(sprintf("\n [%d/%d] Estimated: %s\n", i, length(forecast_dates), as.character(target_date)))
+  }
+  
+  return(comp)
+}
 
 
 
