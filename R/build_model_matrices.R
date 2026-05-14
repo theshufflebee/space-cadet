@@ -316,6 +316,10 @@ build_data_matrix_philips <- function(T_0 = "2015-01-01",
                                       data = master_philips,
                                       h = 8) {
   
+  T_0 <- as.yearqtr(T_0)
+  
+  print(T_0)
+  
   # Lag CPI before burn cutoff
   raw_data <- data %>%
     arrange(quarter) %>%
@@ -344,36 +348,121 @@ build_data_matrix_philips <- function(T_0 = "2015-01-01",
                             vantage_q = vantage_quarter
   )
   
+  message("HP GAP DATA DONE")
+  
+  
   HP_gap_forecasts_data <- get_hp_gap(raw_data,
                                       raw_data, # forecast data
                                       vantage_q = vantage_quarter,
                                       return_forecasts = TRUE)
+  
+  message("HP GAP Forecast DONE")
   
   print(HP_gap_data)
   
   X_matrix <- raw_data %>%
     select(quarter, log_inflation_diff, lag_log_inflation_diff, log_gdp, `5y_cpi_forecast`) %>%
     left_join(LOP_forecast %>% select(quarter, lop_gap), by = "quarter") %>%
-    mutate(lop_gap = lag(lop_gap, 1))%>% # currently lagged
+    mutate(lag_lop_gap = lag(lop_gap, 1))%>% #
     left_join(HP_gap_data %>% select(quarter, gdp_gap = gap), by = "quarter") %>%
+    mutate(lag_gdp_gap = lag(gdp_gap)) %>%
     # Filter to return the specific estimation sample
     filter(quarter >= as.yearqtr(T_0)) %>%
     arrange(quarter) %>%
     mutate(`5y_cpi_forecast` = `5y_cpi_forecast` /100)
   
-  
-  X_forecast_matrix <- raw_data %>%
-    select(quarter, log_inflation_diff, lag_log_inflation_diff, log_gdp, `5y_cpi_forecast`) %>%
-    left_join(LOP_forecast %>% select(quarter, lop_gap), by = "quarter") %>%
-    # mutate(lop_gap = lag(lop_gap, 1))%>% # currently lagged
-    left_join(HP_gap_data %>% select(quarter, gdp_gap = gap), by = "quarter") %>%
-    # Filter to return the specific estimation sample
-    filter(quarter >= as.yearqtr(T_0)) %>%
-    arrange(quarter) %>%
-    mutate(`5y_cpi_forecast` = `5y_cpi_forecast` /100)
+  message("X_Matrix sucessfully built")
   
   return(X_matrix)
 }
+
+
+
+# --- Matrices ---
+
+
+#' Build the H Matrix (State Transition)
+#' @param model_params A named list containing "rho_tp" for the cyclical term premium.
+#' @return A 3 x 3 matrix defining the transition dynamics.
+build_H_philips <- function(model_params) {
+  # rho_tp determines the persistence of the cyclical term premium component
+  rho_tp <- if(!is.null(as.numeric(model_params$rho_tp))) model_params$rho_tp else 0.9
+  
+  H <- diag(3)  # Natural rate random walk // Trend term premium random walk
+  H[3,3] <- rho_tp  # Cyclical term premium AR(1)
+  
+  return(H)
+}
+
+
+
+#' Build the G Matrix (Factor Loadings)
+#' @param model_params A named list containing the smoothing parameter "phi".
+#' @return A 2 x 3 matrix of factor loadings.
+build_G_philips <- build_G <- function() {
+  matrix(c(1, 1), nrow = 2, ncol = 1)
+}
+
+
+#' Build the M Matrix (Measurement Noise Covariance)
+#' @description 
+#' Maps measurement noise for (1) Policy Rate and (2) Forward Rate.
+#' If sigma_fwd is missing, it defaults to 0.
+build_M_philips <- function(model_params) {
+  
+  sig_cpi <- model_params$sigma_cpi
+  sig_spf <- model_params$sigma_spf
+  
+  
+  M <- diag(2)
+  
+  M[1,1] <- sig_cpi
+  M[2,2] <- sig_spf
+
+  return(M)
+}
+
+#' Build the N Matrix (Process Noise Covariance)
+build_N_philips <- function(model_params, default_sig_xi = 0.001) {
+  
+  # Check if a specific state sigma exists that is being estimated.
+  # otherwise default to sd 0.01 and therefore variance 0.0001
+  xi_n <- if(!is.null(model_params$xi_n)) model_params$xi_n else default_sig_xi
+  matrix(xi_n, 1, 1)
+}
+
+
+
+# --- The External Data Matrix ---
+build_mu_t_philips <- function(model_params, X_data) {
+  
+  beta_y <- as.numeric(model_params$beta_y)
+  psi_lop  <- as.numeric(model_params$psi_lop)
+
+  gdp_gap   <- as.numeric(X_data[, "gdp_gap"])
+  
+  lop_gap   <- as.numeric(X_data[, "lop_gap"])
+  
+  ex_comp <- (beta_y * gdp_gap +   psi_lop * lop_gap)
+
+  
+  #returns Matrix of Lengh T therefore nrow
+  return(cbind(ex_comp, rep(0, nrow(X_data)) ))
+}
+
+build_AR_matrix_philips <- function(model_params, Y_data, lag_val, rho) {
+  
+  phi <- as.numeric(model_params$phi)
+  
+  nc <- ncol(Y_data)
+  
+  ar_mat <- matrix(0, nrow = nc, ncol = 1)
+  
+  ar_mat[1 ,1] <- phi
+  
+  return(ar_mat)
+}
+
 
 ################################################################################
 
@@ -440,25 +529,17 @@ initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
   # First bild manifest with the required parameters
   manifest <- list(
     # Okun's Law Betas (Unconstrained)
-    beta1              = list(val = parameter_guesses$beta1, rule = 0),
-    beta2              = list(val = parameter_guesses$beta2, rule = 0),
-    beta3              = list(val = parameter_guesses$beta3, rule = 0),
+    beta_y              = list(val = parameter_guesses$beta_y, rule = 0),
+    psi_lop             = list(val = parameter_guesses$psi_lop, rule = 0),
+
+    phi                 = list(val = parameter_guesses$phi, rule = 2),
     
     
     # Measurement Noise Standard Deviations (Must be positive)
     # Names match: "sigma_" + colnames(Y_data)
-    sigma_cpi   = list(val = parameter_guesses$sigma_cpi,  rule = 1),
-    sigma_spf = list(val = parameter_guesses$sigma_spf, rule = 1)
+    sigma_cpi           = list(val = parameter_guesses$sigma_cpi,  rule = 1),
+    sigma_spf           = list(val = parameter_guesses$sigma_spf, rule = 1)
   )
-  
-  # Then add those that are optional
-  
-  # State Persistence (Bounded for stability)
-  if ("phi" %in% names(parameter_guesses) && !is.null(parameter_guesses$phi)) {
-    manifest$phi <- list(val = parameter_guesses$phi, rule = 2)
-  } else {
-    message("--- phi not provided. Fixing phi = 1 (Random Walk) ---")
-  }
   
   if ("xi_n" %in% names(parameter_guesses) && !is.null(parameter_guesses$xi_n)) {
     manifest$xi_n <- list(val = parameter_guesses$xi_n, rule = 1)
@@ -651,7 +732,7 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
     
     # Smoothing and Persistence (Bounded 0-1 for stability)
     phi         = list(val  = 0.8,    # Initial guess
-                       rule = 3,      # Use the new Bounded Logistic rule
+                       rule = 3,      # Use the new Bounded Logistic rule (3) or standard >0 (1)
                        low  = 0.5,    # Minimum smoothing
                        high = 0.99    # Maximum smoothing
                        ),

@@ -33,18 +33,16 @@ data_prep_taylor <- master_taylor %>%
       TRUE ~ saron_libor_splice
     )
   ) %>%
-  # Fix: Added comma between "lag_rate" and "gdp_gap"
   select(all_of(c("quarter", "saron_libor_splice",
                   "forward_rate", "log_cpi", "lag_rate", "log_gdp", "gdp_gap",
-                  "yoy_inflation", "12m_interest_forecast"))) %>%
+                  "yoy_inflation", "12m_interest_forecast", "inf_hp_gap"))) %>%
   mutate(
     across(c("saron_libor_splice",
            "forward_rate", "log_cpi", "lag_rate",
-           "yoy_inflation", "12m_interest_forecast"), ~ .x * 100) 
+           "yoy_inflation", "12m_interest_forecast", "inf_hp_gap"), ~ .x * 100) 
   ) %>%
   mutate(
-    # Now that inflation is e.g., 1.5, subtracting 1 correctly gives 0.5
-    inf_gap = yoy_inflation - 1 
+    inf_gap = inf_hp_gap 
   )
 
 
@@ -81,15 +79,19 @@ if(run_estimation){
   taylor_param_est <- rolling_est_taylor_ssm(data = data_prep_taylor,
                                              forecast_start = as.yearqtr("2018 Q1"))
   
-  saveRDS(taylor_param_est, file = "output/temp/rolling_results_taylor_2018_const_smooth.rds")
+  saveRDS(taylor_param_est, file = "output/temp/rolling_results_taylor_2018_bound_smooth_hp_inf_gap.rds")
   
   taylor_params <- extract_params_df(taylor_param_est, extract_fitted_obs = TRUE)
   
-  write.csv(taylor_params, "output/parameter_estimation/taylor_params_2018_const_smooth.csv")
+  write.csv(taylor_params, "output/parameter_estimation/taylor_params_2018_bound_smooth_hp_inf_gap.csv")
   
 }else{
   
-  taylor_params <- read.csv( "output/parameter_estimation/taylor_params.csv")
+  taylor_params <- read.csv("output/parameter_estimation/taylor_params_2018_bound_smooth_hp_inf_gap.csv")
+  
+  taylor_params_est <- readRDS("output/temp/rolling_results_taylor_2018_const_smooth.rds")
+  
+  taylor_params <- extract_params_df(taylor_params_est, extract_fitted_obs = TRUE)
 }
 
 
@@ -101,8 +103,8 @@ if(run_estimation){
 ############################3
 
 
-# 1. Run the filter one last time with the final parameters
-final_res <- kalman_filter(
+# Run the filter with the final parameters
+final_res <- kalman_filter_taylor(
   Y_t = ssm_taylor$data$Y,
   nu_t = matrix(0, nrow(ssm_taylor$data$Y), 3), # Adjust nr if needed
   H = ssm_taylor$builders$H(output_estim$params),
@@ -115,7 +117,7 @@ final_res <- kalman_filter(
   rho_0 = matrix(ssm_taylor$rho_guess, ncol=1)
 )
 
-# 2. Extract the Shadow Rate and the Natural Rate
+# extract the data
 shadow_rate <- final_res$fitted_obs[, 1]
 natural_rate <- final_res$r[, 1] # State 1
 fit_rate <- final_res$fitted_obs_t_t[, 1]
@@ -127,7 +129,9 @@ gdp_gap <- X_data_taylor$gdp_gap
 
 # 3. Plot
 plot(dates, fit_rate, type="l", col="blue", lwd=3, 
-     main="Observed SNB vs Fitted Rate", ylab="Rate (%)")
+     main="Obs vs Fitted Rate", ylab="Rate (%)")
+mtext("Taylor Rule Specification: Unounded smoothing & HP Inflation Gap", 
+      side=3, line=0.5, cex=0.8)
 lines(dates, natural_rate, col="red", lty=2, type="l")
 lines(dates, snb_rate, col="green", lty=2)
 lines(dates, fw_rate, col="orange", lty=2)
@@ -154,7 +158,8 @@ taylor_forecast_df <- forecast_taylor_ssm(params_df = taylor_params,
                                 date_col = "quarter",
                                 master_df = data_prep_taylor,
                                 forecast_h = 8,
-                                exogenous_forecast_data = data_prep_taylor)
+                                exogenous_forecast_data = data_prep_taylor,
+                                hp_inf_gap = TRUE)
 
 
 

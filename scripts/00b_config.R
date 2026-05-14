@@ -241,9 +241,9 @@ okun_parameter_guess <- list(
 philips_parameter_guess <- list(
   
   # Parameters on exogenous variables
-  beta1 = 0.4,
-  beta2 = 0.2,
-  beta3 = 0.2,
+  beta_y = 0.4,
+  psi_lop = 0.2,
+  phi = 0.2,
   
   # sd on measurement variables
   sigma_cpi = 0.001,

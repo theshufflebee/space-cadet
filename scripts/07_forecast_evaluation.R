@@ -112,14 +112,14 @@ result_taylor <- creaFcstEval::run_evaluation(
   fcst_df         = fcst_df_policy_rate,
   model_name      = "Taylor Model",
   benchmark_model = "RW",
-  output_path     = "output/forecasts/forecast_evaluation_taylor.csv"
+  output_path     = "output/forecasts/forecast_evaluation_taylor_constphi_hp_gap.csv"
 )
 
-fcst_eval_results_taylor_shadow_rate <- result_taylor$table
+fcst_eval_results_taylor_constr_const_gap <- result_taylor$table
 
 creaFcstEval::spaghetti_plot(
   df              = Y_taylor,
   fcst_df         = fcst_df_policy_rate,
-  output_path     = "output/plots/taylor_spaghetti_plot.png"
+  output_path     = "output/plots/taylor_spaghetti_plot_constphi_hp_gap.png"
 )
 

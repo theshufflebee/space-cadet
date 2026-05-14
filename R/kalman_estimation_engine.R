@@ -599,7 +599,7 @@ rolling_est_philips_ssm <- function(data,
     
     # Build Data Matrices
     Y_final <- as.matrix(data_t[, c("log_inflation_diff", "5y_cpi_forecast")])
-    X_final <- as.matrix(data_t[, c("lag_log_inflation_diff", "gdp_gap", "lop_gap")])
+    X_final <- as.matrix(data_t[, c("gdp_gap", "lop_gap")])
     
     message(sprintf("Estimation range: %s to %s (%d obs)", 
                     min(data_t$quarter), max(data_t$quarter), nrow(data_t)))
@@ -612,7 +612,7 @@ rolling_est_philips_ssm <- function(data,
     # Optimization: Multiple estimations with Warm Start
     # We use Nelder-Mead and BFGS that are very different for robustnes
     # each previous result becomes guess for the next
-    opt_results <- ssm_optimizer_wrapper(
+    opt_results <- ssm_optimizer_wrapper_shadow(
       ssm       = my_ssm_model, 
       methods   = c("Nelder-Mead", "BFGS"), 
       iters     = 2, 
@@ -735,7 +735,7 @@ rolling_est_taylor_ssm <- function(data,
   
     # Build Data Matrices
     Y_final <- as.matrix(processed_data[, c("saron_libor_splice", "forward_rate")])
-    X_final <- as.matrix(processed_data[, c("gdp_gap", "inf_gap")])d
+    X_final <- as.matrix(processed_data[, c("gdp_gap", "inf_gap")])
     
     message(sprintf("Estimation range: %s to %s (%d obs)", 
                     min(processed_data$quarter), max(processed_data$quarter), nrow(processed_data)))

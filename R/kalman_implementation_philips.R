@@ -72,11 +72,11 @@
 #' defined by the function (used in QKF for augmented state vectors).
 #' 
 #' @export
-kalman_filter_taylor <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
+kalman_filter_philips <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
                           indic_pos=0,
                           Rfunction=calc_covariance, Qfunction=calc_covariance,
                           reconciliationf = function(x,opt){x},
-                          ar_matrix = 0# In case
+                          ar_matrix = 0
 ){
   # Y_t is the observed data matrix
   # rho_0 is the starting guess for the state vector
@@ -212,7 +212,7 @@ kalman_filter_taylor <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     #y_tp1_t[t,] = mu_t[t,] + t(G %*% rho_tp1_t[t,]) # forecast the measurement from t-1
     
     
-    y_tp1_t[t,] <- forecast_measurement_eq(mu_t = mu_t[t,], G = G, rho = rho, ar_mat = ar_matrix[t,], lag_val = lag_val)
+    y_tp1_t[t,] <- forecast_measurement_eq_philips(mu_t = mu_t[t,], G = G, rho = rho, ar_mat = ar_matrix, lag_val = lag_val)
       
 
     
@@ -811,6 +811,8 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
     # If no warm start, use manifest defaults
     # sapply here simplifies the nested list -> selects val from each element in the list
     init_theta_econ <- sapply(ssm$manifest, function(x) x$val) 
+    
+    message("INIT THETA ECON", init_theta_econ)
     
     current_par_opt <- model2param_gen(init_theta_econ, ssm)
     
