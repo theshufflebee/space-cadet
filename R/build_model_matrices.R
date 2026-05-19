@@ -311,7 +311,7 @@ initialize_my_okun_ssm <- function(Y_data, X_data, parameter_guesses) {
 #' @import dplyr
 #' @importFrom zoo as.yearqtr
 #' @export
-build_data_matrix_philips <- function(T_0 = "2015-01-01",
+build_data_matrix_philips <- function(T_0 = "2005-01-01",
                                       vantage_quarter = "2023 Q1",
                                       data = master_philips,
                                       h = 8) {
@@ -325,7 +325,7 @@ build_data_matrix_philips <- function(T_0 = "2015-01-01",
     arrange(quarter) %>%
     mutate(
       cpi = as.numeric(cpi),
-      log_inflation_diff = (log(cpi) - dplyr::lag(log(cpi), 1)) * 100,
+      log_inflation_diff = (log(cpi) - dplyr::lag(log(cpi), 4)) * 100,
       lag_log_inflation_diff = dplyr::lag(log_inflation_diff, 1) # Fixed syntax
     )
   
@@ -335,7 +335,7 @@ build_data_matrix_philips <- function(T_0 = "2015-01-01",
     filter(quarter <= as.yearqtr(vantage_quarter)) %>%
     arrange(quarter)
   message("RAW DATA DEBUG")
-  print(tail(raw_data))
+  print(raw_data)
   
   LOP_forecast <- splice_snb_series(vantage_quarter = vantage_quarter,
                                     snb_reer_delay = SNB_REER_DELAY,
