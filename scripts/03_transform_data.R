@@ -4,6 +4,10 @@
 #
 ################################################################################
 
+# This Script Formats the Data into Dataframes that are then used in the Models
+# This can be things as unified scale (Decimals or else) but also Log Transformations
+# and other transformations
+# It also creates new variables if needed for estimation
 
 
 # --- General Transformations for Full dataset ---
@@ -16,28 +20,26 @@
 # --- Unemployment Rate ---
 
 # We divide the unemployment number by the employment numbers to get the unemployment rate
-master_df$unemp_rate <- master_df$unemployment / (master_df$unemployment + master_df$employment)
+master_df$unemp_rate <- (master_df$unemployment / (master_df$unemployment + master_df$employment) ) * 100
 
 # The data is in the format where 5% is 0.05. The spf data is in format 5.00 for 5%
 # we therefore divide by 100
 # This is done so there are no variable mismatches that although technically don't 
 # break the model might break the optimizer
-master_df$spf_5y_unemp <- master_df$`5y_unemp_forecast` / 100
+master_df$spf_5y_unemp <- master_df$`5y_unemp_forecast`
 
 
-# move out later
-base_date <- "2020-12-01"
-# Also maybe need to download other CPI data
 
+# Variable indexing_date set in config
 master_df <- master_df %>%
   arrange(date) %>%
   mutate(
     # Rebase Swiss PPI (PCH) so Dec 2020 = 100
     # ppi_ch represents Swiss CPI column
-    ppi_ch_idx = (ppi_ch / ppi_ch[date == base_date]) * 100,
+    ppi_ch_idx = (ppi_ch / ppi_ch[date == indexing_date]) * 100,
     
     # Step B: Rebase Euro PPI (PEUR) so Dec 2020 = 100
-    ppi_eur_idx = (ppi_eur / ppi_eur[date == base_date]) * 100,
+    ppi_eur_idx = (ppi_eur / ppi_eur[date == indexing_date]) * 100,
     
     # Step C: Calculate REER_CREA
     # Formula: St * (PCH / PEUR)
@@ -180,7 +182,7 @@ message("Okun Data Formatting Done")
 master_quarterly <- master_quarterly %>%
   mutate(
     cpi = as.numeric(cpi),
-    log_inflation_diff = log(cpi) - dplyr::lag(log(cpi), 4),
+    log_inflation_diff = (log(cpi) - dplyr::lag(log(cpi), 4)) * 100,
     lag_log_inflation_diff = dplyr::lag(log_inflation_diff, 1),
     `5y_cpi_forecast` = `5y_cpi_forecast`
     )
@@ -235,6 +237,59 @@ master_taylor <- master_taylor %>%
     ),
     saron_libor_splice = saron_libor_splice / 100
   ) %>%
-  select(-quarter_idx) #clean up helper column
+  select(-quarter_idx) %>%
+  mutate(
+    # HP filter on log GDP for output gap -> used for final run of the filter on full sample
+    log_gdp = log_gdp * 100,
+    gdp_gap = mFilter::hpfilter(log_gdp, freq = 1600)$cycle,
+    
+    log_cpi = log(cpi),
+    
+    # Year-on-Year Inflation: log(CPI_t) - log(CPI_{t-4})
+    yoy_inflation = log(cpi) - dplyr::lag(log(cpi), 4)) %>%
+  
+  filter(!is.na(yoy_inflation)) %>%
+  mutate(
+    
+    # 3. Temporary Trend: HP filter 'trend' component of yoy_inflation
+    # Note: Using $trend extracts the trend to subtract from the actual
+    hp_inf_gap = mFilter::hpfilter(yoy_inflation, freq = 1600)$cycle,
+    
+    # 4. Lagged Policy Rate
+    lag_rate = lag(saron_libor_splice, 1),
+    
+  ) %>%
+  mutate(
+    saron_libor_splice = case_when(
+      # Use as.yearqtr to match the column type
+      quarter >= zoo::as.yearqtr("2009 Q2") & quarter <= zoo::as.yearqtr("2022 Q2") ~ NA_real_,
+      TRUE ~ saron_libor_splice
+    )
+  ) %>%
+  select(all_of(c("quarter", "saron_libor_splice",
+                  "forward_rate", "log_cpi", "lag_rate", "log_gdp", "gdp_gap",
+                  "yoy_inflation", "12m_interest_forecast", "hp_inf_gap"))) %>%
+  mutate(
+    across(c("saron_libor_splice",
+             "forward_rate", "log_cpi", "lag_rate",
+             "yoy_inflation", "12m_interest_forecast", "hp_inf_gap"), ~ .x * 100) 
+  ) %>%
+  mutate(
+    inf_gap = yoy_inflation -1,
+    
+  )#clean up helper column
+
+# Add a True rate to it which is the observed Rate without the NA Observations
+true_rate <- master_taylor %>%
+  select(quarter, saron_libor_splice) %>%
+  rename(true_snb_rate = saron_libor_splice)%>%
+  mutate(true_snb_rate = true_snb_rate * 100 )
+
+master_taylor <- master_taylor %>%
+  left_join(true_rate, by = "quarter" )
+
+
+
+
 
 

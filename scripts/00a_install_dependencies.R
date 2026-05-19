@@ -32,7 +32,9 @@ required_packages <- c(
   "ggplot2", # For plotting
   "patchwork", # Also for Plotting and combining plots
   "creaFcstEval", # Internal Package for forecast evaluation
-  "forecast" # For running other forecasts such as ARIMA
+  "forecast", # For running other forecasts such as ARIMA
+  "eurostat"
+  
   
 )
 

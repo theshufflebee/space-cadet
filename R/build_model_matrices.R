@@ -253,7 +253,7 @@ initialize_my_okun_ssm <- function(Y_data, X_data, parameter_guesses) {
       N    = build_N
     ),
     name = "OKUN",
-    rho_guess = c(0.1),
+    rho_guess = c(2),
     sigma_guess = c(10)
     
   )
@@ -748,9 +748,9 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
     
     # Smoothing and Persistence (Bounded 0-1 for stability)
     phi         = list(val  = 0.8,    # Initial guess
-                       rule = 3,      # Use the new Bounded Logistic rule (3) or standard >0 (1)
-                       low  = 0.5,    # Minimum smoothing
-                       high = 0.99    # Maximum smoothing
+                       rule = 2,      # Use the new Bounded Logistic rule (3) or standard >0 (1)
+                       low  = 0.5,    # Minimum smoothing only used if rule 3, else just disregard it
+                       high = 0.99    # Maximum smoothing only used if rule 3, else just disregard it
                        ),
     rho_tp      = list(val = parameter_guesses$rho_tp,  rule = 2),
     

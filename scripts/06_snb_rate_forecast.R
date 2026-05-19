@@ -1,109 +1,40 @@
 message("Starting SNB Policy Rate Forecast")
 
-source(here("R", "kalman_implementation_shadow.R"))
 
+# Source Correct Kalmann Specs
+source(here("R", "kalman_implementation_taylor.R"))
 
+# ==============================================================================
+# Estimate the model over the Full Horizon
+# ==============================================================================
 
-data_prep_taylor <- master_taylor %>%
-  mutate(
-    # 1. Output Gap: HP filter on log GDP
-    log_gdp = log_gdp * 100,
-    gdp_gap = mFilter::hpfilter(log_gdp, freq = 1600)$cycle,
-    
-    log_cpi = log(cpi),
-    
-    # 2. Year-on-Year Inflation: log(CPI_t) - log(CPI_{t-4})
-    yoy_inflation = log(cpi) - dplyr::lag(log(cpi), 4)) %>%
-  
-  filter(!is.na(yoy_inflation)) %>%
-  mutate(
-    
-    # 3. Temporary Trend: HP filter 'trend' component of yoy_inflation
-    # Note: Using $trend extracts the trend to subtract from the actual
-    inf_hp_gap = mFilter::hpfilter(yoy_inflation, freq = 1600)$cycle,
-    
-    # 4. Lagged Policy Rate
-    lag_rate = lag(saron_libor_splice, 1),
-    
-  ) %>%
-  mutate(
-    saron_libor_splice = case_when(
-      # Use as.yearqtr to match the column type
-      quarter >= zoo::as.yearqtr("2009 Q2") & quarter <= zoo::as.yearqtr("2022 Q2") ~ NA_real_,
-      TRUE ~ saron_libor_splice
-    )
-  ) %>%
-  select(all_of(c("quarter", "saron_libor_splice",
-                  "forward_rate", "log_cpi", "lag_rate", "log_gdp", "gdp_gap",
-                  "yoy_inflation", "12m_interest_forecast", "inf_hp_gap"))) %>%
-  mutate(
-    across(c("saron_libor_splice",
-           "forward_rate", "log_cpi", "lag_rate",
-           "yoy_inflation", "12m_interest_forecast", "inf_hp_gap"), ~ .x * 100) 
-  ) %>%
-  mutate(
-    inf_gap = yoy_inflation -1
-  )
+# --- Select the alreeady Transformed data for the model
 
-
-true_rate <- master_taylor %>%
-  select(quarter, saron_libor_splice) %>%
-  rename(true_snb_rate = saron_libor_splice)%>%
-  mutate(true_snb_rate = true_snb_rate * 100 )
-
-data_prep_taylor <- data_prep_taylor %>%
-  left_join(true_rate, by = "quarter" )
-
-
-
-Y_data_taylor <- data_prep_taylor %>%
+# From The Full dataset select the Data needed for the Rolling estimation of the FUll timeline
+Y_data_taylor <- master_taylor %>%
   select(all_of(c("saron_libor_splice", "forward_rate")))
 
-X_data_taylor <- data_prep_taylor %>%
+# Set inf_gap to hp_inf_gap if you want to estimate with the HP inf gap
+X_data_taylor <- master_taylor %>%
   select(all_of(c("gdp_gap", "inf_gap")))
   
 
-
-################
-
+# --- Initialize the SSM ---
 ssm_taylor <- initialize_taylor_ssm(Y_data = Y_data_taylor,
                                    X_data = X_data_taylor,
                                    parameter_guesses =snb_rate_parameter_guess)
 
 
+# --- Estimate the full Model ---
 output_estim <- ssm_optimizer_wrapper_shadow(ssm = ssm_taylor)
 
 
-if(run_estimation){
-  
-  taylor_param_est <- rolling_est_taylor_ssm(data = data_prep_taylor,
-                                             forecast_start = as.yearqtr("2018 Q1"))
-  
-  saveRDS(taylor_param_est, file = "output/temp/rolling_results_taylor_2018_bound_smooth_hp_inf_gap.rds")
-  
-  taylor_params <- extract_params_df(taylor_param_est, extract_fitted_obs = TRUE)
-  
-  write.csv(taylor_params, "output/parameter_estimation/taylor_params_2018_bound_smooth_hp_inf_gap.csv")
-  
-}else{
-  
-  taylor_params <- read.csv("output/parameter_estimation/taylor_params_2018_const_smooth_hp_inf_gap.csv")
-  
-  taylor_params_est <- readRDS("output/temp/rolling_results_taylor_2018_const_smooth.rds")
-  
-  taylor_params <- extract_params_df(taylor_params_est, extract_fitted_obs = TRUE)
-}
+# ==============================================================================
+# Plot the Full Sample Fit
+# ==============================================================================
 
 
-
-
-
-
-
-############################3
-
-
-# Run the filter with the final parameters
+# --- Run the filter with the final parameters ---
 final_res <- kalman_filter_taylor(
   Y_t = ssm_taylor$data$Y,
   nu_t = matrix(0, nrow(ssm_taylor$data$Y), 3), # Adjust nr if needed
@@ -117,17 +48,17 @@ final_res <- kalman_filter_taylor(
   rho_0 = matrix(ssm_taylor$rho_guess, ncol=1)
 )
 
-# extract the data
+# --- Extract the values for the plot ---
 shadow_rate <- final_res$fitted_obs[, 1]
 natural_rate <- final_res$r[, 1] # State 1
 fit_rate <- final_res$fitted_obs_t_t[, 1]
-dates <- data_prep_taylor$quarter # Assuming you have a date vector
+dates <- master_taylor$quarter # Assuming you have a date vector
 snb_rate <-Y_data_taylor$saron_libor_splice
 fw_rate <- Y_data_taylor$forward_rate
 inflation_gap <- X_data_taylor$inf_gap
 gdp_gap <- X_data_taylor$gdp_gap
 
-# 3. Plot
+# --- Plot the data ---
 plot(dates, fit_rate, type="l", col="blue", lwd=3, 
      main="Obs vs Fitted Rate", ylab="Rate (%)")
 mtext("Taylor Rule Specification: Bounded smoothing & Constant Inflation Gap", 
@@ -149,30 +80,47 @@ legend("bottomleft",
 
 
 
+# ==============================================================================
+# Run the Full Rolling Forecast
+# ==============================================================================
+
+# --- Run the Rolling Estimation
+if(run_estimation){
+  
+  taylor_param_est <- rolling_est_taylor_ssm(data = master_taylor,
+                                             forecast_start = as.yearqtr(forecast_starting_date))
+  
+  taylor_params <- extract_params_df(taylor_param_est, extract_fitted_obs = TRUE)
+  
+  write.csv(taylor_params, output_save_paths$params$rolling_param_est_taylor)
+  
+}else{
+  
+  taylor_params <- read.csv(output_save_paths$params$rolling_param_est_taylor)
+}
 
 
-###############################################################3
-source(here("R", "ssm_forecasting.R"))
 
+
+# --- Run the Forecast ---
 taylor_forecast_df <- forecast_taylor_ssm(params_df = taylor_params,
                                 date_col = "quarter",
-                                master_df = data_prep_taylor,
+                                master_df = master_taylor,
                                 forecast_h = 8,
-                                exogenous_forecast_data = data_prep_taylor,
-                                hp_inf_gap = TRUE)
+                                exogenous_forecast_data = master_taylor,
+                                hp_inf_gap = FALSE)
 
 
+# Save the Forecast df (and reload)
+write_csv(taylor_forecast_df, output_save_paths$forecasts$forecast_df_taylor)
+taylor_forecast_df <- read_csv(output_save_paths$forecasts$forecast_df_taylor)
 
-
+# --- Format df for the Evaluation --- 
+# Make the Dataframe a square
 last_origin <- ncol(taylor_forecast_df)
 
 taylor_eval_square <- taylor_forecast_df[1:last_origin, 1:last_origin]
 
-# CheckThe number of rows should now equal the number of columns
+# Check: the number of rows should now equal the number of columns
 dim(taylor_eval_square)
-
-
-
-
-
 

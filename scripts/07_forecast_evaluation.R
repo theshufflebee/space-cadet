@@ -6,6 +6,11 @@
 
 message("Starting Forecast Evaluation")
 
+
+# ==============================================================================
+# OKUN Model Evaluation
+# ==============================================================================
+
 Y_okun_eval <- Y_okun %>%
   select(c("quarter", "unemp_rate")) %>%
   rename(date = quarter,
@@ -34,25 +39,20 @@ result <- creaFcstEval::run_evaluation(
   df              = Y_okun_eval,
   fcst_df         = fcst_df_fixed,
   model_name      = "Okun Model",
-  benchmark_model = "RW",
-  output_path     = "output/forecasts/forecast_evaluation_okun.csv"
-)
+  benchmark_model = "RW"
+  )
 
-fcst_eval_results_okun <- result$table
-
-
-
-################################################################################
+fcst_eval_okun_df <- result$table
+export_eval_to_latex(fcst_eval_okun_df, output_save_paths$tables$eval_rw_okun)
 
 
-inf_fcst_df <- read_csv(here("output/one_q_lag_inf.csv"))
 
 
-philips_eval_square <- as.data.frame(inf_fcst_df)
+# ==============================================================================
+# Philips Model Evaluation
+# ==============================================================================
 
-last_origin <- ncol(philips_eval_square)
 
-philips_eval_square <- philips_eval_square[1:last_origin, 1:last_origin]
 
 colnames(philips_eval_square) <- format(as.yearqtr(colnames(philips_eval_square)), "%YQ%q")
 
@@ -80,15 +80,18 @@ result_philips <- creaFcstEval::run_evaluation(
   df              = Y_philips,
   fcst_df         = fcst_df_inf,
   model_name      = "Philips Model",
-  benchmark_model = "RW",
-  output_path     = "output/forecasts/forecast_evaluation_philips.csv"
-)
+  benchmark_model = "RW"
+  )
 
-fcst_eval_results_philips <- result_philips$table
+fcst_eval_philips_df <- result_philips$table
+export_eval_to_latex(fcst_eval_philips_df, output_save_paths$tables$eval_rw_philips)
 
 
 
-##################################333
+# ==============================================================================
+# Taylor Model Evaluation
+# ==============================================================================
+
 
 colnames(taylor_eval_square) <- format(as.yearqtr(colnames(taylor_eval_square)), "%YQ%q")
 
@@ -110,15 +113,20 @@ result_taylor <- creaFcstEval::run_evaluation(
   df              = Y_taylor,
   fcst_df         = fcst_df_policy_rate,
   model_name      = "Taylor Model",
-  benchmark_model = "ARMA",
-  output_path     = "output/forecasts/forecast_evaluation_taylor_constphi_hp_gap.csv"
-)
+  benchmark_model = "RW")
 
-fcst_eval_results_taylor_constr_const_gap <- result_taylor$table
+fcst_eval_taylor_df <- result_taylor$table
+export_eval_to_latex(fcst_eval_taylor_df, output_save_paths$tables$eval_rw_taylor)
 
-creaFcstEval::spaghetti_plot(
-  df              = Y_taylor,
-  fcst_df         = fcst_df_policy_rate,
-  output_path     = "output/plots/taylor_spaghetti_plot_constphi_hp_gap.png"
-)
+
+
+
+################################################################################
+
+
+source(here("R", "latex_formatting.R"))
+
+
+
+
 

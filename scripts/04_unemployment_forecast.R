@@ -4,11 +4,10 @@
 #
 ################################################################################
 
-message("Stopping Script")
-
-stop("stopped before okun est")
 
 
+# Load correct Kalman Specs
+source(here("R", "kalman_implementation_base.R"))
 
 # ==============================================================================
 # DATA PREPARATION: HP Filter, Lagging, and Final Alignment
@@ -89,7 +88,4 @@ okun_eval_square <- forecast_okun_df[1:last_origin, 1:last_origin]
 
 # CheckThe number of rows should now equal the number of columns
 dim(okun_eval_square)
-
-
-
 

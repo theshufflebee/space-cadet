@@ -247,7 +247,7 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
     mutate(
       log_reer = log(reer_simulated),
       trend    = as.numeric(mFilter::hpfilter(log_reer, freq = 1600)$trend), 
-      lop_gap  = as.numeric(log_reer - trend)                                # <- ADD as.numeric
+      lop_gap  = as.numeric(log_reer - trend)                               
     )
   
   return(series_extended)

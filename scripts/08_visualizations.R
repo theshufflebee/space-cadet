@@ -4,8 +4,6 @@ message("Starting Visualizations")
 # Then build a wrapper that gives a complete SSM report for inspection
 
 # Temporarily here so updating functions in it and reruning is easier
-source(here("R", "visualizations.R"))
-
 
 # Parameters over Time Plot
 
@@ -35,4 +33,10 @@ creaFcstEval::spaghetti_plot(
   df          = Y_philips,
   fcst_df     = fcst_df_inf,
   output_path = output_save_paths$plots$spaghetti_philips
+)
+
+creaFcstEval::spaghetti_plot(
+  df              = Y_taylor,
+  fcst_df         = fcst_df_policy_rate,
+  output_path     = output_save_paths$plots$params_taylor
 )

@@ -4,8 +4,8 @@
 #
 ################################################################################
 
-source(here("R", "kalman_implementation.R"))
-
+# Get Correct Kalman Specs
+source(here("R", "kalman_implementation_philips.R"))
 
 
 if(run_estimation) {
@@ -15,7 +15,7 @@ if(run_estimation) {
   # Run the Rolling estimation
   params_philips <- rolling_est_philips_ssm(data = master_philips,
                                             forecast_start = forecast_starting_date,
-                                            val_T1 = "2005-01-01"
+                                            
   )
   
   #Turn Estimation output into a df
@@ -31,14 +31,14 @@ if(run_estimation) {
 
 
 # Run the Forecasts based on the Params df
-philips_forecast_df <- forecast_phillips_ssm(params_philips_df,                  
+philips_forecast_df <- forecast_philips_ssm(params_philips_df,                  
                                   date_col = "quarter",
                                   master_df = master_philips,
                                   forecast_h = 8,
-                                  gdp_forecast_data = master_philips)
+                                  exogenous_forecast_data = master_philips)
 
 # Save the Forecasts
-write_csv(philips_forecast_df, output_save_paths$forecasts$forecast_df_philips)
+write_csv(as.data.frame(philips_forecast_df), output_save_paths$forecasts$forecast_df_philips)
 
 
 last_origin <- ncol(philips_forecast_df)

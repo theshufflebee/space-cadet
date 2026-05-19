@@ -77,9 +77,9 @@ forecast_okun_ssm <- function(params_df,
   
   # Clean prepare params_df
   parameters <- params_df %>%
-    mutate(quarter = as.yearqtr(!!sym(date_col)))
+    mutate(quarter = as.yearqtr(.data[[date_col]]))
   
-  dates <- parameters %>% pull(!!sym(date_col))
+  dates <- parameters %>% pull(.data[[date_col]])
   
   # Setup Eval Matrix
   extended_rows <- seq(min(dates), by = 0.25, length.out = length(dates) + forecast_h)
@@ -123,7 +123,7 @@ forecast_okun_ssm <- function(params_df,
     
     # Re-calculate HP Cycle (The Pseudo-Real-Time approach)iincluding forecasts
     hp_res <- mFilter::hpfilter(combined_gdp[[exog_var_col]], freq = 1600)
-    combined_gdp$y_gap <- as.numeric(hp_res$cycle)
+    combined_gdp$y_gap <- as.numeric(hp_res$cycle) * 100
     
     # Create Lags and extract only the forecast horizon
     gdp_features_wide <- combined_gdp %>%
@@ -159,98 +159,109 @@ forecast_okun_ssm <- function(params_df,
 ################################################################################
 
 
-forecast_phillips_ssm <- function(params_df,                  
-                                  date_col = "quarter",
-                                  master_df = master_philips,
-                                  forecast_h = 8,
-                                  gdp_forecast_data = gdp_gap_forecasts) {
+
+forecast_philips_ssm <- function(params_df,
+                                 date_col = "quarter",
+                                 master_df,
+                                 forecast_h = 8,
+                                 exogenous_forecast_data) {
   
-  # 1. Clean and prepare params_df
+  message("STARTING PHILLIPS FORECASTS")
+  
+  # Ensure dates are uniform yearqtr objects
   parameters <- params_df %>%
-    mutate(quarter = as.yearqtr(!!sym(date_col)))
+    mutate(quarter = zoo::as.yearqtr(.data[[date_col]]))
   
   dates <- parameters %>% pull(quarter)
   
-  # Setup Evaluation Matrix
-  # Rows: All possible dates (History + Forecast Horizon)
-  # Cols: The "Vantage Point" (the date the forecast was made)
+  # Setup sequence of extended rows spanning history + forecast horizon
   extended_rows <- seq(min(dates), by = 0.25, length.out = length(dates) + forecast_h)
-  eval_mat <- matrix(NA, nrow = length(extended_rows), ncol = length(dates))
-  rownames(eval_mat) <- as.character(as.yearqtr(extended_rows))
-  colnames(eval_mat) <- as.character(as.yearqtr(dates))
   
-  # Align Actuals (The "h=0" point for each column)
-  # Assuming master_df contains the 'log_inflation_diff' (the target)
+  # Initialize the triangular evaluation matrix
+  eval_mat <- matrix(NA, nrow = length(extended_rows), ncol = length(dates))
+  rownames(eval_mat) <- as.character(zoo::as.yearqtr(extended_rows))
+  colnames(eval_mat) <- as.character(zoo::as.yearqtr(dates))
+  
+  # Populate diagonal matrix with observed inflation data from history
+  
   for(i in seq_along(dates)) {
     vantage_str <- as.character(dates[i])
     actual_val <- master_df %>% 
       filter(quarter == dates[i]) %>% 
-      pull(log_inflation_diff) # Your target variable name
+      pull(log_inflation_diff) 
     
     if(length(actual_val) > 0) eval_mat[vantage_str, i] <- actual_val
   }
   
-  # 4. Main Forecast Loop
+  # Main Forecast Loop across all rolling vintages
   for (i in seq_along(dates)) {
     forecast_origin <- dates[i] 
-    
-    # Parameters for this specific vintage
     current_params <- parameters[i, ]
-    tau_T <- current_params$natural_rate 
-    b1 <- current_params$beta1
-    b2 <- current_params$beta2
-    b3 <- current_params$beta3
     
-    # A. Get LOP Path (Trend - Log_REER)
-    LOP_forecasts <- splice_snb_series(vantage_quarter = forecast_origin,
-                                       snb_reer_delay = 3,
-                                       data = master_df,
-                                       burn_in = "2010 Q1") %>%
-      filter(quarter > forecast_origin) %>%
-      slice(1:forecast_h)
+    # Map econometric parameters
+    pi_bar  <- current_params$natural_rate 
+    beta_y  <- current_params$beta_y
+    psi_lop <- current_params$psi_lop
+    phi     <- current_params$phi
     
-    # B. Get GDP Path
-    GDP_forecasts <- get_hp_gap(vantage_q = forecast_origin,
-                                        h = forecast_h,
-                                        data = master_df,
-                                        gdp_forecast_data = gdp_forecast_data,
-                                        return_forecasts = TRUE)
+    # Starting historical anchor for the AR loop
+    y_t_t <- master_df %>% 
+      filter(quarter == forecast_origin) %>% 
+      pull(log_inflation_diff)
     
-    # Combine exogenous gaps into one frame for easy lookup
-    # GDP_forecasts returns 'gap', LOP_forecasts returns 'lop_gap'
-    X_future <- GDP_forecasts %>%
+    # Extract GDP gap forecasts (returns raw decimal 'gap')
+    gdp_forecasts <- get_hp_gap(vantage_q = forecast_origin,
+                                h = forecast_h,
+                                data = master_df,
+                                gdp_forecast_data = exogenous_forecast_data,
+                                return_forecasts = TRUE)
+    
+    # Extract sSpliced LOP series (returns raw decimal 'lop_gap')
+    lop_forecast <- splice_snb_series(vantage_quarter = forecast_origin,
+                                      snb_reer_delay = SNB_REER_DELAY,
+                                      data = master_df,
+                                      burn_in = model_philips_burn_in)
+    
+    # Join the dataframes
+    X_future <- gdp_forecasts %>%
       rename(gdp_gap = gap) %>%
-      inner_join(LOP_forecasts %>% select(quarter, lop_gap), by = "quarter")
+      left_join(lop_forecast %>% select(quarter, lop_gap), by = "quarter") %>%
+      filter(quarter > forecast_origin) %>%
+      # Multiply gaps by 100 to perfectly mirror the estimation matrix scaling!
+      mutate(
+        gdp_gap = as.numeric(gdp_gap) * 100,
+        lop_gap = as.numeric(lop_gap) * 100
+      )
     
     h_available <- nrow(X_future)
     
-    if (h_available > 0) {
+    if (h_available > 0 && length(y_t_t) > 0) {
+      current_inflation <- y_t_t 
+      
       for (h in 1:h_available) {
         fdate <- forecast_origin + h/4
         fdate_str <- as.character(fdate)
-        prev_date_str <- as.character(fdate - 0.25)
         
-        # Get lagged inflation: 
-        # For h=1, this is the 'actual' at forecast_origin.
-        # For h>1, this is the 'forecast' we just made in the previous step.
-        lag_infl <- eval_mat[prev_date_str, i]
-        
-        # Get exogenous drivers for this specific h
         exog_now <- X_future %>% filter(quarter == fdate)
         
-        # THE PHILLIPS EQUATION:
-        # Expected = Trend + Persistence*(Lag - Trend) + Beta2*GDP + Beta3*LOP
-        pred <- tau_T + b1 * (lag_infl - tau_T) + 
-          b2 * exog_now$gdp_gap + 
-          b3 * exog_now$lop_gap
+        lop_gap_h <- exog_now$lop_gap 
+        gdp_gap_h <- exog_now$gdp_gap
         
-        # Store in matrix
-        eval_mat[fdate_str, i] <- pred
+        # New Keynesian Hybrid Phillips Curve Projection Math
+        cyclical_inflation <- (psi_lop * lop_gap_h) + (beta_y * gdp_gap_h)
+        pred_inflation     <- pi_bar + phi * (current_inflation - pi_bar) + cyclical_inflation
+        
+
+        # Store forecast
+        eval_mat[fdate_str, i] <- pred_inflation
+        
+        # 3. FIXED: Crucial recursive step update for the autoregressive layer
+        current_inflation <- pred_inflation 
       }
     }
   }
-  
-  return(as.data.frame(eval_mat))
+  message("ENDED PHILIPS FORECASTS")
+  return(eval_mat)
 }
 
 

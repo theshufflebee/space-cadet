@@ -4,20 +4,41 @@
 #
 ################################################################################
 
-# -----------------------
-# Load functions
-# -------------------------
-source(here("R", "load_snb_data.R"))
-source(here("R", "load_kof_data.R"))
-source(here("R", "utils.R"))
-source(here("R", "kalman_estimation_engine.R"))
-source(here("R", "kalman_implementation.R"))
-source(here("R", "ssm_forecasting.R"))
-source(here("R", "build_model_matrices.R"))
-source(here("R", "model_input_preparation.R"))
 
-# ----------------------------------------------------------
-# Data Config Section
+# ==============================================================================
+# Load functions
+# ==============================================================================
+
+
+# Loading Data Handling / FOrmatting Functions
+source(here("R", "load_snb_data.R")) # Data loading SNB
+source(here("R", "load_kof_data.R")) # Data loading KOF
+source(here("R", "utils.R")) # Diverse Utility functions
+source(here("R", "model_input_preparation.R")) # Functions to prepare model Data Inputs
+source(here("R", "latex_formatting.R"))
+
+
+# Kalman Implementation Functions
+# ------------------------------------------------------------------------------
+
+# General Functions implementation
+source(here("R", "kalman_estimation_engine.R")) # Functions to
+source(here("R", "build_model_matrices.R"))
+
+# Specific Math Stuff
+source(here("R", "kalman_implementation_base.R"))
+source(here("R", "kalman_implementation_philips.R"))
+source(here("R", "kalman_implementation_taylor.R"))
+
+#Forecasting Functions
+source(here("R", "ssm_forecasting.R"))
+
+# Visualizations
+source(here("R", "visualizations.R"))
+
+
+# ==============================================================================
+# Downloading and Preparing Data Settings
 # ----------------------------------------------------------
 
 # This section handles all paths with here. All paths are relative to the repo
@@ -30,40 +51,17 @@ source(here("R", "model_input_preparation.R"))
 # Set Raw Data Path
 raw_path <- here("data", "raw")
 
-### SNB Data
-mm_csv   <- file.path(raw_path, "money_market.csv")
-mm_json  <- file.path(raw_path, "money_market_metadata.json")
 
-gb_csv   <- file.path(raw_path, "gov_bonds.csv")
-gb_json  <- file.path(raw_path, "gov_bonds_metadata.json")
-
-reer_csv   <- file.path(raw_path, "reer_ppi_eu.csv")
-reer_json  <- file.path(raw_path, "reer_ppi_eu_metadata.json")
-
-ex_eur_av_csv  <- file.path(raw_path, "ex_eur_av.csv")
-ex_eur_av_json  <- file.path(raw_path, "ex_eur_av_metadata.csv")
-
-ex_eur_eom_csv  <- file.path(raw_path, "ex_eur_eom.csv")
-ex_eur_eom_json  <- file.path(raw_path, "ex_eur_eom_metadata.csv")
-
+# Data Keys for Downloads / API Calls
+# ------------------------------------------------------------------------------
 ### KOF Data
-kof_master <- file.path(raw_path, "kof_consensus_master.csv")
 kof_data_key <- "kof_consensus_forecast_mean"
 
 ### BFS Data
 cpi_asset_id <- "36483229" # ID for CPI Download
-cpi_xlsx <- file.path(raw_path, "cpi_series.xlsx") # is stored as excel file (Learned by downloading and saving wrong)
-
 emp_asset_id <- "px-x-0602000000_101" # ID From Package
-emp_csv <- file.path(raw_path, "employment_data.csv")
-
 unemp_asset_id <- "36453929" # Id from package Catalogue
-unemp_csv <- file.path(raw_path, "unemployment_canton.csv")
-
 ppi_asset_id <- "36532319"
-ppi_csv <- file.path(raw_path, "ppi_ch.xlsx")
-
-
 
 
 # SECO Data
@@ -86,7 +84,7 @@ to_date <- format(Sys.Date(), "%Y-%m")
 
 # Set True if you want to re-download Data
 # If there is no data, API gets called automatically
-do_api_call <- FALSE
+do_api_call <- TRUE
 
 if (do_api_call) {
   message("do_api_call set to TRUE. Redownloading all files")
@@ -172,12 +170,14 @@ data_external_ids <- list(
 # --- Names of Data to keep ---
 
 # KOF data series we need for this project
-kof_cols_to_keep <- c("date",
-                      "ch.kof.consensus.q_qn_unemp_5y.mean",
-                      "ch.kof.consensus.q_qn_prices_5y.mean",
-                      "ch.kof.consensus.q_qn_3minterest_3m.mean",
-                      "ch.kof.consensus.q_qn_3minterest_12m.mean"
+
+kof_mapping <- list(
+  "5y_unemp_forecast"    = list(old_col = "ch.kof.consensus.q_qn_unemp_5y.mean",      seasonal_adj = TRUE),
+  "5y_cpi_forecast"      = list(old_col = "ch.kof.consensus.q_qn_prices_5y.mean",     seasonal_adj = FALSE),
+  "3m_interest_forecast"  = list(old_col = "ch.kof.consensus.q_qn_3minterest_3m.mean",  seasonal_adj = FALSE),
+  "12m_interest_forecast" = list(old_col = "ch.kof.consensus.q_qn_3minterest_12m.mean", seasonal_adj = FALSE)
 )
+
 
 # names of all time series needed for the project
 
@@ -210,6 +210,10 @@ ts_names <- c(
 # ---  General Settings ---
 forecast_starting_date <- as.yearqtr("2018 Q2")
 
+# FOr Indexing
+indexing_date <- "2020-12-01"
+
+
 run_estimation <- TRUE
 
 h <- 8
@@ -227,9 +231,9 @@ okun_parameter_guess <- list(
   beta1 = -0.1,
   beta2 = -0.1,
   beta3 = -0.1,
-  sigma_unemp_rate = 0.01,
-  sigma_spf_5y_unemp = 0.005,
-  xi_n = 0.001
+  sigma_unemp_rate = 0.5,
+  sigma_spf_5y_unemp = 0.5,
+  xi_n = 0.1
 )
 
 # xi_n = 0.001
@@ -246,11 +250,11 @@ philips_parameter_guess <- list(
   phi = 0.2,
   
   # sd on measurement variables
-  sigma_cpi = 0.001,
-  sigma_spf = 0.001,
+  sigma_cpi = 0.01,
+  sigma_spf = 0.01,
   
   # state innovation
-  xi_n = 0.001
+  xi_n = 0.1
 )
 
 # --- Initial guesses for Taylor Rule / SNB Policy Rate ---
@@ -295,19 +299,28 @@ output_base <- here("output")
 output_save_paths <- list(
   params = list(
     rolling_param_est_okun    = here(output_base, "parameter_estimation/okun_params_long.csv"),
-    rolling_param_est_philips = here(output_base, "parameter_estimation/philips_params.csv")
+    rolling_param_est_philips = here(output_base, "parameter_estimation/philips_params.csv"),
+    rolling_param_est_taylor = here(output_base, "parameter_estimation/taylor_params.csv")
   ),
   plots = list(
     params_okun    = here(output_base, "plots/params_okun_model.png"),
     params_philips = here(output_base, "plots/params_philips_model.png"),
     params_taylor  = here(output_base, "plots/params_taylor_model.png"),
     spaghetti_okun      = here(output_base, "plots/spaghetti_okun.png"),
-    spaghetti_philips      = here(output_base, "plots/spaghetti_philips.png")
+    spaghetti_philips      = here(output_base, "plots/spaghetti_philips.png"),
+    spaghetti_taylor      = here(output_base, "plots/spaghetti_taylor.png")
     
   ),
   forecasts = list(
     forecast_df_okun    = here(output_base, "forecasts/unemployment_forecasts.csv"),
-    forecast_df_philips = here(output_base, "forecasts/inflation_forecasts.csv")
+    forecast_df_philips = here(output_base, "forecasts/inflation_forecasts.csv"),
+    forecast_df_taylor = here(output_base, "forecasts/policy_rate_forecasts.csv")
+  ),
+  
+  tables = list(
+    eval_rw_okun = here(output_base, "tables/okun_eval_rw_table.tex"),
+    eval_rw_philips = here(output_base, "tables/philips_eval_rw_table.tex"),
+    eval_rw_taylor = here(output_base, "tables/taylor_eval_rw_table.tex")
   )
 )
 

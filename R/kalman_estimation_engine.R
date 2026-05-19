@@ -191,8 +191,6 @@ loglik_ssm <- function(theta,
   # Map Parameters (Optimizer Space -> Economic Space)
   model_params <- param2model_gen(theta, ssm)
   
-  print(model_params)
-  
   # Build the matrices with the parameters to create the loglikelihood
   # The builders themselves are saved in the ssm object. They are functions as
   # they take in the parameters from the optimizer and calculate it
@@ -470,7 +468,7 @@ rolling_est_okun_ssm <- function(data,
     
     # Run filter
     hp_res    <- mFilter::hpfilter(gdp_series, freq = 1600)
-    gdp_cycle <- as.numeric(hp_res$cycle)
+    gdp_cycle <- as.numeric(hp_res$cycle) * 100
     
     # Align cycle back to the time-series and create lags
     processed_data <- data_t
@@ -547,7 +545,7 @@ rolling_est_philips_ssm <- function(data,
                                  forecast_start,
                                  forecast_end = NULL,
                                  date_col = "quarter",
-                                 val_T1 = "2015-01-01") {
+                                 val_T1 = "2005-01-01") {
   
   # Assure correct format
   data[[date_col]] <- as.yearqtr(data[[date_col]])
@@ -606,12 +604,12 @@ rolling_est_philips_ssm <- function(data,
     
     # Debug
     
-    message("Printing Y and X Data for Debug")
-    print(my_ssm_model)
-    print("===========================")
-    print(my_ssm_model$data$Y)
-    print("---------------------------")
-    print(my_ssm_model$data$X)
+    # message("Printing Y and X Data for Debug")
+    # print(my_ssm_model)
+    # print("===========================")
+    # print(my_ssm_model$data$Y)
+    # print("---------------------------")
+    # print(my_ssm_model$data$X)
     
     
     
@@ -658,7 +656,8 @@ rolling_est_taylor_ssm <- function(data,
                                  forecast_start,
                                  forecast_end = NULL,
                                  date_col = "quarter",
-                                 val_T1 = "1991-01-01") {
+                                 val_T1 = "1991-01-01",
+                                 hp_inf_gap = FALSE) {
   
   # Assure correct format
   
@@ -666,7 +665,6 @@ rolling_est_taylor_ssm <- function(data,
   
   data[[date_col]] <- as.yearqtr(data[[date_col]])
   
-  print(data)
   # Select the starting quarter
   start_q <- as.yearqtr(as.Date(forecast_start))
   
@@ -720,14 +718,20 @@ rolling_est_taylor_ssm <- function(data,
                                vantage_q = target_date
                               )
     
-    # inf_gap_data <- get_hp_gap(data = data_t,
-    #                            gdp_forecast_data = data_t, # forecast data
-    #                            vantage_q = target_date,
-    #                            gdp_col = "log_cpi"
-    #) 
+    if(hp_inf_gap) {
+      inf_gap_data <- get_hp_gap(data = data_t,
+                                gdp_forecast_data = data_t, # forecast data
+                                vantage_q = target_date,
+                                gdp_col = "log_cpi"
+      ) 
+      
+    } else {
+      inf_gap_data <- data_t %>%
+        select(all_of(c("quarter", "inf_gap")))
+    }
     
-    inf_gap_data <- data_t %>%
-      select(all_of(c("quarter", "inf_gap")))
+    
+    
     
     
     processed_data <- data_t %>%

@@ -80,7 +80,7 @@ source(here("scripts", "07_forecast_evaluation.R"))
 #------------------------------------------------------------------------------
 # 8. Create Visualizations
 #------------------------------------------------------------------------------
-source(here("scripts", "07_forecast_evaluation.R"))
+source(here("scripts", "08_visualizations.R"))
 
 message("FULL SCRIPT FINISHED")
 

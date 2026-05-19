@@ -125,7 +125,7 @@ get_snb_data_wrapper <- function(file,
     }
     
   } else {
-    message("File '", file_name, "' already exists at ", mm_csv, ". Skipping download.")
+    message("File '", file_name, "' already exists at ", file, ". Skipping download.")
   }
 }
 
