@@ -35,7 +35,7 @@
 #' @importFrom forecast auto.arima forecast
 #'
 #' @export
-get_arma_forecast <- function(current_T, T_0 = "2000 Q1", h = 8, data, data_col, date_col = "quarter") {
+get_arma_forecast <- function(current_T, T_0 = "2001 Q1", h = 8, data, data_col, date_col = "quarter") {
   
   # Ensure current_T is a yearqtr object
   current_T <- as.yearqtr(current_T)
@@ -186,7 +186,7 @@ forecast_reer_components <- function(current_T, h = 8, data) {
 splice_snb_series <- function(vantage_quarter = "2023 Q2",
                               snb_reer_delay = 3,
                               data = master_philips,
-                              burn_in = "2010 Q1") {
+                              burn_in = "2001 Q1") {
   
   # Define the vantage point and the 'Knowledge Cutoff'
   vantage_q <- as.yearqtr(vantage_quarter) 
@@ -246,8 +246,8 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
   series_extended <- series_extended %>%
     mutate(
       log_reer = log(reer_simulated),
-      trend    = hpfilter(log_reer, freq = 1600)$trend,
-      lop_gap  = log_reer - trend   # inverse so a positive beta is the correct one
+      trend    = as.numeric(mFilter::hpfilter(log_reer, freq = 1600)$trend), 
+      lop_gap  = as.numeric(log_reer - trend)                                # <- ADD as.numeric
     )
   
   return(series_extended)
@@ -282,7 +282,7 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
 splice_reer_series <- function(vantage_quarter = "2023 Q2",
                                snb_reer_delay = 4,
                                data = master_philips,
-                               burn_in = "2010 Q1") {
+                               burn_in = "2000 Q4") {
   
   vantage_q <- as.yearqtr(vantage_quarter)
   cutoff_q  <- vantage_q - snb_reer_delay/4 

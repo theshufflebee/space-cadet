@@ -17,6 +17,11 @@ philips_param_plot <- plot_model_parameters(df = params_philips_df,
                                             title = "Philips Rolling Parameter Estimation Plot",
                                             save_path = output_save_paths$plots$params_philips)
 
+taylor_param_plot <- plot_model_parameters(df = taylor_params,
+                                            title = "Taylor Rolling Parameter Estimation Plot (bounded phi, HP Inf Gap)",
+                                            save_path = output_save_paths$plots$params_taylor)
+
+
 
 # --- Spaghetti Plots ---
 

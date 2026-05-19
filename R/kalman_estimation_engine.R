@@ -415,7 +415,7 @@ rolling_est_okun_ssm <- function(data,
                                  forecast_start,
                                  forecast_end = NULL,
                                  date_col = "quarter",
-                                 val_T1 = "2015-01-01") {
+                                 val_T1 = "1991-01-01") {
   
   # Assure correct format
   data[[date_col]] <- as.yearqtr(data[[date_col]])
@@ -590,11 +590,6 @@ rolling_est_philips_ssm <- function(data,
     # Slice Data available "Today"
     data_t <- data_t[data_t[[date_col]] <= target_date, ]
     
-    
-    message("FULL DATA_T")
-    # Process Exogenous Data
-    # HP Filter is estimated inclduing the burn in period before the start of the information set
-    
 
     
     # Build Data Matrices
@@ -609,10 +604,24 @@ rolling_est_philips_ssm <- function(data,
                                            X_final,
                                            parameter_guesses = philips_parameter_guess)
     
+    # Debug
+    
+    message("Printing Y and X Data for Debug")
+    print(my_ssm_model)
+    print("===========================")
+    print(my_ssm_model$data$Y)
+    print("---------------------------")
+    print(my_ssm_model$data$X)
+    
+    
+    
+    
+    message("SSM PHILIPS INIT SUCCESSFUL")
+    
     # Optimization: Multiple estimations with Warm Start
     # We use Nelder-Mead and BFGS that are very different for robustnes
     # each previous result becomes guess for the next
-    opt_results <- ssm_optimizer_wrapper_shadow(
+    opt_results <- ssm_optimizer_wrapper_philips(
       ssm       = my_ssm_model, 
       methods   = c("Nelder-Mead", "BFGS"), 
       iters     = 2, 
@@ -622,17 +631,21 @@ rolling_est_philips_ssm <- function(data,
     # Update current_theta for the next vantage point (Warm Start)
     current_theta <- opt_results$theta
     
-    # 8. Final Extraction of States
-    final_states <- loglik_ssm(current_theta, my_ssm_model, return_full_res = TRUE)
+    final_states <- loglik_ssm_philips(current_theta, my_ssm_model, return_full_res = TRUE)
     
-    # Store results
+    # Store results safely
     comp[[as.character(target_date)]] <- list(
       target_date = target_date,
       params      = opt_results$params,
       states      = final_states
     )
     
-    cat("Likelihood: ", -final_states$loglik, "Parameters", current_theta)
+    # Safe console tracking printout
+    if(is.list(final_states)) {
+      cat("Likelihood: ", -final_states$loglik, "Parameters: ", current_theta)
+    } else {
+      cat("Likelihood: SAFEGARD HIT (Penalty Value:", final_states, ") Parameters: ", current_theta)
+    }
     cat(sprintf("\n [%d/%d] Estimated: %s\n", i, length(forecast_dates), as.character(target_date)))
   }
   

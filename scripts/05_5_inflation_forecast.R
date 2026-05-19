@@ -16,7 +16,8 @@ if(run_estimation) {
   
   # Run the Rolling estimation
   params_philips <- rolling_est_philips_ssm(data = master_philips,
-                                            forecast_start = forecast_starting_date
+                                            forecast_start = forecast_starting_date,
+                                            
   )
   
   #Turn Estimation output into a df

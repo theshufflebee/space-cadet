@@ -182,7 +182,7 @@ master_quarterly <- master_quarterly %>%
     cpi = as.numeric(cpi),
     log_inflation_diff = log(cpi) - dplyr::lag(log(cpi), 4),
     lag_log_inflation_diff = dplyr::lag(log_inflation_diff, 1),
-    `5y_cpi_forecast` = `5y_cpi_forecast` / 4
+    `5y_cpi_forecast` = `5y_cpi_forecast`
     )
 
 master_philips <- master_quarterly %>%

@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-
+source(here("R", "kalman_implementation.R"))
 
 
 
@@ -14,7 +14,8 @@ if(run_estimation) {
   
   # Run the Rolling estimation
   params_philips <- rolling_est_philips_ssm(data = master_philips,
-                                            forecast_start = forecast_starting_date
+                                            forecast_start = forecast_starting_date,
+                                            val_T1 = "2005-01-01"
   )
   
   #Turn Estimation output into a df

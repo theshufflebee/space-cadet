@@ -208,9 +208,9 @@ ts_names <- c(
 ################################################################################
 
 # ---  General Settings ---
-forecast_starting_date <- as.yearqtr("2024 Q3")
+forecast_starting_date <- as.yearqtr("2018 Q2")
 
-run_estimation <- FALSE
+run_estimation <- TRUE
 
 h <- 8
 
@@ -219,7 +219,7 @@ h <- 8
 
 # We run the HP filter to estimate the gap. this determines the first observation
 # of the GDP Variable
-hp_filter_burn_in <- "2010-01-01"
+hp_filter_burn_in <- "1990-01-01"
 
 # --- Initial guesses for Okun ---
 # Initial parameters guess for okun model
@@ -276,7 +276,9 @@ snb_rate_parameter_guess <- list(
 
 # FOr model 2 the SNB data is released with a year delay -> more like 3q due to late release of all other data
 SNB_REER_DELAY <- 3
-model_philips_burn_in <- "2010 Q1"
+
+# change this as to just take the firs non NA obs of the reer bns
+model_philips_burn_in <- "2000 Q4"
 
 
 
@@ -292,12 +294,13 @@ output_base <- here("output")
 # Naming: always first what then model last
 output_save_paths <- list(
   params = list(
-    rolling_param_est_okun    = here(output_base, "parameter_estimation/okun_params.csv"),
+    rolling_param_est_okun    = here(output_base, "parameter_estimation/okun_params_long.csv"),
     rolling_param_est_philips = here(output_base, "parameter_estimation/philips_params.csv")
   ),
   plots = list(
     params_okun    = here(output_base, "plots/params_okun_model.png"),
     params_philips = here(output_base, "plots/params_philips_model.png"),
+    params_taylor  = here(output_base, "plots/params_taylor_model.png"),
     spaghetti_okun      = here(output_base, "plots/spaghetti_okun.png"),
     spaghetti_philips      = here(output_base, "plots/spaghetti_philips.png")
     

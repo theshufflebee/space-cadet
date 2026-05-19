@@ -23,8 +23,7 @@ fcst_df_fixed <- okun_eval_square %>%
   as.data.frame() %>%
   rownames_to_column(var = "date")
 
-# 2. Format the date column to the 'YYYYQX' style the function expects
-# Based on your previous context, we remove the space
+# Format the date column to the 'YYYYQX' style the function expects
 fcst_df_fixed$date <- format(as.yearqtr(fcst_df_fixed$date), "%YQ%q")
 
 
@@ -111,7 +110,7 @@ result_taylor <- creaFcstEval::run_evaluation(
   df              = Y_taylor,
   fcst_df         = fcst_df_policy_rate,
   model_name      = "Taylor Model",
-  benchmark_model = "RW",
+  benchmark_model = "ARMA",
   output_path     = "output/forecasts/forecast_evaluation_taylor_constphi_hp_gap.csv"
 )
 

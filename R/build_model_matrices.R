@@ -318,14 +318,14 @@ build_data_matrix_philips <- function(T_0 = "2015-01-01",
   
   T_0 <- as.yearqtr(T_0)
   
-  print(T_0)
+  vantage_quarter <- as.yearqtr(vantage_quarter)
   
   # Lag CPI before burn cutoff
   raw_data <- data %>%
     arrange(quarter) %>%
     mutate(
       cpi = as.numeric(cpi),
-      log_inflation_diff = log(cpi) - dplyr::lag(log(cpi), 1),
+      log_inflation_diff = (log(cpi) - dplyr::lag(log(cpi), 1)) * 100,
       lag_log_inflation_diff = dplyr::lag(log_inflation_diff, 1) # Fixed syntax
     )
   
@@ -334,6 +334,8 @@ build_data_matrix_philips <- function(T_0 = "2015-01-01",
     filter(quarter >= as.yearqtr(model_philips_burn_in)) %>%
     filter(quarter <= as.yearqtr(vantage_quarter)) %>%
     arrange(quarter)
+  message("RAW DATA DEBUG")
+  print(tail(raw_data))
   
   LOP_forecast <- splice_snb_series(vantage_quarter = vantage_quarter,
                                     snb_reer_delay = SNB_REER_DELAY,
@@ -351,10 +353,11 @@ build_data_matrix_philips <- function(T_0 = "2015-01-01",
   message("HP GAP DATA DONE")
   
   
-  HP_gap_forecasts_data <- get_hp_gap(raw_data,
-                                      raw_data, # forecast data
-                                      vantage_q = vantage_quarter,
-                                      return_forecasts = TRUE)
+  # In Retrospect only needed in forecast loop
+  # HP_gap_forecasts_data <- get_hp_gap(raw_data,
+  #                                    raw_data, # forecast data
+  #                                    vantage_q = vantage_quarter,
+  #                                    return_forecasts = TRUE)
   
   message("HP GAP Forecast DONE")
   
@@ -363,15 +366,24 @@ build_data_matrix_philips <- function(T_0 = "2015-01-01",
   X_matrix <- raw_data %>%
     select(quarter, log_inflation_diff, lag_log_inflation_diff, log_gdp, `5y_cpi_forecast`) %>%
     left_join(LOP_forecast %>% select(quarter, lop_gap), by = "quarter") %>%
-    mutate(lag_lop_gap = lag(lop_gap, 1))%>% #
     left_join(HP_gap_data %>% select(quarter, gdp_gap = gap), by = "quarter") %>%
-    mutate(lag_gdp_gap = lag(gdp_gap)) %>%
+    mutate(
+      # Force columns to be standard numeric vectors to strip hidden ts matrix attributes
+      lop_gap     = as.numeric(lop_gap) * 100,
+      lag_lop_gap = dplyr::lag(lop_gap, 1),
+      
+      gdp_gap     = as.numeric(gdp_gap) * 100,
+      lag_gdp_gap = dplyr::lag(gdp_gap, 1),
+      
+      # Clean expectations format
+      `5y_cpi_forecast` = as.numeric(`5y_cpi_forecast`)
+    ) %>%
     # Filter to return the specific estimation sample
     filter(quarter >= as.yearqtr(T_0)) %>%
-    arrange(quarter) %>%
-    mutate(`5y_cpi_forecast` = `5y_cpi_forecast` /100)
+    arrange(quarter)
   
   message("X_Matrix sucessfully built")
+  print(X_matrix)
   
   return(X_matrix)
 }
@@ -385,11 +397,8 @@ build_data_matrix_philips <- function(T_0 = "2015-01-01",
 #' @param model_params A named list containing "rho_tp" for the cyclical term premium.
 #' @return A 3 x 3 matrix defining the transition dynamics.
 build_H_philips <- function(model_params) {
-  # rho_tp determines the persistence of the cyclical term premium component
-  rho_tp <- if(!is.null(as.numeric(model_params$rho_tp))) model_params$rho_tp else 0.9
-  
-  H <- diag(3)  # Natural rate random walk // Trend term premium random walk
-  H[3,3] <- rho_tp  # Cyclical term premium AR(1)
+
+  H <- diag(1)
   
   return(H)
 }
@@ -399,8 +408,9 @@ build_H_philips <- function(model_params) {
 #' Build the G Matrix (Factor Loadings)
 #' @param model_params A named list containing the smoothing parameter "phi".
 #' @return A 2 x 3 matrix of factor loadings.
-build_G_philips <- build_G <- function() {
-  matrix(c(1, 1), nrow = 2, ncol = 1)
+build_G_philips <- function() {
+
+  return( matrix(c(1, 1), nrow = 2, ncol = 1))
 }
 
 
@@ -428,7 +438,8 @@ build_N_philips <- function(model_params, default_sig_xi = 0.001) {
   # Check if a specific state sigma exists that is being estimated.
   # otherwise default to sd 0.01 and therefore variance 0.0001
   xi_n <- if(!is.null(model_params$xi_n)) model_params$xi_n else default_sig_xi
-  matrix(xi_n, 1, 1)
+  
+  return(matrix(xi_n, 1, 1))
 }
 
 
@@ -450,15 +461,19 @@ build_mu_t_philips <- function(model_params, X_data) {
   return(cbind(ex_comp, rep(0, nrow(X_data)) ))
 }
 
-build_AR_matrix_philips <- function(model_params, Y_data, lag_val, rho) {
-  
+build_AR_matrix_philips <- function(model_params, Y_data) {
+  # Extract phi and ensure it's a scalar double
   phi <- as.numeric(model_params$phi)
   
+  # Determine rows based on number of observed variables (or states)
+  # Standardizing to the number of columns in Y_data
   nc <- ncol(Y_data)
   
+  # Initialize a zero matrix/vector
   ar_mat <- matrix(0, nrow = nc, ncol = 1)
   
-  ar_mat[1 ,1] <- phi
+  # Assign phi to the first position
+  ar_mat[1, 1] <- phi
   
   return(ar_mat)
 }
@@ -517,7 +532,7 @@ initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
   # Define the Manifest
   # This acts as the "Single Source of Truth" for your parameters
   # Rules: 0 = Linear, 1 = Exponential (>0), 2 = Logit (0 to 1)
-  required_params <- c("beta1", "beta2", "beta3", "sigma_cpi", "sigma_spf")
+  required_params <- c("beta_y", "psi_lop", "phi", "sigma_cpi", "sigma_spf")
   if (!all(required_params %in% names(parameter_guesses))) {
     stop("Missing required parameters in parameter_guesses list!")
   }
@@ -529,8 +544,8 @@ initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
   # First bild manifest with the required parameters
   manifest <- list(
     # Okun's Law Betas (Unconstrained)
-    beta_y              = list(val = parameter_guesses$beta_y, rule = 0),
-    psi_lop             = list(val = parameter_guesses$psi_lop, rule = 0),
+    beta_y              = list(val = parameter_guesses$beta_y, rule = 2),
+    psi_lop             = list(val = parameter_guesses$psi_lop, rule = 2),
 
     phi                 = list(val = parameter_guesses$phi, rule = 2),
     
@@ -556,14 +571,15 @@ initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
     ),
     manifest = manifest,
     builders = list(
-      mu_t = build_mu_t,
-      H    = build_H,
-      G    = build_G,
-      M    = build_M,
-      N    = build_N
+      mu_t = build_mu_t_philips,
+      H    = build_H_philips,
+      G    = build_G_philips,
+      M    = build_M_philips,
+      N    = build_N_philips,
+      ar_mat = build_AR_matrix_philips
     ),
     name = "PHILIPS",
-    rho_guess = c(0.1),
+    rho_guess = c(1),
     sigma_guess = c(10)
     
   )

@@ -115,7 +115,6 @@ kalman_filter_philips <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
   # Number of observed variables:
   
 
-
   ny = NCOL(Y_t)
   # Number of unobs. variables:
   nr = NCOL(G)
@@ -332,9 +331,10 @@ kalman_filter_philips <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     }
     
     # Calculate partial stuff here so next iter I can use it for shadow rate estim
-    fitted_obs_t_t[t,] <- mu_t[t,] + rho_tt[t,] %*% t(G) + ar_matrix[t,] *lag_val# fitted observables -> estimate of y_hat_t given t
+    fitted_obs_t_t[t,] <- mu_t[t,] + rho_tt[t,] %*% t(G) + t(ar_matrix * as.numeric(lag_val - rho)) # fitted observables -> estimate of y_hat_t given t
     
-
+    ##########---------------------
+    # LAG VAL - RHO INTO A SINGLE NUMBER later
   }
   
   # Create output list
@@ -410,32 +410,29 @@ project_state_forward <- function(rho, H, nu_t, nr) {
 #' @export
 forecast_measurement_eq_philips <- function(mu_t, G, rho, ar_mat, lag_val) {
   
+  obs_row <- nrow(G) 
   
-  ny_total <- length(ar_mat)
-  obs_row <- nrow(G) # Number of variables NOT NA in this step
+  # 1. Calculate the structural inflation deviation explicitly
+  # This targets ONLY the first element of lag_val (inflation)
+  inf_deviation <- as.numeric(lag_val[1] - rho)
+  phi_param     <- as.numeric(ar_mat[1, 1])
   
-  # Apply the lag value to get the persistence component (rho * i_{t-1})
-  #here rho is the state
-  # We do this on the full vector first
-  full_ar_comp <- ar_mat * (lag_val - rho)
+  # 2. Reconstruct the full structural AR vector: Inflation gets phi*diff, SPF gets 0
+  full_ar_comp <- matrix(c(phi_param * inf_deviation, 0), ncol = 1)
   
-  # Reduce (if necessary) th AR component to match the dimensions of G
-  # If obs_row is 2 (Policy is NA), we take elements 2 and 3 (the 0s)
-  # If obs_row is 3 (Full data), we take all elements
-  if (obs_row < ny_total) {
-    # If the first row (Policy) is NA, G represents variables 2 and 3.
-    # We take the last 'obs_row' number of elements.
-    ar_vec_final <- tail(full_ar_comp, obs_row)
+  # 3. Match row dimensions safely based on what variables are currently observed
+  # If row is 1 (e.g. only inflation is present), it safely grabs row 1.
+  if (obs_row == 1) {
+    ar_vec_final <- full_ar_comp[1, , drop = FALSE]
   } else {
     ar_vec_final <- full_ar_comp
   }
   
-  # Standard Matrix Math for projection
-  mu_vec <- matrix(as.numeric(mu_t), nrow = obs_row, ncol = 1)
-  ar_vec <- matrix(as.numeric(ar_vec_final), nrow = obs_row, ncol = 1)
+  # 4. Standard Projection Math
+  mu_vec     <- matrix(as.numeric(mu_t), nrow = obs_row, ncol = 1)
   state_comp <- G %*% matrix(as.numeric(rho))
   
-  y_tp1_t <- state_comp + ar_vec + mu_vec
+  y_tp1_t <- state_comp + ar_vec_final + mu_vec
   
   return(as.vector(y_tp1_t))
 }
@@ -454,12 +451,9 @@ forecast_measurement_eq <- function(mu_t, G, rho, ar_mat, lag_val) {
   full_ar_comp <- ar_mat * lag_val
   
   # Reduce (if necessary) th AR component to match the dimensions of G
-  # If obs_row is 2 (Policy is NA), we take elements 2 and 3 (the 0s)
-  # If obs_row is 3 (Full data), we take all elements
-  if (obs_row < ny_total) {
-    # If the first row (Policy) is NA, G represents variables 2 and 3.
-    # We take the last 'obs_row' number of elements.
-    ar_vec_final <- tail(full_ar_comp, obs_row)
+  # if SPF is NA then we only take the first row
+  if (obs_row == 1) {
+    ar_vec_final <- full_ar_comp[1, , drop = FALSE]
   } else {
     ar_vec_final <- full_ar_comp
   }
@@ -642,7 +636,7 @@ calculate_kalman_gain <- function(sigma, G, R){
 #' \code{\link{initialize_taylor_ssm}} for setting up the SSM object.
 #'
 #' @export
-loglik_ssm_shadow <- function(theta,
+loglik_ssm_philips <- function(theta,
                        ssm,
                        return_full_res = FALSE,
                        rho_guess = c(6, 2, 1),
@@ -702,7 +696,7 @@ loglik_ssm_shadow <- function(theta,
   # Run Kalman Filter with the matrices
   # The Y data is from the ssm object the X data is already in mu_t
   # we also add initial guesses for the state and give a prior
-  res <- kalman_filter_taylor(
+  res <- kalman_filter_philips(
     Y_t     = ssm$data$Y, 
     nu_t    = nu_t, 
     H       = H, 
@@ -720,16 +714,21 @@ loglik_ssm_shadow <- function(theta,
   # If we want to run a normal estimation with parameters we'd like to see the full
   # return, we specify this and we get state and all other variables
   
-  # Numerical Saveguard. if calculation crashes return a high penalization value
-  if (is.null(res) || any(is.na(res$loglik.vector)) || any(is.infinite(res$loglik.vector))) {
-    # Return a massive penalty value so the optimizer moves away
-    return(1e10) 
+  # Numerical Safeguard check
+  if (is.null(res) || is.null(res$loglik.vector) || any(is.na(res$loglik.vector)) || any(is.infinite(res$loglik.vector))) {
+    
+    message("FILTER CRASHED AND RETURNED NON NUMERIC RES: RETURNING HIGH PENALTY")
+    return(1e10)
+  
   }
   
   total_loglik <- -sum(res$loglik.vector)
   
   # If the likelihood is extremely high such as due to failed filter or bad jump, return very high value as "punishment"
-  if (total_loglik > 50000) return(1e10)
+  if (total_loglik > 50000) {
+    
+    message("FILTER RETURNING EXTREMLY HIGH LOG LIKELIHOOD")
+  } 
   
   cat(sprintf("Log Likelihood: %.4f\n", total_loglik))  
   
@@ -800,7 +799,7 @@ loglik_ssm_shadow <- function(theta,
 #' \code{\link{model2param_gen}} for the unconstraining transformation logic.
 #'
 #' @export
-ssm_optimizer_wrapper_shadow <- function(ssm, 
+ssm_optimizer_wrapper_philips <- function(ssm, 
                                   methods = c("Nelder-Mead", "bobyqa", "BFGS"), 
                                   iters = 2, 
                                   start_par = NULL,
@@ -811,8 +810,6 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
     # If no warm start, use manifest defaults
     # sapply here simplifies the nested list -> selects val from each element in the list
     init_theta_econ <- sapply(ssm$manifest, function(x) x$val) 
-    
-    message("INIT THETA ECON", init_theta_econ)
     
     current_par_opt <- model2param_gen(init_theta_econ, ssm)
     
@@ -844,11 +841,13 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
   # Sets up a break of the method partloglik loop if repeated estimation doesn't lead to improvement 
   last_best_lik <- Inf
   
+  message("BEGIN OPTIMIZATION")
+  
   for (i in 1:iters) {
     for (m in methods) {
       fit <- optimx::optimx(
         par     = current_par_opt,
-        fn      = loglik_ssm_shadow,
+        fn      = loglik_ssm_philips,
         ssm     = ssm,
         method  = m,
         control = list(

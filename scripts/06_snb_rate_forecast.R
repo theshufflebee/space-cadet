@@ -42,7 +42,7 @@ data_prep_taylor <- master_taylor %>%
            "yoy_inflation", "12m_interest_forecast", "inf_hp_gap"), ~ .x * 100) 
   ) %>%
   mutate(
-    inf_gap = inf_hp_gap 
+    inf_gap = yoy_inflation -1
   )
 
 
@@ -87,7 +87,7 @@ if(run_estimation){
   
 }else{
   
-  taylor_params <- read.csv("output/parameter_estimation/taylor_params_2018_bound_smooth_hp_inf_gap.csv")
+  taylor_params <- read.csv("output/parameter_estimation/taylor_params_2018_const_smooth_hp_inf_gap.csv")
   
   taylor_params_est <- readRDS("output/temp/rolling_results_taylor_2018_const_smooth.rds")
   
@@ -130,7 +130,7 @@ gdp_gap <- X_data_taylor$gdp_gap
 # 3. Plot
 plot(dates, fit_rate, type="l", col="blue", lwd=3, 
      main="Obs vs Fitted Rate", ylab="Rate (%)")
-mtext("Taylor Rule Specification: Unounded smoothing & HP Inflation Gap", 
+mtext("Taylor Rule Specification: Bounded smoothing & Constant Inflation Gap", 
       side=3, line=0.5, cex=0.8)
 lines(dates, natural_rate, col="red", lty=2, type="l")
 lines(dates, snb_rate, col="green", lty=2)
