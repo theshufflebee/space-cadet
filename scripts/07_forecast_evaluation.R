@@ -101,7 +101,7 @@ fcst_df_policy_rate <- taylor_eval_square %>%
   as.data.frame() %>%
   rownames_to_column(var = "date")
 
-Y_taylor <- data_prep_taylor %>%
+Y_taylor <- master_taylor %>%
   select(quarter, true_snb_rate) %>%
   rename(date = quarter,
          value = true_snb_rate) %>%

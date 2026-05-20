@@ -67,28 +67,28 @@ get_snb_data_wrapper(data_save_paths$raw$snb_policy_csv, do_api_call, "snboffzis
 
 
 # --- CPI Data ---
-bfs_wrapper(cpi_asset_id,
+bfs_wrapper(data_external_ids$bfs_cpi,
             data_save_paths$raw$cpi_series_xlsx,
             do_api_call = FALSE, type = "asset")
 
 
 # --- Unemployment Data ---
 # Note: BFS 'ts' files are often Excel (.xlsx), so check the extension
-bfs_wrapper(unemp_asset_id,
+bfs_wrapper(data_external_ids$bfs_unemployment,
             data_save_paths$raw$unemployment_csv,
             do_api_call = do_api_call,
             type = "asset")
 
 
 # --- Employment Data
-bfs_wrapper(emp_asset_id,
+bfs_wrapper(data_external_ids$emp_asset_id,
             data_save_paths$raw$employment_csv,
             do_api_call = do_api_call,
             type = "data")
 
 
 # --- PPI Data ---
-bfs_wrapper(ppi_asset_id,
+bfs_wrapper(data_external_ids$ppi_asset_id,
             data_save_paths$raw$ppi_csv,
             do_api_call = do_api_call,
             type = "asset")
@@ -98,7 +98,7 @@ bfs_wrapper(ppi_asset_id,
 # Download GDP data from SECO (via Viktor)
 # ==============================================================================
 
-download_url_csv_wrapper(url = url_gdp_csv,
+download_url_csv_wrapper(url = data_external_ids$url_seco_gdp,
                          filepath  = data_save_paths$raw$gdp_seco_csv,
                          do_api_call = do_api_call)
   
@@ -108,7 +108,7 @@ download_url_csv_wrapper(url = url_gdp_csv,
 # ==============================================================================
 
 download_kof_data_wrapper(file = data_save_paths$raw$kof_master_csv,
-                          kof_data_key = kof_data_key,
+                          kof_data_key = data_external_ids$kof_data_key,
                           do_api_call = do_api_call)
 
 

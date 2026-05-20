@@ -307,29 +307,49 @@ format_time_series_df <- function(data,
 #' @seealso [rolling_est_okun_ssm()]
 #' 
 #' @export
-extract_params_df <- function(results_list, extract_fitted_obs = FALSE) {
+extract_params_df<- function(results_list, extract_fitted_obs = FALSE) {
   
-  # Map over each date in the results list
+  # Map over each rolling window vantage point in the list
   params_df <- purrr::map_dfr(results_list, function(item) {
     
-    # Extract the vantage point (date)
+    # Extract the vantage point date (e.g., "2018 Q3")
     vp_date <- item$target_date
     
-    # Flatten the economic parameters
-    # This turns the list c(beta1=..., phi=...) into a single-row dataframe
+    # Flatten the optimized structural coefficients into a 1-row data frame
     params <- as.data.frame(item$params)
     
-    # extract the natural rate
-    state_vec <- as.vector(item$states$r)
-    params$natural_rate <- state_vec[length(state_vec)] # length selects the last obs of the vector
+    # Extract state(s)
+    # item$states$r is a matrix of size [T x Num_States]
+    state_matrix <- as.matrix(item$states$r)
+    last_row_idx <- nrow(state_matrix)
     
-    if(extract_fitted_obs){
-      fitted_obs <- as.vector(item$states$fitted_obs_t_t)
-      params$fitted_obs <- fitted_obs[length(fitted_obs)] # length selects the last obs of the vector
-      
+    # State 1 is always the structural variable of interest here so we give it the natural rate name
+    params$natural_rate <- state_matrix[last_row_idx, 1]
+    
+    # Dyif there are other states (here at most 3 we extract them as well)
+    if (ncol(state_matrix) >= 2) {
+      params$state_2_trend <- state_matrix[last_row_idx, 2]
+    }
+    if (ncol(state_matrix) >= 3) {
+      params$state_3_trend <- state_matrix[last_row_idx, 3]
     }
     
-    # Add the date as a column
+    # do the same thing for fitted observations -> extract them all if needed
+    if (extract_fitted_obs) {
+      # item$states$fitted_obs_t_t is a matrix of size [T x Num_Observed_Y_Vars]
+      fitted_matrix   <- as.matrix(item$states$fitted_obs_t_t)
+      last_fitted_row <- nrow(fitted_matrix)
+      
+      # Column 1 is always the primary model fitting series (e.g., fit_rate, fit_inflation, fit_unemp)
+      params$fitted_obs <- fitted_matrix[last_fitted_row, 1]
+      
+      # if there are other variables we extract them as well
+      if (ncol(fitted_matrix) >= 2) {
+        params$fitted_spf_survey <- fitted_matrix[last_fitted_row, 2]
+      }
+    }
+    
+    # Add the chronological tracking marker column
     params <- params %>%
       mutate(quarter = vp_date) %>%
       select(quarter, everything())
@@ -339,6 +359,11 @@ extract_params_df <- function(results_list, extract_fitted_obs = FALSE) {
   
   return(params_df)
 }
+
+
+
+
+
 
 
 

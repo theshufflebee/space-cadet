@@ -121,58 +121,78 @@ master_quarterly <- master_quarterly %>%
 # Here we extract the specific data series that are needed for each model
 
 
-# =================================
-# Data Extraction for Okun Model
-# =================================
+# ==============================================================================
+# MASTER OKUN + Auxiliary Data Frames
+# ==============================================================================
 
 # All necessary variables for the model
 
 # Note: As the GDP Gap depends on the horizon it needs to be recalculated for
 # each pseudo forecast. Therefore we only select log gdp
 
-master_okun_model_long <- master_quarterly %>%
+
+# DF 1: MASTER OKUN Contains all values needed from the Data
+# ------------------------------------------------------------------------------
+# Extract directly from master_quarterly, used for the rolling estimation
+master_okun <- master_quarterly %>%
   select(
     quarter,
     unemp_rate,
-    employment,
-    `spf_5y_unemp`,
-    gdp,
+    spf_5y_unemp,
     log_gdp
   ) %>%
-  pivot_longer(
-    cols = -quarter,
-    names_to = "variable",
-    values_to = "value"
-  )
+  arrange(quarter)
 
 
-# Get the Measurement variables
-Y_okun <- master_okun_model_long %>%
-  filter(variable %in% c("unemp_rate", "spf_5y_unemp")) %>%
-  pivot_wider(names_from = variable,
-              values_from = value)%>%
-  arrange(quarter) %>%
-  mutate(`spf_5y_unemp` = `spf_5y_unemp`)
+# DF 2: master_okun_worker contains data to estimate the full model
+# ------------------------------------------------------------------------------
+# Extract directly from master_quarterly without the long-pivoting detour# 1. Apply your baseline sample burn-in cutoff
+master_okun_worker <- master_okun
 
-# Get the Exogenous variable
-X_okun <- master_okun_model_long %>%
-  filter(variable %in% c("log_gdp")) %>%
-  pivot_wider(names_from = variable,
-              values_from = value) %>%
-  arrange(quarter) %>%
-  select(quarter, log_gdp)
+# 2. Replicate your complete-case range tracking for log_gdp (Exogenous X)
+# The Kalman filter handles NAs in Y natively, but X data must be completely continuous
+valid_rows   <- which(!is.na(master_okun_worker$log_gdp))
+first_valid  <- min(valid_rows)
+last_valid   <- max(valid_rows)
+
+message("Safe estimation range: ", master_okun_worker$quarter[first_valid], " to ", master_okun_worker$quarter[last_valid])
+
+# 3. Slice down to your finalized active sample window
+master_okun_worker <- master_okun_worker[first_valid:last_valid, ]
+
+# 4. Apply your HP Filter directly inside the wide table
+hp_gdp <- mFilter::hpfilter(master_okun_worker$log_gdp, freq = 1600, type = "lambda")
+master_okun_worker$gdp_gap <- as.numeric(hp_gdp$cycle)
+
+# 5. Cleanly construct your t-1 and t-2 lag structures natively
+master_okun_worker <- master_okun_worker %>%
+  mutate(
+    gdp_gap = gdp_gap * 100,
+    gdp_gap_l1 = dplyr::lag(gdp_gap, n = 1, default = NA),
+    gdp_gap_l2 = dplyr::lag(gdp_gap, n = 2, default = NA)
+  ) %>%
+  # Drops the first two quarters where lag data is unavailable
+  filter(!is.na(gdp_gap_l1) & !is.na(gdp_gap_l2))
 
 
-message("Okun Data Formatting Done")
+# DF 3: Y_DATA_OKUN (Measurement Matrices)
+# ------------------------------------------------------------------------------
+Y_data_okun <- master_okun_worker %>%
+  select(unemp_rate, spf_5y_unemp)
+
+
+# DF 4: X_DATA_OKUN (Exogenous Determinants Matrices)
+# ------------------------------------------------------------------------------
+X_data_okun <- master_okun_worker %>%
+  select(gdp_gap, gdp_gap_l1, gdp_gap_l2)
+
+message("Okun Data Prep Succesful")
 
 
 
-# Here we extract the specific data series that are needed for each model
-
-
-# =================================
-# Data Extraction for Philips Curve Model
-# =================================
+# ==============================================================================
+# DF 1: MASTER PHILIPS
+# ==============================================================================
 
 # All necessary variables for the model
 
@@ -260,17 +280,18 @@ master_taylor <- master_taylor %>%
     
   ) %>%
   mutate(
+    true_snb_rate = saron_libor_splice,
     saron_libor_splice = case_when(
       # Use as.yearqtr to match the column type
       quarter >= zoo::as.yearqtr("2009 Q2") & quarter <= zoo::as.yearqtr("2022 Q2") ~ NA_real_,
       TRUE ~ saron_libor_splice
     )
   ) %>%
-  select(all_of(c("quarter", "saron_libor_splice",
+  select(all_of(c("quarter", "saron_libor_splice", "true_snb_rate",
                   "forward_rate", "log_cpi", "lag_rate", "log_gdp", "gdp_gap",
                   "yoy_inflation", "12m_interest_forecast", "hp_inf_gap"))) %>%
   mutate(
-    across(c("saron_libor_splice",
+    across(c("saron_libor_splice", "true_snb_rate",
              "forward_rate", "log_cpi", "lag_rate",
              "yoy_inflation", "12m_interest_forecast", "hp_inf_gap"), ~ .x * 100) 
   ) %>%
@@ -278,17 +299,6 @@ master_taylor <- master_taylor %>%
     inf_gap = yoy_inflation -1,
     
   )#clean up helper column
-
-# Add a True rate to it which is the observed Rate without the NA Observations
-true_rate <- master_taylor %>%
-  select(quarter, saron_libor_splice) %>%
-  rename(true_snb_rate = saron_libor_splice)%>%
-  mutate(true_snb_rate = true_snb_rate * 100 )
-
-master_taylor <- master_taylor %>%
-  left_join(true_rate, by = "quarter" )
-
-
 
 
 

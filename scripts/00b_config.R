@@ -38,8 +38,8 @@ source(here("R", "visualizations.R"))
 
 
 # ==============================================================================
-# Downloading and Preparing Data Settings
-# ----------------------------------------------------------
+# Downloading and Data Prep Settings
+# ==============================================================================
 
 # This section handles all paths with here. All paths are relative to the repo
 # root. Further we handle external id's or link to download data from external
@@ -48,14 +48,20 @@ source(here("R", "visualizations.R"))
 
 # --- Set Paths / create folders ---
 
-# Set Raw Data Path
-raw_path <- here("data", "raw")
+
+# Base Data  Path
+#master_df_path <- here("data")
+data_base_path <- here("data")
+
+
+# Set Base Raw Data Paths and create the dir if needed
+raw_data_path  <- here("data", "raw")
+if (!dir.exists(raw_data_path)) dir.create(raw_data_path, recursive = TRUE)
 
 
 # Data Keys for Downloads / API Calls
 # ------------------------------------------------------------------------------
 ### KOF Data
-kof_data_key <- "kof_consensus_forecast_mean"
 
 ### BFS Data
 cpi_asset_id <- "36483229" # ID for CPI Download
@@ -63,17 +69,20 @@ emp_asset_id <- "px-x-0602000000_101" # ID From Package
 unemp_asset_id <- "36453929" # Id from package Catalogue
 ppi_asset_id <- "36532319"
 
-
-# SECO Data
-gdp_csv <- file.path(raw_path, "gdp.csv")
-url_gdp_csv <-
-  "https://www.seco.admin.ch/dam/seco/de/dokumente/Wirtschaft/Wirtschaftslage/BIP_Daten/ch_seco_gdp_csv.csv.download.csv/ch_seco_gdp.csv"  # SECO GDP CSV URL
-
-# Master df Path
-master_df_path <- here("data")
-
-# Create folder for raw data if it doesn't exist
-if (!dir.exists(raw_path)) dir.create(raw_path) 
+# --- External Metadata and IDs ---
+# IDs for programmatic downloads via BFS/KOF wrappers
+data_external_ids <- list(
+  bfs_cpi        = "36483229",
+  bfs_employment = "px-x-0602000000_101",
+  bfs_unemployment = "36453929",
+  url_seco_gdp   = "https://www.seco.admin.ch/dam/seco/de/dokumente/Wirtschaft/Wirtschaftslage/BIP_Daten/ch_seco_gdp_csv.csv.download.csv/ch_seco_gdp.csv",
+  cpi_asset_id = "36483229", # ID for CPI Download
+  emp_asset_id = "px-x-0602000000_101", # ID From Package
+  unemp_asset_id = "36453929", # Id from package Catalog
+  ppi_asset_id =  "36532319",
+  kof_data_key = "kof_consensus_forecast_mean"
+  
+  )
 
 
 # --- Define Parameters ---
@@ -84,7 +93,7 @@ to_date <- format(Sys.Date(), "%Y-%m")
 
 # Set True if you want to re-download Data
 # If there is no data, API gets called automatically
-do_api_call <- TRUE
+do_api_call <- FALSE
 
 if (do_api_call) {
   message("do_api_call set to TRUE. Redownloading all files")
@@ -92,58 +101,42 @@ if (do_api_call) {
 }
 
 
-
-
-# ----------------------------------------------------------
-# Data Config Section
-# ----------------------------------------------------------
-######################################################################3
-
-# between two is a work in progress
-# Set Base Data Paths
-data_base_path <- here("data")
-raw_base_path  <- here("data", "raw")
-
-# Create folder for raw data if it doesn't exist
-if (!dir.exists(raw_base_path)) dir.create(raw_base_path, recursive = TRUE)
-
-
-# Organize Data Paths into a structured list
-# sub-lists correspond to the data processing stage (raw vs processed/master)
+# Data Save Paths
+# ------------------------------------------------------------------------------
 data_save_paths <- list(
   
   # --- Raw Data: Source files directly from APIs or URLs ---
   raw = list(
     ## SNB Data
-    money_market_csv    = here(raw_base_path, "money_market.csv"),
-    money_market_json   = here(raw_base_path, "money_market_metadata.json"),
+    money_market_csv    = here(raw_data_path, "money_market.csv"),
+    money_market_json   = here(raw_data_path, "money_market_metadata.json"),
     
-    gov_bonds_csv       = here(raw_base_path, "gov_bonds.csv"),
-    gov_bonds_json      = here(raw_base_path, "gov_bonds_metadata.json"),
+    gov_bonds_csv       = here(raw_data_path, "gov_bonds.csv"),
+    gov_bonds_json      = here(raw_data_path, "gov_bonds_metadata.json"),
     
-    reer_ppi_eu_csv     = here(raw_base_path, "reer_ppi_eu.csv"),
-    reer_ppi_eu_json    = here(raw_base_path, "reer_ppi_eu_metadata.json"),
+    reer_ppi_eu_csv     = here(raw_data_path, "reer_ppi_eu.csv"),
+    reer_ppi_eu_json    = here(raw_data_path, "reer_ppi_eu_metadata.json"),
     
-    ex_eur_av_csv       = here(raw_base_path, "ex_eur_av.csv"),
-    ex_eur_av_json      = here(raw_base_path, "ex_eur_av_metadata.json"),
+    ex_eur_av_csv       = here(raw_data_path, "ex_eur_av.csv"),
+    ex_eur_av_json      = here(raw_data_path, "ex_eur_av_metadata.json"),
     
-    ex_eur_eom_csv      = here(raw_base_path, "ex_eur_eom.csv"),
-    ex_eur_eom_json     = here(raw_base_path, "ex_eur_eom_metadata.json"),
+    ex_eur_eom_csv      = here(raw_data_path, "ex_eur_eom.csv"),
+    ex_eur_eom_json     = here(raw_data_path, "ex_eur_eom_metadata.json"),
     
-    snb_policy_csv     = here(raw_base_path, "snb_policy_rate.csv"),
-    snb_policy_json    = here(raw_base_path, "snb_policy_rate_metadata.json"),
+    snb_policy_csv     = here(raw_data_path, "snb_policy_rate.csv"),
+    snb_policy_json    = here(raw_data_path, "snb_policy_rate_metadata.json"),
     
     ## KOF Data
-    kof_master_csv      = here(raw_base_path, "kof_consensus_master.csv"),
+    kof_master_csv      = here(raw_data_path, "kof_consensus_master.csv"),
     
     ## BFS Data
-    cpi_series_xlsx     = here(raw_base_path, "cpi_series.xlsx"),
-    employment_csv      = here(raw_base_path, "employment_data.csv"),
-    unemployment_csv    = here(raw_base_path, "unemployment_canton.csv"),
-    ppi_csv             = here(raw_base_path, "ppi_ch.xlsx"),
+    cpi_series_xlsx     = here(raw_data_path, "cpi_series.xlsx"),
+    employment_csv      = here(raw_data_path, "employment_data.csv"),
+    unemployment_csv    = here(raw_data_path, "unemployment_canton.csv"),
+    ppi_csv             = here(raw_data_path, "ppi_ch.xlsx"),
     
     ## SECO Data
-    gdp_seco_csv        = here(raw_base_path, "gdp.csv")
+    gdp_seco_csv        = here(raw_data_path, "gdp.csv")
   ),
   
   # --- Processed Data: Formatted and joined datasets ---
@@ -151,20 +144,6 @@ data_save_paths <- list(
     master_df_csv       = here(data_base_path, "master.csv")
   )
 )
-
-# --- External Metadata and IDs ---
-# IDs for programmatic downloads via BFS/KOF wrappers
-data_external_ids <- list(
-  bfs_cpi        = "36483229",
-  bfs_employment = "px-x-0602000000_101",
-  bfs_unemployment = "36453929",
-  kof_forecast   = "kof_consensus_forecast_mean",
-  url_seco_gdp   = "https://www.seco.admin.ch/dam/seco/de/dokumente/Wirtschaft/Wirtschaftslage/BIP_Daten/ch_seco_gdp_csv.csv.download.csv/ch_seco_gdp.csv"
-)
-
-
-####################################################
-
 
 
 # --- Names of Data to keep ---
@@ -208,7 +187,7 @@ ts_names <- c(
 ################################################################################
 
 # ---  General Settings ---
-forecast_starting_date <- as.yearqtr("2018 Q2")
+forecast_starting_date <- as.yearqtr("2010 Q1")
 
 # FOr Indexing
 indexing_date <- "2020-12-01"
@@ -235,9 +214,6 @@ okun_parameter_guess <- list(
   sigma_spf_5y_unemp = 0.5,
   xi_n = 0.1
 )
-
-# xi_n = 0.001
-
 
 
 # --- Initial Guesses for Philips Model ---
@@ -303,6 +279,9 @@ output_save_paths <- list(
     rolling_param_est_taylor = here(output_base, "parameter_estimation/taylor_params.csv")
   ),
   plots = list(
+    fit_okun    = here(output_base, "plots/fit_okun_model.png"),
+    fit_philips = here(output_base, "plots/fit_philips_model.png"),
+    fit_taylor  = here(output_base, "plots/fit_taylor_model.png"),
     params_okun    = here(output_base, "plots/params_okun_model.png"),
     params_philips = here(output_base, "plots/params_philips_model.png"),
     params_taylor  = here(output_base, "plots/params_taylor_model.png"),

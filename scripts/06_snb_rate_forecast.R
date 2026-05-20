@@ -5,10 +5,10 @@ message("Starting SNB Policy Rate Forecast")
 source(here("R", "kalman_implementation_taylor.R"))
 
 # ==============================================================================
-# Estimate the model over the Full Horizon
+# Last Data Prep
 # ==============================================================================
 
-# --- Select the alreeady Transformed data for the model
+# --- Select the already Transformed data for the model
 
 # From The Full dataset select the Data needed for the Rolling estimation of the FUll timeline
 Y_data_taylor <- master_taylor %>%
@@ -19,19 +19,75 @@ X_data_taylor <- master_taylor %>%
   select(all_of(c("gdp_gap", "inf_gap")))
   
 
-# --- Initialize the SSM ---
+# ==============================================================================
+# Run the Full Rolling Forecast
+# ==============================================================================
+
+#  Run the Rolling Estimation
+# ------------------------------------------------------------------------------
+if(run_estimation){
+  
+  taylor_param_est <- rolling_est_taylor_ssm(data = master_taylor,
+                                             forecast_start = as.yearqtr(forecast_starting_date))
+  
+  taylor_params <- extract_params_df(taylor_param_est, extract_fitted_obs = TRUE)
+  
+  write.csv(taylor_params, output_save_paths$params$rolling_param_est_taylor)
+  
+}else{
+  
+  taylor_params <- read.csv(output_save_paths$params$rolling_param_est_taylor)
+}
+
+rolling_natural_rate_taylor <- taylor_params %>%
+  select(all_of(c("quarter", "natural_rate"))) %>%
+  mutate(quarter = as.yearqtr(quarter))
+
+
+# Run the Forecast
+# ------------------------------------------------------------------------------
+
+taylor_forecast_df <- forecast_taylor_ssm(params_df = taylor_params,
+                                          date_col = "quarter",
+                                          master_df = master_taylor,
+                                          forecast_h = 8,
+                                          exogenous_forecast_data = master_taylor,
+                                          hp_inf_gap = FALSE)
+
+
+# Save the Forecast df (and reload)
+write_csv(as.data.frame(taylor_forecast_df), output_save_paths$forecasts$forecast_df_taylor)
+taylor_forecast_df <- read_csv(output_save_paths$forecasts$forecast_df_taylor)
+
+# --- Format df for the Evaluation --- 
+# Make the Dataframe a square
+last_origin <- ncol(taylor_forecast_df)
+
+taylor_eval_square <- taylor_forecast_df[1:last_origin, 1:last_origin]
+
+# Check: the number of rows should now equal the number of columns
+dim(taylor_eval_square)
+
+
+
+
+# ==============================================================================
+# Estimate and Plot the Full Sample Fit
+# ==============================================================================
+
+
+# Run Parameter Estimation
+# ------------------------------------------------------------------------------
+
+# --- Initialize SSM
 ssm_taylor <- initialize_taylor_ssm(Y_data = Y_data_taylor,
-                                   X_data = X_data_taylor,
-                                   parameter_guesses =snb_rate_parameter_guess)
+                                    X_data = X_data_taylor,
+                                    parameter_guesses =snb_rate_parameter_guess)
 
 
 # --- Estimate the full Model ---
 output_estim <- ssm_optimizer_wrapper_shadow(ssm = ssm_taylor)
 
-
-# ==============================================================================
-# Plot the Full Sample Fit
-# ==============================================================================
 
 
 # --- Run the filter with the final parameters ---
@@ -50,6 +106,8 @@ final_res <- kalman_filter_taylor(
 
 # --- Extract the values for the plot ---
 shadow_rate <- final_res$fitted_obs[, 1]
+tp_trend <- final_res$r[, 2]
+tp_cycle <- final_res$r[, 3]
 natural_rate <- final_res$r[, 1] # State 1
 fit_rate <- final_res$fitted_obs_t_t[, 1]
 dates <- master_taylor$quarter # Assuming you have a date vector
@@ -58,69 +116,62 @@ fw_rate <- Y_data_taylor$forward_rate
 inflation_gap <- X_data_taylor$inf_gap
 gdp_gap <- X_data_taylor$gdp_gap
 
-# --- Plot the data ---
-plot(dates, fit_rate, type="l", col="blue", lwd=3, 
-     main="Obs vs Fitted Rate", ylab="Rate (%)")
-mtext("Taylor Rule Specification: Bounded smoothing & Constant Inflation Gap", 
-      side=3, line=0.5, cex=0.8)
-lines(dates, natural_rate, col="red", lty=2, type="l")
-lines(dates, snb_rate, col="green", lty=2)
-lines(dates, fw_rate, col="orange", lty=2)
-lines(dates, inflation_gap, col="violet", lty=2)
-lines(dates, gdp_gap, col="darkgreen", lty=2)
-abline(h=-0.00, col="black", lty=3) # The ZLB Floor
-abline(h=-0.75, col="grey", lty=3) # The ZLB Floor
 
-legend("bottomleft",
-       legend=c("Fitted (Shadow) Rate",
-                "Natural Rate (i*)",
-                "Observed LIBOR / SARON",
-                "Forward Rate", "Inflation Gap", "GDP Gap"), 
-       col=c("blue", "red", "green", "orange", "violet", "darkgreen"), lty=c(1, 2, 3))
-
-
-
+#Plot the Data
 # ==============================================================================
-# Run the Full Rolling Forecast
-# ==============================================================================
+taylor_plot_data <- tibble(
+  date          = as.yearqtr(dates), # Convert yearqtr to Date format for smooth ggplot axes
+  fitted_shadow = as.numeric(fit_rate),
+  natural_interest_rate  = as.numeric(natural_rate),
+  tp_trend      = as.numeric(tp_trend),
+  tp_cycle      = as.numeric(tp_cycle),
+  observed_rate = as.numeric(snb_rate),
+  forward_rate  = as.numeric(fw_rate),
+  inflation_gap = as.numeric(inflation_gap),
+  gdp_gap       = as.numeric(gdp_gap)
+)
 
-# --- Run the Rolling Estimation
-if(run_estimation){
-  
-  taylor_param_est <- rolling_est_taylor_ssm(data = master_taylor,
-                                             forecast_start = as.yearqtr(forecast_starting_date))
-  
-  taylor_params <- extract_params_df(taylor_param_est, extract_fitted_obs = TRUE)
-  
-  write.csv(taylor_params, output_save_paths$params$rolling_param_est_taylor)
-  
-}else{
-  
-  taylor_params <- read.csv(output_save_paths$params$rolling_param_est_taylor)
-}
+taylor_plot_data <- taylor_plot_data %>%
+  left_join(rolling_natural_rate_taylor, by = c("date" = "quarter"))
+
+# Define structure arrays
+taylor_top_cols    <- c("observed_rate" = "Observed LIBOR / SARON",
+                        "fitted_shadow" = "Fitted (Shadow) Rate",
+                        "natural_interest_rate" = "Natural Rate (i*)",
+                        "natural_rate" = "Rolling Estimation Natural Rate"
+                        )
+
+taylor_bottom_cols <- c("forward_rate" = "Forward Rate",
+                        "inflation_gap" = "Inflation Gap",
+                        "gdp_gap" = "GDP Gap",
+                        "tp_trend"      = "TP Trend",
+                        "tp_cycle"      = "TP Cycle")
+
+taylor_top_colors    <- c("Observed LIBOR / SARON" = "#2ecc71",
+                          "Fitted (Shadow) Rate" = "#2980b9",
+                          "Natural Rate (i*)" = "#e74c3c",
+                          "Rolling Estimation Natural Rate" = "orange"
+                          )
+
+taylor_bottom_colors <- c("Forward Rate" = "#e67e22",
+                          "Inflation Gap" = "#9b59b6",
+                          "GDP Gap" = "#16a085",
+                          "TP Trend" = "pink",
+                          "TP Cycle" = "violet")
+
+# Generate
+snb_chart <- plot_state_space_fit(
+  plot_df        = taylor_plot_data, # Tibble with all the Plotted Data
+  title          = "SNB Policy Rate Fit",
+  subtitle       = "Taylor Rule Specification: Constant Inflation Gap (Inflation -1)",
+  top_metrics    = taylor_top_cols,
+  bottom_metrics = taylor_bottom_cols,
+  top_colors     = taylor_top_colors,
+  bottom_colors  = taylor_bottom_colors,
+  zlb_bounds     = c(-0.75, 0.00),
+  save_path = output_save_paths$plots$fit_taylor
+)
+print(snb_chart)
 
 
-
-
-# --- Run the Forecast ---
-taylor_forecast_df <- forecast_taylor_ssm(params_df = taylor_params,
-                                date_col = "quarter",
-                                master_df = master_taylor,
-                                forecast_h = 8,
-                                exogenous_forecast_data = master_taylor,
-                                hp_inf_gap = FALSE)
-
-
-# Save the Forecast df (and reload)
-write_csv(taylor_forecast_df, output_save_paths$forecasts$forecast_df_taylor)
-taylor_forecast_df <- read_csv(output_save_paths$forecasts$forecast_df_taylor)
-
-# --- Format df for the Evaluation --- 
-# Make the Dataframe a square
-last_origin <- ncol(taylor_forecast_df)
-
-taylor_eval_square <- taylor_forecast_df[1:last_origin, 1:last_origin]
-
-# Check: the number of rows should now equal the number of columns
-dim(taylor_eval_square)
 

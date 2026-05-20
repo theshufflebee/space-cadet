@@ -5,46 +5,12 @@
 ################################################################################
 
 
-
 # Load correct Kalman Specs
 source(here("R", "kalman_implementation_base.R"))
 
-# ==============================================================================
-# DATA PREPARATION: HP Filter, Lagging, and Final Alignment
-# ==============================================================================
-
-# Start by creating merged dataframe
-# (Contains 'quarter', 'log_gdp', 'unemp_rate', 'spf_5y_unemp')
-df_okun_merged <- X_okun %>%
-  filter(quarter >= hp_filter_burn_in) %>%
-  left_join(Y_okun, by = "quarter")
-
-# Select the Estimation range
-non_na_range <- which(complete.cases(df_okun_merged[,colnames(X_okun)]))
-
-# Determine the available datarange, as the X data can't be NA
-first_valid <- min(non_na_range)
-last_valid <- max(non_na_range)
-
-# Get range of X Data
-# This does not check in the Y column as the Kalman filter can handle NA in these
-# Positions
-first_date <- df_okun_merged$quarter[min(non_na_range)]
-last_date  <- df_okun_merged$quarter[max(non_na_range)]
-
-# Print the readable range
-message("Save estimation range: ", first_date, " to ", last_date)
-
-# Select available data range
-df_okun_final <- df_okun_merged[first_valid:last_valid, ]
-
-# get the the external forecasts for the output gap. This is currently just the true observations
-# will later be replaced with true forecasts
-gdp_gap_forecasts <- df_okun_final[c("quarter", "log_gdp")]
-
 
 # ==============================================================================
-# Estimate Parameters
+# Estimation and Forecasting
 # ==============================================================================
 
 
@@ -52,7 +18,8 @@ if(run_estimation){
   message("Starting Estimation of Model 1: Unemployment...")
   # The parameters are estimate in a rolling scheme, i.e from the T = 0 to each date
   # from first valid to last valid
-  params_okun <- rolling_est_okun_ssm(df_okun_merged, forecast_start = forecast_starting_date)
+  params_okun <- rolling_est_okun_ssm(master_okun,
+                                      forecast_start = forecast_starting_date)
   
   # Extract the parameters from the results and put them in the correctly formated dataframe
   params_okun_df <- extract_params_df(params_okun)
@@ -64,6 +31,10 @@ if(run_estimation){
   params_okun_df <- read_csv(output_save_paths$params$rolling_param_est_okun)
   
 }
+
+rolling_natural_rate_okun <- params_okun_df %>%
+  select(all_of(c("quarter", "natural_rate"))) %>%
+  mutate(quarter = as.yearqtr(quarter))
 
 
 
@@ -88,4 +59,116 @@ okun_eval_square <- forecast_okun_df[1:last_origin, 1:last_origin]
 
 # CheckThe number of rows should now equal the number of columns
 dim(okun_eval_square)
+
+
+
+# ==============================================================================
+# Estimate Fit Of Okun SSM Model
+# ==============================================================================
+
+# Create the full manifest container object for the Okun setup
+ssm_okun <- initialize_my_okun_ssm( # Update function name if it matches your initialize setup
+  Y_data            = Y_data_okun,
+  X_data            = X_data_okun,
+  parameter_guesses = okun_parameter_guess # Your configuration guess object
+)
+
+# Run the global optimization loop to finalize corporate parameters (beta_y, coefficients, variances)
+output_estim_okun <- ssm_optimizer_wrapper(ssm = ssm_okun)
+
+
+# Filter Execution & Latent State Extraction
+#-------------------------------------------------------------------------------
+
+# Determine the exact latent dimension from your prior guesses vector (Length 1 for u_bar)
+num_latent_states_okun <- length(ssm_okun$rho_guess)
+
+# Run the fixed structural Kalman filter function with optimized inputs
+final_res_okun <- kalman_filter(
+  Y_t       = ssm_okun$data$Y,
+  nu_t      = matrix(0, nrow(ssm_okun$data$Y), num_latent_states_okun), 
+  H         = ssm_okun$builders$H(output_estim_okun$params),
+  N         = ssm_okun$builders$N(output_estim_okun$params),
+  mu_t      = ssm_okun$builders$mu_t(output_estim_okun$params, ssm_okun$data$X),
+  G         = ssm_okun$builders$G(),
+  M         = ssm_okun$builders$M(output_estim_okun$params),
+  Sigma_0   = matrix(ssm_okun$sigma_guess, nrow = num_latent_states_okun, ncol = num_latent_states_okun),
+  rho_0     = matrix(ssm_okun$rho_guess, ncol = 1)
+)
+
+# Extract specific quantitative rows and tracks for the plotting array
+dates_okun            <- master_okun_worker$quarter
+observed_unemp        <- Y_data_okun$unemp_rate
+spf_unemp_expect      <- Y_data_okun$spf_5y_unemp
+
+# Extract state tracks (Fitted observation overall profile vs. Latent Natural NAIRU trend u_bar)
+fitted_unemp_t_t      <- final_res_okun$fitted_obs[, 1]
+latent_nairu_trend    <- final_res_okun$r[, 1] # Assumes your State 1 track is u_bar
+
+# Cyclical inputs for lower covariate tracking
+output_gap_track      <- X_data_okun$gdp_gap
+
+
+
+
+# Create Data Tibble and Visualization specs for Fit-Plot
+#-------------------------------------------------------------------------------
+# Construct the data payload expected by your create_state_space_dashboard function
+okun_plot_data <- tibble(
+  date          = dates_okun,
+  obs_unemp     = as.numeric(observed_unemp),
+  spf_survey    = as.numeric(spf_unemp_expect),
+  fitted_unemp  = as.numeric(fitted_unemp_t_t),
+  latent_trend  = as.numeric(latent_nairu_trend),
+  gdp_gap       = as.numeric(output_gap_track)
+)
+
+okun_plot_data <- okun_plot_data %>%
+  left_join(rolling_natural_rate_okun, by = c("date" = "quarter"))
+
+# Set up column-to-legend text property maps
+okun_top_metrics <- c(
+  "obs_unemp"    = "Unemployment",
+  "fitted_unemp" = "Fitted Unemployment",
+  "latent_trend" = "Natural Rate",
+  "spf_survey"   = "SPF 5-Year Unemp Mean",
+  "natural_rate" = "Last State in Rolling Estimation"
+)
+
+okun_bottom_metrics <- c(
+  "gdp_gap" = "Output Gap"
+)
+
+# Define clean, publication-ready HEX color codes matching your script aesthetics
+okun_top_colors <- c(
+  "Unemployment"         = "#34495e", # Dark Slate
+  "Fitted Unemployment"     = "#2980b9", # Deep Blue
+  "Natural Rate" = "#e74c3c", # Natural Rate Red
+  "SPF 5-Year Unemp Mean"  = "#f1c40f",  # Gold Yellow
+  "Last State in Rolling Estimation" = "green"
+)
+
+okun_bottom_colors <- c(
+  "Output Gap" = "#16a085" # Teal
+)
+
+# Generate
+# ------------------------------------------------------------------------------
+okun_dashboard <- plot_state_space_fit(
+  plot_df        =  okun_plot_data,
+  title          = "Swiss Okun's Law State-Space Estimation",
+  subtitle       = "Okun Specification: Latent Natural Rate (u_bar) with Long-Term Survey Anchoring",
+  top_metrics    = okun_top_metrics,
+  bottom_metrics =  okun_bottom_metrics,
+  top_colors     = okun_top_colors,
+  bottom_colors  =  okun_bottom_colors,
+  zlb_bounds     = NULL, # Left NULL since this is a real labor market track
+  y_label_top    = "Unemployment Rate / Expectations (%)",
+  y_label_bottom = "Output Gap (%)",
+  save_path      = output_save_paths$plots$fit_okun
+)
+
+# Print the resulting plot directly to the RStudio workspace graphics engine
+print(okun_dashboard)
+
 

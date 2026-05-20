@@ -482,7 +482,7 @@ rolling_est_okun_ssm <- function(data,
       ) %>%
       # Filter for Estimation Window
       filter(quarter >= val_T1) %>%
-      filter(complete.cases(unemp_rate, spf_5y_unemp, gap_l0, gap_l1, gap_l2))
+      filter(complete.cases(unemp_rate, gap_l0, gap_l1, gap_l2))
     
     if (nrow(processed_data) < 5) {
       message("Skipping ", target_date, ": No valid overlapping observations.")
@@ -602,18 +602,7 @@ rolling_est_philips_ssm <- function(data,
                                            X_final,
                                            parameter_guesses = philips_parameter_guess)
     
-    # Debug
-    
-    # message("Printing Y and X Data for Debug")
-    # print(my_ssm_model)
-    # print("===========================")
-    # print(my_ssm_model$data$Y)
-    # print("---------------------------")
-    # print(my_ssm_model$data$X)
-    
-    
-    
-    
+
     message("SSM PHILIPS INIT SUCCESSFUL")
     
     # Optimization: Multiple estimations with Warm Start

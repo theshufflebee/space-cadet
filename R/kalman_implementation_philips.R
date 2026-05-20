@@ -182,8 +182,7 @@ kalman_filter_philips <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
                                            H = H,
                                            nu_t = nu_step,
                                            nr = nr)
-    
-    
+
     # Calculate the Noise, these square M and N are the shocks hitting the system
     # Functions are defined below
     R = Rfunction(M, rho, t)
@@ -377,7 +376,6 @@ project_state_forward <- function(rho, H, nu_t, nr) {
   rho <- as.numeric(rho)  # ADDED due to Bug in third model worked fine first two
   
   H_mat <- matrix(H, nrow = nr, ncol = nr) # resize H from vector to matrix
-  
   
   rho_mat <- matrix(rho, nrow = nr, ncol = 1) # risize rho into correct form -> maight be able to zse t() check later
   
