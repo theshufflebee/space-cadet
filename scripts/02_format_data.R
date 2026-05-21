@@ -234,7 +234,7 @@ kof_12m_interest <- processed_kof_series[["12m_interest_forecast"]]
 # ==============================================================================
 
 # Load Data
-eu_ppi_raw <-read_csv(file.path(raw_path, "eu_ppi_raw.csv")) 
+eu_ppi_raw <-read_csv(file.path(raw_data_path, "eu_ppi_raw.csv")) 
 
 # Format Time Series
 eu_ppi_ts <- format_time_series_df(eu_ppi_raw, "date", "ppi_eur", "ppi_eur", "%Y-%m-%d")

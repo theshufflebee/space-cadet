@@ -137,7 +137,7 @@ ppi_eur_clean <- raw_ppi_eur %>%
   ) %>%
   select(date = TIME_PERIOD, ppi_eur = values)
 
-write_csv(ppi_eur_clean, file.path(raw_path, "eu_ppi_raw.csv") )
+write_csv(ppi_eur_clean, file.path(raw_data_path, "eu_ppi_raw.csv") )
 
 
 message("DATA LOADING DONE...")
