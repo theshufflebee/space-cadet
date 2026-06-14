@@ -20,10 +20,11 @@ if (!require("here", character.only = TRUE, quietly=TRUE)) {
   install.packages("here", dependencies = TRUE)
   library("here", character.only = TRUE)
 }
-# Load all internal functions
 
-source(here("R", "load_snb_data.R"))
-source(here("R", "utils.R"))
+
+options(
+  readr.show_col_types = FALSE # no columns specs warnings
+)
 
 #------------------------------------------------------------------------------
 # 0a. Run the Package Installation and Loading Script

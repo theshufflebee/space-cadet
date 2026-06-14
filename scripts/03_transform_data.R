@@ -17,15 +17,11 @@
 
 # FOr example the transformation to log gdp or the extraction of gdp trend and cycle
 
-# --- Unemployment Rate ---
 
-# We divide the unemployment number by the employment numbers to get the unemployment rate
-master_df$unemp_rate <- (master_df$unemployment / (master_df$unemployment + master_df$employment) ) * 100
-
-# The data is in the format where 5% is 0.05. The spf data is in format 5.00 for 5%
-# we therefore divide by 100
-# This is done so there are no variable mismatches that although technically don't 
-# break the model might break the optimizer
+# Rename unemployment rate
+master_df$unemp_rate <- master_df$unemployment 
+                         
+# Rename spf data (change back later)
 master_df$spf_5y_unemp <- master_df$`5y_unemp_forecast`
 
 
@@ -34,14 +30,11 @@ master_df$spf_5y_unemp <- master_df$`5y_unemp_forecast`
 master_df <- master_df %>%
   arrange(date) %>%
   mutate(
-    # Rebase Swiss PPI (PCH) so Dec 2020 = 100
-    # ppi_ch represents Swiss CPI column
+    # Rebase Swiss PPI (PCH) and (EUR) ro same date
     ppi_ch_idx = (ppi_ch / ppi_ch[date == indexing_date]) * 100,
-    
-    # Step B: Rebase Euro PPI (PEUR) so Dec 2020 = 100
     ppi_eur_idx = (ppi_eur / ppi_eur[date == indexing_date]) * 100,
     
-    # Step C: Calculate REER_CREA
+    # Calculate REER_CREA
     # Formula: St * (PCH / PEUR)
     # Using 'ex_eom' as St (ensure it is EUR per 1 CHF)
     REER_CREA = ex_eom * (ppi_ch_idx / ppi_eur_idx)
@@ -53,11 +46,11 @@ master_df <- master_df %>%
 # --- Transform df to quarterly
 
 # Most of the models need quarterly data. Therefore we transofrm the df to quarterly
-# This is done here to keep the data raw in the master df
+# This is done here to keep the data raw monthly data in the master df
 
-# We use mean over 3 months comprising a quarter
+# We use mean over a quarter
 # when the data is quarterly we have the na.rm = TRUE, which in that case will take the
-# mean of the only value that is present qhich is just the value itself
+# mean of the only value that is present which is just the value itself
 
 master_quarterly <- master_df %>%
   arrange(date) %>%
@@ -100,7 +93,7 @@ hp_res <- mFilter::hpfilter(master_quarterly$log_gdp, freq = 1600)
 master_quarterly <- master_quarterly %>%
   mutate(
     gdp_trend = as.numeric(hp_res$trend),
-    gdp_gap = as.numeric(hp_res$cycle)
+    gdp_gap = as.numeric(hp_res$cycle) * 100
   )
 
 # we add the one and 2 quarter lag for the gdp gap
@@ -110,6 +103,19 @@ master_quarterly <- master_quarterly %>%
     gdp_gap_lag_2 = dplyr::lag(gdp_gap, 2)
   )
 
+
+# CPI Transformations
+
+master_quarterly <- master_quarterly %>%
+  mutate(
+    cpi = as.numeric(cpi),
+    log_cpi = log(cpi),
+    log_inflation_diff = (log_cpi - dplyr::lag(log(cpi), 1)) * 100 * 4,
+    yoy_inf = (log_cpi - dplyr::lag(log(cpi), 4)) * 100,
+    lag_log_inflation_diff = dplyr::lag(log_inflation_diff, 1),
+    # if we use quarterly we multiply log inf by 4 to have yearly values for interpretation
+    # SPF is already yearly
+    )
 
 
 ################################################################################
@@ -139,52 +145,17 @@ master_okun <- master_quarterly %>%
     quarter,
     unemp_rate,
     spf_5y_unemp,
-    log_gdp
+    log_gdp,
+    gdp_gap,
+    gdp_gap_lag_1,
+    gdp_gap_lag_2
+    
   ) %>%
+  # Drop NAs for second and third lag
+  filter(!is.na(gdp_gap_lag_1) & !is.na(gdp_gap_lag_2)) %>%
   arrange(quarter)
 
-
-# DF 2: master_okun_worker contains data to estimate the full model
-# ------------------------------------------------------------------------------
-# Extract directly from master_quarterly without the long-pivoting detour# 1. Apply your baseline sample burn-in cutoff
-master_okun_worker <- master_okun
-
-# 2. Replicate your complete-case range tracking for log_gdp (Exogenous X)
-# The Kalman filter handles NAs in Y natively, but X data must be completely continuous
-valid_rows   <- which(!is.na(master_okun_worker$log_gdp))
-first_valid  <- min(valid_rows)
-last_valid   <- max(valid_rows)
-
-message("Safe estimation range: ", master_okun_worker$quarter[first_valid], " to ", master_okun_worker$quarter[last_valid])
-
-# 3. Slice down to your finalized active sample window
-master_okun_worker <- master_okun_worker[first_valid:last_valid, ]
-
-# 4. Apply your HP Filter directly inside the wide table
-hp_gdp <- mFilter::hpfilter(master_okun_worker$log_gdp, freq = 1600, type = "lambda")
-master_okun_worker$gdp_gap <- as.numeric(hp_gdp$cycle)
-
-# 5. Cleanly construct your t-1 and t-2 lag structures natively
-master_okun_worker <- master_okun_worker %>%
-  mutate(
-    gdp_gap = gdp_gap * 100,
-    gdp_gap_l1 = dplyr::lag(gdp_gap, n = 1, default = NA),
-    gdp_gap_l2 = dplyr::lag(gdp_gap, n = 2, default = NA)
-  ) %>%
-  # Drops the first two quarters where lag data is unavailable
-  filter(!is.na(gdp_gap_l1) & !is.na(gdp_gap_l2))
-
-
-# DF 3: Y_DATA_OKUN (Measurement Matrices)
-# ------------------------------------------------------------------------------
-Y_data_okun <- master_okun_worker %>%
-  select(unemp_rate, spf_5y_unemp)
-
-
-# DF 4: X_DATA_OKUN (Exogenous Determinants Matrices)
-# ------------------------------------------------------------------------------
-X_data_okun <- master_okun_worker %>%
-  select(gdp_gap, gdp_gap_l1, gdp_gap_l2)
+write_csv(master_okun, data_save_paths$processed$okun_master_csv)
 
 message("Okun Data Prep Succesful")
 
@@ -199,13 +170,7 @@ message("Okun Data Prep Succesful")
 # Note: As the GDP Gap depends on the horizon it needs to be recalculated for
 # each pseudo forecast. Therefore we only select log gdp
 
-master_quarterly <- master_quarterly %>%
-  mutate(
-    cpi = as.numeric(cpi),
-    log_inflation_diff = (log(cpi) - dplyr::lag(log(cpi), 4)) * 100,
-    lag_log_inflation_diff = dplyr::lag(log_inflation_diff, 1),
-    `5y_cpi_forecast` = `5y_cpi_forecast`
-    )
+
 
 master_philips <- master_quarterly %>%
   select(
@@ -224,6 +189,8 @@ master_philips <- master_quarterly %>%
     lag_log_inflation_diff
   )
 
+write.csv(master_philips, data_save_paths$processed$philips_master_csv)
+
 
 
 
@@ -241,15 +208,18 @@ master_taylor <- master_quarterly %>%
     `3m_interest_forecast`,
     `12m_interest_forecast`,
     log_gdp,
-    cpi
+    cpi,
+    log_inflation_diff,
+    gdp_gap
   )
 
-master_taylor <- master_taylor %>%
+master_quarterly <- master_quarterly %>%
+  # Add SARON LIBOR SPLICE
   mutate(
     # Ensure quarter is recognized as a yearqtr object first
     quarter_idx = as.yearqtr(quarter),
     
-    # Apply the transition specified in 0_technical_note.pdf
+    # Apply the splice point between saron and libor
     saron_libor_splice = if_else(
       quarter_idx < as.yearqtr("2021 Q1"), 
       `3m_libor`, 
@@ -258,22 +228,12 @@ master_taylor <- master_taylor %>%
     saron_libor_splice = saron_libor_splice / 100
   ) %>%
   select(-quarter_idx) %>%
-  mutate(
-    # HP filter on log GDP for output gap -> used for final run of the filter on full sample
-    log_gdp = log_gdp * 100,
-    gdp_gap = mFilter::hpfilter(log_gdp, freq = 1600)$cycle,
-    
-    log_cpi = log(cpi),
-    
-    # Year-on-Year Inflation: log(CPI_t) - log(CPI_{t-4})
-    yoy_inflation = log(cpi) - dplyr::lag(log(cpi), 4)) %>%
-  
-  filter(!is.na(yoy_inflation)) %>%
+  filter(!is.na(log_inflation_diff)) %>%
   mutate(
     
     # 3. Temporary Trend: HP filter 'trend' component of yoy_inflation
     # Note: Using $trend extracts the trend to subtract from the actual
-    hp_inf_gap = mFilter::hpfilter(yoy_inflation, freq = 1600)$cycle,
+    hp_inf_gap = mFilter::hpfilter(log_inflation_diff, freq = 1600)$cycle,
     
     # 4. Lagged Policy Rate
     lag_rate = lag(saron_libor_splice, 1),
@@ -286,19 +246,54 @@ master_taylor <- master_taylor %>%
       quarter >= zoo::as.yearqtr("2009 Q2") & quarter <= zoo::as.yearqtr("2022 Q2") ~ NA_real_,
       TRUE ~ saron_libor_splice
     )
-  ) %>%
+  ) 
+
+
+master_taylor <- master_quarterly %>%
   select(all_of(c("quarter", "saron_libor_splice", "true_snb_rate",
-                  "forward_rate", "log_cpi", "lag_rate", "log_gdp", "gdp_gap",
-                  "yoy_inflation", "12m_interest_forecast", "hp_inf_gap"))) %>%
+                  "forward_rate", "log_cpi", "log_inflation_diff", "yoy_inf",
+                  "lag_rate", "log_gdp", "gdp_gap", "12m_interest_forecast", "hp_inf_gap"))) %>%
   mutate(
     across(c("saron_libor_splice", "true_snb_rate",
              "forward_rate", "log_cpi", "lag_rate",
-             "yoy_inflation", "12m_interest_forecast", "hp_inf_gap"), ~ .x * 100) 
+             "12m_interest_forecast", "hp_inf_gap", "gdp_gap"), ~ .x * 100) 
   ) %>%
   mutate(
-    inf_gap = yoy_inflation -1,
+    inf_gap = yoy_inf -1,
     
-  )#clean up helper column
+  )
+
+write.csv(master_taylor, data_save_paths$processed$taylor_master_csv)
+
+message("BUILT ALL MASTER DATA FRAMES")
+
+
+# --- Start buildung the GDP forecasts
+# Later maybe turn into rolling window
+
+if (run_estimation || !file.exists(output_save_paths$forecasts$forecast_df_gdp_arima)) {
+  
+  # Generate true log GDP levels using the updated arima loop wrapper
+  gdp_forecasts_arima <- gdp_forecast_wrapper(
+    fcast_start = forecast_starting_date,
+    data        = master_quarterly,
+    date_col    = "quarter",
+    gdp_col     = "log_gdp",
+    horizon     = h
+  )
+  
+  # Save the pure log GDP level matrix layout
+  write_csv(gdp_forecasts_arima, output_save_paths$forecasts$forecast_df_gdp_arima)
+  message("GDP FORECATSTS SAVED SUCCESSFULLY")
+  
+} else {
+  # Read from disk and dynamically format matrix structures back into expected shapes
+  message("LOADING GDP FORECATSTS...")
+  
+  gdp_forecasts_arima <- read_csv(output_save_paths$forecasts$forecast_df_gdp_arima) %>%
+    mutate(date = format(zoo::as.yearqtr(date, format = "%Y Q%q"))) %>%
+    rename_with(~ format(zoo::as.yearqtr(.x, format = "%Y Q%q")), .cols = -date)
+}
 
 
 

@@ -731,7 +731,8 @@ loglik_ssm_shadow <- function(theta,
   # If the likelihood is extremely high such as due to failed filter or bad jump, return very high value as "punishment"
   if (total_loglik > 50000) return(1e10)
   
-  cat(sprintf("Log Likelihood: %.4f\n", total_loglik))  
+  cat(sprintf("\rLog Likelihood: %.6f", total_loglik))  
+  flush.console()
   
   # For Debuggung you can have it return the full res
   if (return_full_res) {

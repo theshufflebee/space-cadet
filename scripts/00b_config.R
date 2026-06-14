@@ -53,6 +53,8 @@ source(here("R", "visualizations.R"))
 #master_df_path <- here("data")
 data_base_path <- here("data")
 
+#data_base_path <- if(store_temp) output_temp else output_persistent
+
 
 # Set Base Raw Data Paths and create the dir if needed
 raw_data_path  <- here("data", "raw")
@@ -74,7 +76,7 @@ ppi_asset_id <- "36532319"
 data_external_ids <- list(
   bfs_cpi        = "36483229",
   bfs_employment = "px-x-0602000000_101",
-  bfs_unemployment = "36453929",
+  bfs_unemployment = "36589267",
   url_seco_gdp   = "https://www.seco.admin.ch/dam/seco/de/dokumente/Wirtschaft/Wirtschaftslage/BIP_Daten/ch_seco_gdp_csv.csv.download.csv/ch_seco_gdp.csv",
   cpi_asset_id = "36483229", # ID for CPI Download
   emp_asset_id = "px-x-0602000000_101", # ID From Package
@@ -136,12 +138,19 @@ data_save_paths <- list(
     ppi_csv             = here(raw_data_path, "ppi_ch.xlsx"),
     
     ## SECO Data
-    gdp_seco_csv        = here(raw_data_path, "gdp.csv")
+    gdp_seco_csv        = here(raw_data_path, "gdp.csv"),
+    
+    ## EUROSTAT
+    eu_ppi_csv         = here(raw_data_path, "eu_ppi_raw.csv")
+    
   ),
   
   # --- Processed Data: Formatted and joined datasets ---
   processed = list(
-    master_df_csv       = here(data_base_path, "master.csv")
+    master_df_csv       = here(data_base_path, "master.csv"),
+    okun_master_csv  = here(data_base_path, "okun_master.csv"),
+    philips_master_csv  = here(data_base_path, "philips_master.csv"),
+    taylor_master_csv  = here(data_base_path, "taylor_master.csv")
   )
 )
 
@@ -178,8 +187,7 @@ ts_names <- c(
   "ex_eom_ts", 
   "eu_ppi_ts",
   "ppi_ch_ts",
-  "snb_policy_rate_ts"
-)
+  "snb_policy_rate_ts")
 
 
 ################################################################################
@@ -197,6 +205,9 @@ run_estimation <- TRUE
 
 h <- 8
 
+# Inflation Lag is wether we use quarterly or yearly inf differentia
+inf_diff_q <- 4
+
   
 # --- Okun Model Configuration settings ---
 
@@ -212,7 +223,9 @@ okun_parameter_guess <- list(
   beta3 = -0.1,
   sigma_unemp_rate = 0.5,
   sigma_spf_5y_unemp = 0.5,
-  xi_n = 0.1
+  xi_n = 0.1,
+  state_init = c(1.3),
+  sigma_init = c(10)
 )
 
 
@@ -221,16 +234,19 @@ okun_parameter_guess <- list(
 philips_parameter_guess <- list(
   
   # Parameters on exogenous variables
-  beta_y = 0.4,
-  psi_lop = 0.2,
-  phi = 0.2,
+  beta_y = 0.1,
+  psi_lop = -0.1,
+  phi = 0.8,
   
   # sd on measurement variables
-  sigma_cpi = 0.01,
-  sigma_spf = 0.01,
+  sigma_cpi = 0.2,
+  sigma_spf = 0.2,
   
   # state innovation
-  xi_n = 0.1
+  xi_n = 0.1,
+  
+  state_init = c(1.3),
+  sigma_init = c(10)
 )
 
 # --- Initial guesses for Taylor Rule / SNB Policy Rate ---
@@ -251,7 +267,10 @@ snb_rate_parameter_guess <- list(
   # State Innovation Standard Deviations (Rule 1: Exponential > 0)
   xi_i                = 0.1,  # Shock to the nominal natural rate (random walk)
   xi_tp_bar         = 0.05,  # Shock to the trend term premium (random walk)
-  xi_tp_cycl          = 0.05    # Shock to the cyclical term premium (AR1)
+  xi_tp_cycl          = 0.05,    # Shock to the cyclical term premium (AR1)
+  
+  state_init = c(6, 1, 0.1),
+  sigma_init = c(10)
 )
 
 # FOr model 2 the SNB data is released with a year delay -> more like 3q due to late release of all other data
@@ -264,17 +283,31 @@ model_philips_burn_in <- "2000 Q4"
 
 # --- Output Save paths ---
 
+store_temp <- TRUE
+
 # Only concerns the output folder
 
 # Define the base output directory
-output_base <- here("output")
+# can store either in the persistent folder which should contain clean and proper outputs
+# or temp to check what you have (example shorter estimations)
+output_persistent <- here("output", "persistent")
+output_temp <- here("output", "temp")
+
+output_base <- if(store_temp) output_temp else output_persistent
+
+# generate sub folders
+invisible(lapply(c("plots", "parameter_estimation", "forecasts", "tables"), function(subfolder) {
+  dir_path <- file.path(output_base, subfolder)
+  if (!dir.exists(dir_path)) dir.create(dir_path, recursive = TRUE)
+}))
+
 
 # Organize paths into a structured list 
 # The Lists inside the List correspond to teh folders inside the output folder
 # Naming: always first what then model last
 output_save_paths <- list(
   params = list(
-    rolling_param_est_okun    = here(output_base, "parameter_estimation/okun_params_long.csv"),
+    rolling_param_est_okun    = here(output_base, "parameter_estimation/okun_params.csv"),
     rolling_param_est_philips = here(output_base, "parameter_estimation/philips_params.csv"),
     rolling_param_est_taylor = here(output_base, "parameter_estimation/taylor_params.csv")
   ),
@@ -293,7 +326,8 @@ output_save_paths <- list(
   forecasts = list(
     forecast_df_okun    = here(output_base, "forecasts/unemployment_forecasts.csv"),
     forecast_df_philips = here(output_base, "forecasts/inflation_forecasts.csv"),
-    forecast_df_taylor = here(output_base, "forecasts/policy_rate_forecasts.csv")
+    forecast_df_taylor = here(output_base, "forecasts/policy_rate_forecasts.csv"),
+    forecast_df_gdp_arima = here(output_base, "forecasts/gdp_arima_forecasts.csv")
   ),
   
   tables = list(
@@ -302,5 +336,3 @@ output_save_paths <- list(
     eval_rw_taylor = here(output_base, "tables/taylor_eval_rw_table.tex")
   )
 )
-
-

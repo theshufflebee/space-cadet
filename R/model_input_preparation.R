@@ -189,7 +189,7 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
                               burn_in = "2001 Q1") {
   
   # Define the vantage point and the 'Knowledge Cutoff'
-  vantage_q <- as.yearqtr(vantage_quarter) 
+  vantage_q <- zoo::as.yearqtr(vantage_quarter)
   
   # The last quarter where SNB REER is 'actually' known at the pseudo date
   # as our forecasts have a delay due to data releases 3 quarters is enough
@@ -203,6 +203,7 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
   # We need the values at the moment the official SNB data ends at the vantage
   # point -> so at the cutoff
   anchor_data <- data %>%
+    mutate(quarter = as.yearqtr(quarter)) %>%
     filter(quarter == cutoff_q) %>%
     select(reer_eu_ppi, REER_CREA)
   
@@ -223,6 +224,7 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
                               reer_eu_ppi,
                               val_snb_T * (REER_CREA / val_crea_T))
     ) %>%
+    mutate(quarter = as.yearqtr(quarter)) %>%
     select(quarter, reer_simulated)
   
   
@@ -234,12 +236,15 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
   # by proxy at cutoff
   # so cut off that df at the vantage point and then add the forecasted reer in top of it
   series_extended <- series_for_filter %>%
+    mutate(quarter = as.yearqtr(quarter)) %>%
     filter(quarter <= vantage_q) %>% # Keep up to current knowledge in pseudo out of sample forecast
     bind_rows(
       reer_fc_at_vantage %>% 
-        mutate(reer_simulated = val_snb_T * (predicted_reer / val_crea_T)) %>%
+        mutate(reer_simulated = val_snb_T * (predicted_reer / val_crea_T)
+                                             ) %>%
+        # Ensure forecast_date is also a yearqtr object
         select(quarter = forecast_date, reer_simulated)
-    )
+      )
   
   # Extract LOP Gap
   # Apply HP filter on the full simulation + forecasted values
@@ -387,7 +392,7 @@ extract_lop_gap <- function(spliced_df, hp_freq = 1600) {
 #' @importFrom mFilter hpfilter
 #' @importFrom tibble as_tibble
 #' 
-#' @seealso [build_data_matrix_philips()]
+#' @seealso [title()]
 #' 
 #' @export
 get_hp_gap <- function(data,
@@ -404,12 +409,14 @@ get_hp_gap <- function(data,
   # from observed data select up until the vantage point
   # that you have observed at that time
   obs_data <- data %>%
+    mutate(across(all_of(date_col), zoo::as.yearqtr)) %>%
     arrange(.data[[date_col]]) %>%
     filter(.data[[date_col]] <= vantage_q) %>%
     select(all_of(c(date_col, gdp_col)))
   
   # Select the forecast data as t+h extension
   forecast_data <- gdp_forecast_data %>%
+    mutate(across(all_of(date_col), zoo::as.yearqtr)) %>%
     arrange(.data[[date_col]]) %>%
     filter(.data[[date_col]] > vantage_q) %>%
     slice_head(n = h) %>%
@@ -436,8 +443,10 @@ get_hp_gap <- function(data,
   if (!return_forecasts) {
     # Standard historical gap return
     return(result_df %>% 
+             
              filter(.data[[date_col]] <= vantage_q) %>% 
-             select(all_of(date_col), gap))
+             select(all_of(date_col), gap)
+           )
   } else {
     # return for forecasting just forecasted gdp gap
     return(result_df %>%
@@ -447,4 +456,222 @@ get_hp_gap <- function(data,
     )
   }
 }
+
+
+
+# ==============================================================================
+
+
+#' Forecast GDP Growth via ARIMA and extract HP Output Gap at the end
+#'
+#' @param data A wide data frame containing historical quarters and log GDP.
+#' @param date_col String. Name of the quarter column.
+#' @param gdp_col String. Name of the log_gdp column.
+#' @param horizon Integer. Quarters ahead to forecast (default = 8).
+#' @param hp_lambda Numeric. HP smoothing parameter (default = 1600 for quarterly data).
+#'
+#' @return A unified tibble containing historical and forecasted values with the final HP outputs.
+forecast_gdp <- function(data, date_col, gdp_col, horizon = 8, hp_lambda = 1600) {
+  
+  # 1. Clean format and calculate growth rate using base/zoo
+  prep_df <- data %>%
+    mutate(
+      date = zoo::as.yearqtr(.data[[date_col]]),
+      log_gdp = as.numeric(.data[[gdp_col]])
+    ) %>%
+    arrange(date) %>%
+    mutate(gdp_growth = log_gdp - dplyr::lag(log_gdp, 1))
+  
+  # Extract clean vector of growth rates (removing the initial NA from lagging)
+  growth_vector <- prep_df %>% 
+    filter(!is.na(gdp_growth)) %>% 
+    pull(gdp_growth)
+  
+  # 2. Fit ARIMA using the standard 'forecast' package (No tsibble needed!)
+  # auto.arima automatically selects best p, d, q parameters
+  arima_fit <- forecast::auto.arima(growth_vector, seasonal = FALSE)
+  
+  # Forecast forward using standard numeric horizon
+  growth_fc <- forecast::forecast(arima_fit, h = horizon)
+  future_growth_rates <- as.numeric(growth_fc$mean)
+  
+  # 3. Create the future timeline
+  last_hist_date <- max(prep_df$date)
+  last_hist_gdp  <- tail(prep_df$log_gdp, 1)
+  future_dates   <- seq(last_hist_date + 1/4, length.out = horizon, by = 1/4)
+  
+  # Accumulate future log levels: y_{t+h} = y_{t+h-1} + \Delta y_{t+h}
+  future_log_gdp <- cumsum(future_growth_rates) + last_hist_gdp 
+  
+  # 4. Bind history and future levels into one single continuous vector
+  combined_df <- tibble(
+    quarter = c(prep_df$date, future_dates),
+    log_gdp = c(prep_df$log_gdp, future_log_gdp),
+    type    = c(rep("History", nrow(prep_df)), rep("Forecast", horizon))
+  )
+  
+  # 5. Run HP Filter at the very end
+  hp_final <- mFilter::hpfilter(combined_df$log_gdp, freq = hp_lambda, type = "lambda")
+  
+  # Map trends back into the dataframe
+  combined_output <- combined_df %>%
+    mutate(
+      potential_gdp = as.numeric(hp_final$trend),
+      gdp_gap       = as.numeric(hp_final$cycle)
+    )
+  
+  return(combined_output)
+}
+
+
+gdp_forecast_wrapper <- function(fcast_start,
+                                 fcast_end = NULL,
+                                 data,
+                                 date_col,
+                                 gdp_col,
+                                 horizon = 8,
+                                 hp_lambda = 1600) {
+  
+  # Ensure parsing into clean zoo yearqtr types
+  start_date <- zoo::as.yearqtr(fcast_start)
+  all_dates  <- zoo::as.yearqtr(data[[date_col]])
+  
+  if (is.null(fcast_end)) {
+    end_date <- max(all_dates)
+  } else {
+    end_date <- zoo::as.yearqtr(fcast_end)
+  }
+  
+  # 1. Isolate the list of origin dates (vintages) to loop through
+  all_fcast_dates <- all_dates[all_dates >= start_date & all_dates <= end_date]
+  all_fcast_dates <- sort(unique(all_fcast_dates))
+  
+  # 2. Determine total chronological span needed for rows (Target Dates)
+  # Rows must span from your first origin date all the way to the final horizon of the last origin
+  min_row_date <- min(all_fcast_dates)
+  max_row_date <- max(all_fcast_dates) + (horizon / 4)
+  all_row_dates <- seq(min_row_date, max_row_date, by = 1/4)
+  
+  # 3. Create a clean matrix structure filled with NAs
+  # Matrix size: length(all_row_dates) rows by length(all_fcast_dates) columns
+  mat <- matrix(NA_real_, 
+                nrow = length(all_row_dates), 
+                ncol = length(all_fcast_dates))
+  
+  # Name rows and columns temporarily with standard strings for easy tracking
+  rownames(mat) <- format(all_row_dates, format = "%Y Q%q")
+  colnames(mat) <- format(all_fcast_dates, format = "%Y Q%q")
+  
+  # 4. Run the Rolling Forecast Loop
+  for (i in seq_along(all_fcast_dates)) {
+    origin_date <- all_fcast_dates[i]
+    origin_str  <- format(origin_date, format = "%Y Q%q")
+    
+    # CRITICAL: Strip out any data ahead of the current origin date 
+    historical_subset <- data %>% 
+      filter(zoo::as.yearqtr(.data[[date_col]]) <= origin_date)
+    
+    # Run your pure-numeric ARIMA + HP filter function
+    gdp_forecast <- forecast_gdp(data      = historical_subset,
+                                 date_col  = date_col,
+                                 gdp_col   = gdp_col,
+                                 horizon   = horizon,
+                                 hp_lambda = hp_lambda)
+    
+    # Extract the last history point (origin value) and the subsequent forecasts
+    # This grabs exactly 1 + horizon rows
+    fcasts_t <- gdp_forecast %>%
+      filter(type == "Forecast" | quarter == origin_date) %>%
+      arrange(quarter)
+    
+    # Map the generated predictions back into the main matrix matching row/col text keys
+    for (j in 1:nrow(fcasts_t)) {
+      target_str <- format(fcasts_t$quarter[j], format = "%Y Q%q")
+      if (target_str %in% rownames(mat)) {
+        # FIXED HERE: Changed gdp_gap to log_gdp
+        mat[target_str, origin_str] <- fcasts_t$log_gdp[j]
+      }
+    }
+  }
+  
+  # 5. Convert to final Tibble layout and construct your strict downstream tracking column
+  fcast_df <- as.data.frame(mat)
+  
+  # Convert column names to required 'YYYYQX' format
+  colnames(fcast_df) <- format(all_fcast_dates, format = "%Y Q%q")
+  
+  # Build and inject the tracking date column to the far left
+  fcast_df <- fcast_df %>%
+    mutate(
+      date = format(zoo::as.yearqtr(rownames(mat), format = "%Y Q%q"), format = "%Y Q%q")
+    ) %>%
+    relocate(date, .before = everything())
+  
+  # Reset row names to clean tibble defaults
+  rownames(fcast_df) <- NULL
+  
+  return(fcast_df)
+}
+
+
+
+# ----------------------------------------------------------------------------
+
+forecast_gdp <- function(data, date_col, gdp_col, horizon = 8, hp_lambda = 1600) {
+  
+  # 1. Clean format and calculate growth rate using base/zoo
+  prep_df <- data %>%
+    mutate(
+      date = zoo::as.yearqtr(.data[[date_col]]),
+      log_gdp = as.numeric(.data[[gdp_col]])
+    ) %>%
+    arrange(date) %>%
+    mutate(gdp_growth = log_gdp - dplyr::lag(log_gdp, 1))
+  
+  # Extract clean vector of growth rates
+  growth_vector <- prep_df %>% 
+    filter(!is.na(gdp_growth)) %>% 
+    pull(gdp_growth)
+  
+  # 2. Fit ARIMA on growth rates
+  arima_fit <- forecast::auto.arima(growth_vector, seasonal = FALSE)
+  
+  # Forecast growth rates forward
+  growth_fc <- forecast::forecast(arima_fit, h = horizon)
+  future_growth_rates <- as.numeric(growth_fc$mean)
+  
+  # 3. Create the future timeline
+  last_hist_date <- max(prep_df$date)
+  last_hist_gdp  <- tail(prep_df$log_gdp, 1)
+  future_dates   <- seq(last_hist_date + 1/4, length.out = horizon, by = 1/4)
+  
+  # Accumulate future log levels: y_{t+h} = y_{t+h-1} + \Delta y_{t+h}
+  future_log_gdp <- cumsum(future_growth_rates) + last_hist_gdp 
+  
+  # 4. Bind history and future log levels into one continuous vector
+  combined_df <- tibble(
+    quarter = c(prep_df$date, future_dates),
+    log_gdp = c(prep_df$log_gdp, future_log_gdp),
+    type    = c(rep("History", nrow(prep_df)), rep("Forecast", horizon))
+  )
+  
+  # PRINT ARIMA SUMMARY DETAILS
+  # -----------------------------------------------------------------------------
+  cat("\n", rep("=", 50), "\n", sep = "")
+  cat(sprintf("ARIMA VINTAGE SPECIFICATION FOR ORIGIN: %s\n", as.character(last_hist_date)))
+  cat(rep("-", 50), "\n", sep = "")
+  
+  # Captures and prints the mathematical structure, coefficients, and AIC/BIC metrics
+  print(arima_fit)
+  
+  cat(rep("=", 50), "\n\n", sep = "")
+
+  return(combined_df)
+}
+
+
+
+
+
+
 

@@ -16,7 +16,7 @@ philips_param_plot <- plot_model_parameters(df = params_philips_df,
                                             save_path = output_save_paths$plots$params_philips)
 
 taylor_param_plot <- plot_model_parameters(df = taylor_params,
-                                            title = "Taylor Rolling Parameter Estimation Plot (bounded phi, HP Inf Gap)",
+                                            title = "Taylor Rolling Parameter Estimation Plot",
                                             save_path = output_save_paths$plots$params_taylor)
 
 
@@ -38,5 +38,5 @@ creaFcstEval::spaghetti_plot(
 creaFcstEval::spaghetti_plot(
   df              = Y_taylor,
   fcst_df         = fcst_df_policy_rate,
-  output_path     = output_save_paths$plots$params_taylor
+  output_path     = output_save_paths$plots$spaghetti_taylor
 )

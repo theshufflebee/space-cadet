@@ -174,7 +174,8 @@ model2param_gen <- function(model_list, ssm) {
 loglik_ssm <- function(theta,
                        ssm,
                        return_full_res = FALSE,
-                       rho_guess = 0.1) {
+                       rho_guess = 0.1,
+                       set_silent = FALSE) {
   
   # Initial State Vector (rho_0)
   # Ensure it is a 3x1 column vector for Model 3
@@ -232,7 +233,9 @@ loglik_ssm <- function(theta,
   # If we want to run a normal estimatiion with parameters we'd like to see the full
   # return, we specify this and we get state and all other variables
   
-  cat(sprintf("Log Likelihood: %.4f\n", -sum(res$loglik.vector)))
+  
+  cat(sprintf("\rLog Likelihood: %.4f", -sum(res$loglik.vector)))
+  flush.console()
   
   if (return_full_res) {
     res$param_debugs <- model_params
@@ -268,22 +271,33 @@ ssm_optimizer_wrapper <- function(ssm,
     # sapply here simplifies the nested list -> selects val from each element in the list
     init_theta_econ <- sapply(ssm$manifest, function(x) x$val) 
     
-    
-    param_string <- paste(names(init_theta_econ), "=", round(init_theta_econ, 4), collapse = ", ")
-    message("Debug: Economic Params (Initial): ", param_string)
-    
     current_par_opt <- model2param_gen(init_theta_econ, ssm)
     
-    opt_string <- paste(names(current_par_opt), "=", round(current_par_opt, 4), collapse = ", ")
-    message("Debug: Optimizer Params (Theta): ", opt_string)
+    
+    if(!set_silent){
+      param_string <- paste(names(init_theta_econ), "=", round(init_theta_econ, 4), collapse = ", ")
+      message("Debug: Economic Params (Initial): ", param_string)
+      
+      opt_string <- paste(names(current_par_opt), "=", round(current_par_opt, 4), collapse = ", ")
+      message("Debug: Optimizer Params (Theta): ", opt_string)
+      
+    }
+    
+    
+    
+
     
   } else {
     current_par_opt <- start_par
     
-    message("\n--- Transformed Optimizer Space (Theta) ---")
-    # This creates a "Name: Value" pair on each new line
-    formatted_list <- paste0(names(current_par_opt), ": ", round(current_par_opt, 4), collapse = "\n")
-    message(formatted_list)
+    if(!set_silent) {
+      message("\n--- Transformed Optimizer Space (Theta) ---")
+      # This creates a "Name: Value" pair on each new line
+      formatted_list <- paste0(names(current_par_opt), ": ", round(current_par_opt, 4), collapse = "\n")
+      message(formatted_list)
+    }
+    
+
   }
   
   n_par <- length(current_par_opt)
@@ -316,17 +330,22 @@ ssm_optimizer_wrapper <- function(ssm,
       proposed_par <- as.numeric(fit[1, 1:n_par])
       
       
-      formatted_theta_opt <- paste0(
-        sprintf("  %-20s : %.4f", names(proposed_par), proposed_par), 
-        collapse = "\n")
+      if(!set_silent){
+        formatted_theta_opt <- paste0(
+          sprintf("  %-20s : %.4f", names(proposed_par), proposed_par), 
+          collapse = "\n")
+        
+        #Message for Debugging of parameters
+        cat("\n", rep("=", 45), "\n", sep = "")
+        cat("ESTIMATED OPTIMIZER PARAMETERS (Economic Space)\n")
+        cat(rep("-", 45), "\n", sep = "")
+        cat(formatted_theta_opt, "\n")
+        cat(rep("-", 45), "\n")
+        print(proposed_par)
+        
+      }
       
-      #Message for Debugging of parameters
-      cat("\n", rep("=", 45), "\n", sep = "")
-      cat("ESTIMATED OPTIMIZER PARAMETERS (Economic Space)\n")
-      cat(rep("-", 45), "\n", sep = "")
-      cat(formatted_theta_opt, "\n")
-      cat(rep("-", 45), "\n")
-      print(proposed_par)
+
       
       #Validation Check: Ensure the optimizer didn't return NA or NaN
       if (any(is.na(proposed_par)) || any(is.infinite(proposed_par))) {
@@ -545,7 +564,9 @@ rolling_est_philips_ssm <- function(data,
                                  forecast_start,
                                  forecast_end = NULL,
                                  date_col = "quarter",
-                                 val_T1 = "2005-01-01") {
+                                 val_T1 = "2004-01-01",
+                                 break_warm_start = TRUE
+                                 ) {
   
   # Assure correct format
   data[[date_col]] <- as.yearqtr(data[[date_col]])
@@ -608,10 +629,13 @@ rolling_est_philips_ssm <- function(data,
     # Optimization: Multiple estimations with Warm Start
     # We use Nelder-Mead and BFGS that are very different for robustnes
     # each previous result becomes guess for the next
+    
+    print(current_theta)
+    
     opt_results <- ssm_optimizer_wrapper_philips(
       ssm       = my_ssm_model, 
       methods   = c("Nelder-Mead", "BFGS"), 
-      iters     = 2, 
+      iters     = 3, 
       start_par = current_theta
     )
     
@@ -634,6 +658,11 @@ rolling_est_philips_ssm <- function(data,
       cat("Likelihood: SAFEGARD HIT (Penalty Value:", final_states, ") Parameters: ", current_theta)
     }
     cat(sprintf("\n [%d/%d] Estimated: %s\n", i, length(forecast_dates), as.character(target_date)))
+    
+    if(break_warm_start){
+      current_theta <- NULL
+    }
+    
   }
   
   return(comp)
@@ -706,6 +735,7 @@ rolling_est_taylor_ssm <- function(data,
                                gdp_forecast_data = data_t, # forecast data
                                vantage_q = target_date
                               )
+    gdp_gap_data$gap <- gdp_gap_data$gap * 100
     
     if(hp_inf_gap) {
       inf_gap_data <- get_hp_gap(data = data_t,
@@ -724,7 +754,7 @@ rolling_est_taylor_ssm <- function(data,
     
     
     processed_data <- data_t %>%
-      select(quarter, saron_libor_splice, forward_rate, yoy_inflation) %>%
+      select(quarter, saron_libor_splice, forward_rate, yoy_inf) %>%
       left_join(gdp_gap_data %>% select(quarter, gdp_gap = gap), by = "quarter") %>%
       left_join(inf_gap_data %>% select(quarter, inf_gap), by = "quarter") %>%
       filter(quarter >= as.yearqtr(val_T1)) %>%

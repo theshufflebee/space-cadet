@@ -72,10 +72,20 @@ ex_eom_ts  <- format_time_series_df(ex_eom_raw, "Date", "Value",  "ex_eom", "%Y-
 # Its year date select end of month obs
 
 # Load SNB REER DATA
-reer_raw <- read.table(data_save_paths$raw$reer_ppi_eu_csv, skip=3, header = TRUE, sep=";")
+
+# reer_raw <- read.table(data_save_paths$raw$reer_ppi_eu_csv, skip=3, header = TRUE, sep=";")
+
+
+# Use Excel download
+reer_raw <- read_excel(here("data/raw/reer_snb.xlsx"), sheet = 1, skip = 15) 
+
 
 # Select the Good REER Data, sort it and make it year month
 reer_ym <- reer_raw %>%
+  rename(
+    Date  = "...1",
+    Value = "Index Euroraum PPI-basiert"
+  ) %>%
   select(all_of(c("Value", "Date")))%>%
   arrange("Date")%>%
   mutate(date_ym = as.yearmon(Date)) %>%
@@ -116,7 +126,7 @@ reer_meta_data <- fromJSON(paste(readLines(data_save_paths$raw$reer_ppi_eu_json,
 # --- CPI ---
 cpi_raw <- read_excel(data_save_paths$raw$cpi_series_xlsx, sheet = 1, skip = 3) 
 
-cpi_ts <- format_time_series_df(cpi_raw, "Datum / Date", "38687", "cpi", "%Y-%m-%d")
+cpi_ts <- format_time_series_df(cpi_raw, "Datum / Date", "38687", "cpi", "%Y-%m-%d", seasonal_adj = TRUE)
 
 # --- PPI ---
 
@@ -137,13 +147,10 @@ ppi_ch_ts <- format_time_series_df(ppi_ch_clean, "date", "values", "ppi_ch", "%Y
 
 # --- Unemployment ---
 
-unemployment_raw <- read.table(
-  data_save_paths$raw$unemployment_csv, 
-  header = TRUE, 
-  sep = ",",           
-  strip.white = TRUE,   # Cleans up whitespace
-  stringsAsFactors = FALSE,
-  check.names = FALSE
+unemployment_raw <- read_csv(
+  file = data_save_paths$raw$unemployment_csv,
+  trim_ws = TRUE,        # Cleans up whitespace automatically
+  show_col_types = FALSE # Keepsconsole clean
 )
 
 unemployment <- unemployment_raw %>%
@@ -192,7 +199,7 @@ gdp_data <- data_gdp_raw %>%
     
   )  
 
-gdp_ts <- format_time_series_df(gdp_data, "date", "value", "gdp", "%Y-%m-%d")
+gdp_ts <- format_time_series_df(gdp_data, "date", "value", "gdp", "%Y-%m-%d", seasonal_adj = TRUE)
 
 
 # ==============================================================================
@@ -234,10 +241,10 @@ kof_12m_interest <- processed_kof_series[["12m_interest_forecast"]]
 # ==============================================================================
 
 # Load Data
-eu_ppi_raw <-read_csv(file.path(raw_data_path, "eu_ppi_raw.csv")) 
+eu_ppi_raw <-read_csv(data_save_paths$raw$eu_ppi_csv) 
 
 # Format Time Series
-eu_ppi_ts <- format_time_series_df(eu_ppi_raw, "date", "ppi_eur", "ppi_eur", "%Y-%m-%d")
+eu_ppi_ts <- format_time_series_df(eu_ppi_raw, "date", "ppi_eur", "ppi_eur", "%Y-%m-%d", seasonal_adj = TRUE)
 
 
 

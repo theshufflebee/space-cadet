@@ -1,0 +1,253 @@
+here() starts at C:/Users/jonas/Desktop/repos/space-cadet
+All Required Packages are installed
+Skipping install of 'creaFcstEval' from a local remote, the SHA1 (0.1.0) has not changed since last install.
+  Use `force = TRUE` to force installation
+[conflicted] Will prefer dplyr::filter over any other package.
+[conflicted] Will prefer dplyr::select over any other package.
+[conflicted] Will prefer stats::lag over any other package.
+[conflicted] Will prefer tidyr::complete over any other package.
+[conflicted] Will prefer dplyr::last over any other package.
+=========================================================
+[INFO] Live API Download Flag : FALSE
+[INFO] Targeted Framework     : ALL
+[INFO] Run Optimization Loop  : TRUE
+[INFO] Forecast Window Anchor : 2015 Q1
+=========================================================
+[INFO] Skipping data preparation step. Estimation scripts will load cached historical datasets from disk.
+---------------------------------------------------------
+[RUNNING] Full Package: Running all three macroeconomic blocks...
+  -> Sourcing: Okun's Law Model...
+Rows: 142 Columns: 7
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: ","
+chr (1): quarter
+dbl (6): unemp_rate, spf_5y_unemp, log_gdp, gdp_gap, gdp_gap_l1, gdp_gap_l2
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.
+Starting Estimation of Model 1: Unemployment...
+Rolling Estimation: 2015 Q1 to 2025 Q4
+
+--- Vantage Point: 2015 Q1 ---
+Estimation range: 1991 Q1 to 2015 Q1 (97 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2015 Q2 ---
+Estimation range: 1991 Q1 to 2015 Q2 (98 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2015 Q3 ---
+Estimation range: 1991 Q1 to 2015 Q3 (99 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2015 Q4 ---
+Estimation range: 1991 Q1 to 2015 Q4 (100 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2016 Q1 ---
+Estimation range: 1991 Q1 to 2016 Q1 (101 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2016 Q2 ---
+Estimation range: 1991 Q1 to 2016 Q2 (102 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2016 Q3 ---
+Estimation range: 1991 Q1 to 2016 Q3 (103 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2016 Q4 ---
+Estimation range: 1991 Q1 to 2016 Q4 (104 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2017 Q1 ---
+Estimation range: 1991 Q1 to 2017 Q1 (105 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2017 Q2 ---
+Estimation range: 1991 Q1 to 2017 Q2 (106 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2017 Q3 ---
+Estimation range: 1991 Q1 to 2017 Q3 (107 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2017 Q4 ---
+Estimation range: 1991 Q1 to 2017 Q4 (108 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2018 Q1 ---
+Estimation range: 1991 Q1 to 2018 Q1 (109 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2018 Q2 ---
+Estimation range: 1991 Q1 to 2018 Q2 (110 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2018 Q3 ---
+Estimation range: 1991 Q1 to 2018 Q3 (111 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2018 Q4 ---
+Estimation range: 1991 Q1 to 2018 Q4 (112 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2019 Q1 ---
+Estimation range: 1991 Q1 to 2019 Q1 (113 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2019 Q2 ---
+Estimation range: 1991 Q1 to 2019 Q2 (114 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2019 Q3 ---
+Estimation range: 1991 Q1 to 2019 Q3 (115 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2019 Q4 ---
+Estimation range: 1991 Q1 to 2019 Q4 (116 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2020 Q1 ---
+Estimation range: 1991 Q1 to 2020 Q1 (117 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2020 Q2 ---
+Estimation range: 1991 Q1 to 2020 Q2 (118 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2020 Q3 ---
+Estimation range: 1991 Q1 to 2020 Q3 (119 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2020 Q4 ---
+Estimation range: 1991 Q1 to 2020 Q4 (120 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2021 Q1 ---
+Estimation range: 1991 Q1 to 2021 Q1 (121 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2021 Q2 ---
+Estimation range: 1991 Q1 to 2021 Q2 (122 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2021 Q3 ---
+Estimation range: 1991 Q1 to 2021 Q3 (123 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2021 Q4 ---
+Estimation range: 1991 Q1 to 2021 Q4 (124 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2022 Q1 ---
+Estimation range: 1991 Q1 to 2022 Q1 (125 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2022 Q2 ---
+Estimation range: 1991 Q1 to 2022 Q2 (126 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2022 Q3 ---
+Estimation range: 1991 Q1 to 2022 Q3 (127 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2022 Q4 ---
+Estimation range: 1991 Q1 to 2022 Q4 (128 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2023 Q1 ---
+Estimation range: 1991 Q1 to 2023 Q1 (129 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2023 Q2 ---
+Estimation range: 1991 Q1 to 2023 Q2 (130 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2023 Q3 ---
+Estimation range: 1991 Q1 to 2023 Q3 (131 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2023 Q4 ---
+Estimation range: 1991 Q1 to 2023 Q4 (132 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2024 Q1 ---
+Estimation range: 1991 Q1 to 2024 Q1 (133 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2024 Q2 ---
+Estimation range: 1991 Q1 to 2024 Q2 (134 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2024 Q3 ---
+Estimation range: 1991 Q1 to 2024 Q3 (135 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2024 Q4 ---
+Estimation range: 1991 Q1 to 2024 Q4 (136 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2025 Q1 ---
+Estimation range: 1991 Q1 to 2025 Q1 (137 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2025 Q2 ---
+Estimation range: 1991 Q1 to 2025 Q2 (138 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2025 Q3 ---
+Estimation range: 1991 Q1 to 2025 Q3 (139 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+
+--- Vantage Point: 2025 Q4 ---
+Estimation range: 1991 Q1 to 2025 Q4 (140 obs)
+--- phi not provided. Fixing phi = 1 (Random Walk) ---
+Optimization successful. Results stored.
+Fehler in eval(ei, envir) : Objekt 'gdp_forecasts_arima' nicht gefunden
+Ruft auf: source ... forecast_okun_ssm -> %>% -> arrange -> filter -> mutate -> select
+Zusätzlich: Es gab 50 oder mehr Warnungen (Anzeige der ersten 50 mit warnings())
+Ausführung angehalten

@@ -27,51 +27,95 @@
 #' @importFrom tidyr pivot_longer
 #' @importFrom zoo as.yearqtr
 #' @export
-plot_model_parameters <- function(df, save_path = NULL, title) {
+plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter Stability") {
   
-  # Transform data to long format for plotting
+  # Wide to Long Formatting
+  # ----------------------------------------------------------------------------
   plot_data <- df %>%
-    mutate(quarter = as.yearqtr(quarter)) %>%
+    mutate(
+      # Ensure date class is correctly parsed for plotting
+      date = if(inherits(quarter, "yearqtr")) zoo::as.Date(quarter) else zoo::as.Date(as.yearqtr(quarter))
+    ) %>%
+    select(-quarter) %>%
     pivot_longer(
-      cols = -quarter, 
-      names_to = "parameter", 
+      cols      = -date, 
+      names_to  = "parameter", 
       values_to = "value"
-    )
+    ) %>%
+    # Clean up column handles into more elegant names
+    mutate(parameter = gsub("_", " ", toupper(parameter)))
   
-  # Create the plot
-  p <- ggplot(plot_data, aes(x = quarter, y = value, color = parameter)) +
-    geom_line(linewidth = 1) +
-    geom_point() +
-    # facet_wrap creates the 'stacked' effect
-    # scales = "free_y" allows for different magnitudes across parameters
+  # Build base plot
+  # ----------------------------------------------------------------------------
+  p <- ggplot(plot_data, aes(x = date, y = value)) +
+    
+    # Intercept
+    geom_hline(yintercept = 0.00, color = "grey75", linewidth = 0.5, linetype = "dotted") +
+    # Line for tracking
+    geom_line(color = "#34495e", linewidth = 1.0) +
+    # show points to see exact date -> when less dates more visible
+    geom_point(color = "#34495e", size = 1.2, alpha = 0.6) +
+    
+    # stack plots for all parameters
     facet_wrap(~parameter, ncol = 1, scales = "free_y") +
-    theme_minimal() +
+    
+    # Labeling payload
     labs(
-      title = title,
-      subtitle = "Evolution of Model Parameters Over Recursive Windows",
-      x = "Forecast Origin (Vantage Point)",
-      y = "Estimated Value"
+      title    = title,
+      subtitle = "Recursive Rolling Coefficients (Parameter Drift Time-Profile)",
+      x        = "Estimation Vantage Origin (Forecast Date)",
+      y        = "Coefficient Magnitude"
     ) +
+    
+    # Native Time Mapping
+    scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
+    
+    #Clean Academic Theme Styling
+    # ----------------------------------------------------------------------------
+  theme_minimal(base_size = 11) +
     theme(
-      legend.position = "none",
-      plot.title = element_text(face = "bold", size = 14),
-      strip.text = element_text(face = "bold", size = 10),
-      panel.spacing = unit(1, "lines")
+      # them specs for title and axis names
+      plot.title     = element_text(face = "bold", size = 13, color = "#2c3e50"),
+      plot.subtitle  = element_text(color = "grey40", size = 10, margin = margin(b = 12)),
+      axis.title.x   = element_text(size = 10, color = "grey30", margin = margin(t = 10)),
+      axis.title.y   = element_text(size = 10, color = "grey30", margin = margin(r = 10)),
+      
+      # Clean up design
+      strip.background = element_blank(),
+      strip.text       = element_text(face = "bold", size = 10, color = "#2c3e50", hjust = 0),
+      
+      # Format Grid
+      panel.grid.minor = element_blank(),
+      panel.grid.major = element_line(color = "grey95", linewidth = 0.5),
+      panel.spacing    = unit(1.5, "lines") # Give panels breathing room
     )
   
-  # Save logic
+  # Esport and saving Logic
+  # ----------------------------------------------------------------------------
   if (!is.null(save_path)) {
-    # Adjust height dynamically based on the number of parameters to prevent squashing
+    dir_name <- dirname(save_path)
+    if (!dir.exists(dir_name) && dir_name != ".") {
+      dir.create(dir_name, recursive = TRUE)
+    }
+    
     num_params <- length(unique(plot_data$parameter))
-    ggsave(save_path, plot = p, width = 10, height = 2 * num_params, limitsize = FALSE)
-    message(paste("Plot successfully saved to:", save_path))
+    
+    # Dynamically scales height according to amount of parameters
+    ggplot2::ggsave(
+      filename = save_path, 
+      plot     = p, 
+      width    = 8.5, 
+      height   = max(4, 2.2 * num_params), 
+      units    = "in",
+      dpi      = 300
+    )
+    message(paste(title, "Plott successfully saved to disk:", save_path))
   } else {
-    message("No save path provided, proceeding without saving plot titeled: ", title)
+    message("Proceeding without saving", title, " Plot")
   }
   
   return(p)
 }
-
 
 # ==============================================================================
 # Plotting function For the Model Fit

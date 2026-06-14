@@ -73,13 +73,14 @@ forecast_okun_ssm <- function(params_df,
                               Y_data_df = Y_okun,
                               target_variable = "unemp_rate",
                               X_data = X_okun,
-                              gdp_gap_forecasts_input = gdp_gap_forecasts) {
+                              gdp_gap_forecasts_input = gdp_gap_forecasts,
+                              use_true_gdp = FALSE) {
   
   # Clean prepare params_df
-  parameters <- params_df %>%
+  params <- params_df %>%
     mutate(quarter = as.yearqtr(.data[[date_col]]))
   
-  dates <- parameters %>% pull(.data[[date_col]])
+  dates <- params %>% pull(.data[[date_col]])
   
   # Setup Eval Matrix
   extended_rows <- seq(min(dates), by = 0.25, length.out = length(dates) + forecast_h)
@@ -87,7 +88,7 @@ forecast_okun_ssm <- function(params_df,
   rownames(eval_mat) <- as.character(extended_rows)
   colnames(eval_mat) <- as.character(dates)
   
-  # Align Actuals -> true ons in diag
+  # Align Actuals -> true obs in diag
   actual_unemp_df <- Y_data_df %>%
     filter(quarter %in% dates) %>%
     arrange(quarter)
@@ -97,32 +98,72 @@ forecast_okun_ssm <- function(params_df,
     eval_mat[date_str, i] <- actual_unemp_df[[target_variable]][i]
   }
   
-  #Main Forecast Loop -> loop over dates and each time
+  # ============================================================================
+  # MAIN FORECAST LOOP (Restored)
+  # ============================================================================
   for (i in seq_along(dates)) {
     forecast_origin <- dates[i] 
     
-    # Select params for this vintage
-    current_params <- parameters[i, ]
-    # Check if column is named natural_rate or natural_rate_final from your previous step
-    rho_T <- current_params$natural_rate 
-    betas <- c(current_params$beta1, current_params$beta2, current_params$beta3)
+    # Select params and components for this specific vintage (Restored)
+    current_params <- params[i, ]
+    rho_T  <- current_params$natural_rate 
+    betas  <- c(current_params$beta1, current_params$beta2, current_params$beta3)
     
-    # 5. Build the GDP path (History + External Forecasts)
+    # Isolate history baseline up to this point (Restored)
     history_gdp <- X_data %>%
+      mutate(quarter = zoo::as.yearqtr(.data[[date_col]])) %>%
       filter(quarter <= forecast_origin) %>% 
-      select(quarter, all_of(exog_var_col))
+      select(quarter, gdp_val = all_of(exog_var_col))
     
-    future_gdp <- gdp_gap_forecasts_input %>%
-      filter(quarter > forecast_origin) %>% 
-      slice(1:forecast_h) %>%
-      select(quarter, all_of(exog_var_col))
+    # Check whether to use Ex-Post actuals or real-time matrix vintages
+    if (use_true_gdp) {
+      future_gdp <- gdp_gap_forecasts_input %>%
+        mutate(quarter = zoo::as.yearqtr(.data[[date_col]])) %>%
+        filter(quarter > forecast_origin) %>% 
+        arrange(quarter) %>%
+        slice(1:forecast_h) %>%
+        select(quarter, gdp_val = all_of(exog_var_col))
+    } else {
+      # Convert actual date index to string
+      vintage_col_str <- format(forecast_origin, format = "%Y Q%q")
+      
+      # Extract raw triangle matrix path for this origin column
+      raw_forecasts <- gdp_gap_forecasts_input %>%
+        select(date = date, gdp_val = all_of(vintage_col_str)) %>%
+        mutate(quarter = zoo::as.yearqtr(date, format = "%Y Q%q")) %>%
+        filter(!is.na(gdp_val)) %>%
+        arrange(quarter)
+      
+      # Track baseline from history dataframe via correct column mapping
+      hist_baseline_val <- history_gdp %>%
+        filter(quarter == forecast_origin) %>%
+        pull(gdp_val)
+      
+      matrix_origin_val <- raw_forecasts %>%
+        filter(quarter == forecast_origin) %>%
+        pull(gdp_val)
+      
+      # Verification Step
+      if (length(hist_baseline_val) > 0 && length(matrix_origin_val) > 0) {
+        if (abs(matrix_origin_val - hist_baseline_val) > 1e-6) {
+          warning(sprintf("[VINTAGE MISMATCH] Baseline drift at %s. History: %f, Matrix Diagonal: %f", 
+                          format(forecast_origin, "%Y Q%q"), hist_baseline_val, matrix_origin_val))
+        }
+      }
+      
+      # Pulled from correct parent table and removed diagonal baseline entry
+      future_gdp <- raw_forecasts %>%
+        filter(quarter > forecast_origin) %>%
+        slice(1:forecast_h) %>%
+        select(quarter, gdp_val)
+    } 
     
+    # Combine history and chosen future forecast data track
     combined_gdp <- bind_rows(history_gdp, future_gdp) %>%
-      arrange(quarter) %>%
-      filter(!is.na(!!sym(exog_var_col)))
+      arrange(quarter)
     
-    # Re-calculate HP Cycle (The Pseudo-Real-Time approach)iincluding forecasts
-    hp_res <- mFilter::hpfilter(combined_gdp[[exog_var_col]], freq = 1600)
+    # Re-calculate HP Cycle (The Pseudo-Real-Time approach) including forecasts
+    hp_res <- mFilter::hpfilter(combined_gdp$gdp_val, freq = 1600)
     combined_gdp$y_gap <- as.numeric(hp_res$cycle) * 100
     
     # Create Lags and extract only the forecast horizon
@@ -134,13 +175,14 @@ forecast_okun_ssm <- function(params_df,
       ) %>%
       filter(quarter > forecast_origin) %>%
       arrange(quarter) %>%
+      slice(1:forecast_h) %>%
       select(gdp_gap, gap_lag1, gap_lag2)
     
     # Generate paths / forecasts and store
     if (nrow(gdp_features_wide) > 0) {
       h_available <- nrow(gdp_features_wide)
       
-      # Predict ssm is simple matrix opertaion
+      # Predict ssm matrix operation
       path <- predict_ssm_path_rw(rho_T, betas, gdp_features_wide)
       
       look_ahead_dates <- seq(forecast_origin + 0.25, by = 0.25, length.out = h_available)
@@ -155,7 +197,6 @@ forecast_okun_ssm <- function(params_df,
 
 
 
-
 ################################################################################
 
 
@@ -164,7 +205,8 @@ forecast_philips_ssm <- function(params_df,
                                  date_col = "quarter",
                                  master_df,
                                  forecast_h = 8,
-                                 exogenous_forecast_data) {
+                                 exogenous_gdp_forecast_data,
+                                 use_true_data = FALSE) {
   
   message("STARTING PHILLIPS FORECASTS")
   
@@ -198,23 +240,56 @@ forecast_philips_ssm <- function(params_df,
     forecast_origin <- dates[i] 
     current_params <- parameters[i, ]
     
+    actual_gdp_val <- master_df %>% 
+      filter(quarter == dates[i]) %>% 
+      pull(log_gdp) 
+    
     # Map econometric parameters
     pi_bar  <- current_params$natural_rate 
     beta_y  <- current_params$beta_y
     psi_lop <- current_params$psi_lop
     phi     <- current_params$phi
+    fitted_inf <- current_params$fitted_obs
     
     # Starting historical anchor for the AR loop
     y_t_t <- master_df %>% 
       filter(quarter == forecast_origin) %>% 
       pull(log_inflation_diff)
     
+    if(use_true_data) {
+      future_gdp <- exogenous_gdp_forecast_data
+    }else{
+      
+      vintage_col_str <- format(forecast_origin, format = "%Y Q%q")
+      
+      future_gdp <- exogenous_gdp_forecast_data %>%
+        select(quarter = date, log_gdp = all_of(vintage_col_str)) %>%
+        mutate(quarter = zoo::as.yearqtr(quarter, format = "%Y Q%q")) %>%
+        # Filter out the empty triangle blocks (NAs)
+        filter(!is.na(log_gdp)) %>%
+        arrange(quarter)
+      
+      matrix_baseline_val <- future_gdp$log_gdp[1]
+      # check for possible mismatch coding error
+      if (length(actual_gdp_val) > 0 && length(matrix_baseline_val) > 0) {
+        if (abs(matrix_baseline_val - actual_gdp_val) > 1e-6) {
+          warning(sprintf("[BASELINE OBS GDP MISMATCH] at origin %s. History: %f, Matrix Diagonal: %f", 
+                          vintage_col_str, actual_gdp_val, matrix_baseline_val))
+        }
+      }
+      
+      future_gdp <- future_gdp %>%
+        filter(quarter > forecast_origin) %>%
+        slice(1:forecast_h)
+    }
+    
     # Extract GDP gap forecasts (returns raw decimal 'gap')
     gdp_forecasts <- get_hp_gap(vantage_q = forecast_origin,
                                 h = forecast_h,
                                 data = master_df,
-                                gdp_forecast_data = exogenous_forecast_data,
+                                gdp_forecast_data = future_gdp,
                                 return_forecasts = TRUE)
+    
     
     # Extract sSpliced LOP series (returns raw decimal 'lop_gap')
     lop_forecast <- splice_snb_series(vantage_quarter = forecast_origin,
@@ -249,7 +324,10 @@ forecast_philips_ssm <- function(params_df,
         
         # New Keynesian Hybrid Phillips Curve Projection Math
         cyclical_inflation <- (psi_lop * lop_gap_h) + (beta_y * gdp_gap_h)
-        pred_inflation     <- pi_bar + phi * (current_inflation - pi_bar) + cyclical_inflation
+        
+        inf_deviation <- current_inflation - pi_bar # uses the fitted inf to get the true cyclical deviation
+        
+        pred_inflation     <- pi_bar + phi * inf_deviation + cyclical_inflation
         
 
         # Store forecast
@@ -271,12 +349,14 @@ forecast_taylor_ssm <- function(params_df,
                                 date_col = "quarter",
                                 master_df,
                                 forecast_h = 8,
-                                exogenous_forecast_data,
+                                exogenous_gdp_forecast_data,
+                                exogenous_inf_forecast_data = fcst_df_inf,
                                 floor_zlb = -0.75,
                                 hp_inf_gap = FALSE,
                                 inf_target = 1,
                                 zlb_start = "2009 Q2",
-                                zlb_end = "2022 Q2") {
+                                zlb_end = "2022 Q2",
+                                use_true_data = FALSE) {
   
   floor <- floor_zlb
 
@@ -302,6 +382,7 @@ forecast_taylor_ssm <- function(params_df,
   for(i in seq_along(dates)) {
     vantage_str <- as.character(dates[i])
     # Using the observed Policy Rate (SARON/LIBOR) as the starting point
+
     actual_val <- master_df %>% 
       filter(quarter == dates[i]) %>% 
       pull(true_snb_rate) 
@@ -333,43 +414,119 @@ forecast_taylor_ssm <- function(params_df,
         pull(true_snb_rate)
     }
     
+    
+    if(use_true_data) {
+      future_gdp <- exogenous_gdp_forecast_data
+    }else{
+      
+      vintage_col_str <- format(forecast_origin, format = "%Y Q%q")
+      
+      future_gdp <- exogenous_gdp_forecast_data %>%
+        select(quarter = date, log_gdp = all_of(vintage_col_str)) %>%
+        mutate(quarter = zoo::as.yearqtr(quarter, format = "%Y Q%q")) %>%
+        # Filter out the empty triangle blocks (NAs)
+        filter(!is.na(log_gdp)) %>%
+        arrange(quarter)
+      
+      actual_gdp_val <- master_df %>% 
+        filter(quarter == forecast_origin) %>% 
+        pull(log_gdp)
+      
+      # for debugguing
+      # print(future_gdp)
+      
+      matrix_baseline_val <- future_gdp$log_gdp[1]
+      # check for possible mismatch coding error
+      if (length(actual_gdp_val) > 0 && length(matrix_baseline_val) > 0) {
+        if (abs(matrix_baseline_val - actual_gdp_val) > 1e-6) {
+          warning(sprintf("[BASELINE OBS GDP MISMATCH] at origin %s. History: %f, Matrix Diagonal: %f", 
+                          vintage_col_str, actual_gdp_val, matrix_baseline_val))
+        }
+      }
+      
+      future_gdp <- future_gdp %>%
+        filter(quarter > forecast_origin) %>%
+        slice(1:forecast_h)
+    }
+    
     gdp_forecasts <- get_hp_gap(vantage_q = forecast_origin,
                                 h = forecast_h,
                                 data = master_df,
-                                gdp_forecast_data = exogenous_forecast_data,
+                                gdp_forecast_data = future_gdp,
                                 return_forecasts = TRUE)
+    
+    gdp_forecasts <- gdp_forecasts %>%
+      mutate(quarter = as.yearqtr(quarter))
     
     
     
     # replace with inflation
     
-    if(hp_inf_gap){
-      inf_forecasts <- get_hp_gap(vantage_q = forecast_origin,
-                                  h = forecast_h,
-                                  data = master_df,
-                                  gdp_forecast_data = exogenous_forecast_data,
-                                  gdp_col = "log_cpi",
-                                  return_forecasts = TRUE)
+    if(use_true_data) {
+      if(hp_inf_gap){
+        inf_forecasts <- get_hp_gap(vantage_q = forecast_origin,
+                                    h = forecast_h,
+                                    data = master_df,
+                                    gdp_forecast_data = exogenous_inf_forecast_data,
+                                    gdp_col = "log_cpi",
+                                    return_forecasts = TRUE)
+        
+      } else {
+        
+        # HERE STILL USING TRUE INFLATION
+        
+        inf_forecasts <- master_taylor %>%
+          select(quarter, yoy_inf) %>%
+          filter(quarter > forecast_origin) %>%
+          slice(1:forecast_h) %>%
+          # Calculate the gap relative to the target (e.g., 1.0%)
+          # Renaming to 'gap' ensures it matches the HP filter output format
+          mutate(gap = yoy_inflation - inf_target,
+                 quarter = as.yearqtr(quarter)) %>%
+          select(quarter, gap)
+      }
       
     } else {
+      # For exogenous forecasts
       
-      inf_forecasts <- exogenous_forecast_data %>%
-        select(quarter, yoy_inflation) %>%
+      
+      vintage_col_str <- format(forecast_origin, format = "%YQ%q")
+      
+      future_inf <- exogenous_inf_forecast_data %>%
+        select(quarter = date, inf = all_of(vintage_col_str)) %>%
+        mutate(quarter = zoo::as.yearqtr(quarter, format = "%Y Q%q"),
+               inf = inf - 1) %>% #inflation gap so -1
+        # Filter out the empty triangle blocks (NAs)
+        filter(!is.na(inf)) %>%
+        arrange(quarter)
+      
+      actual_inf_val <- master_df %>% 
+        filter(quarter == forecast_origin) %>% 
+        pull(inf_gap)
+      
+      # for debugguing
+      # print(future_inf)
+      
+      matrix_baseline_val <- future_inf$inf_gap[1]
+      # check for possible mismatch coding error
+      if (length(actual_inf_val) > 0 && length(matrix_baseline_val) > 0) {
+        if (abs(matrix_baseline_val - actual_inf_val) > 1e-6) {
+          warning(sprintf("[BASELINE OBS INF GAP MISMATCH] at origin %s. History: %f, Matrix Diagonal: %f", 
+                          vintage_col_str, actual_inf_val, matrix_baseline_val))
+        }
+      }
+      
+      future_inf <- future_inf %>%
         filter(quarter > forecast_origin) %>%
-        slice(1:forecast_h) %>%
-        # Calculate the gap relative to the target (e.g., 1.0%)
-        # Renaming to 'gap' ensures it matches the HP filter output format
-        mutate(gap = yoy_inflation - inf_target) %>%
-        select(quarter, gap)
+        slice(1:forecast_h)
     }
-    
-    
     
     X_future <- gdp_forecasts %>%
       rename(gdp_gap = gap) %>%
-      left_join(inf_forecasts %>% rename(inf_gap = gap), by = "quarter") %>%
+      left_join(future_inf, by = "quarter") %>%
       filter(quarter > forecast_origin)
     
+    X_future$gdp_gap <- X_future$gdp_gap*100
     
     h_available <- nrow(X_future)
     
@@ -392,10 +549,8 @@ forecast_taylor_ssm <- function(params_df,
         
 
         # Calculate the forecasts
-        inf_gap_h <- exog_now$inf_gap 
+        inf_gap_h <- exog_now$inf 
         gdp_gap_h <- exog_now$gdp_gap
-        
-
         
         # Taylor rule part 
         target_rate <- i_bar + (g_pi * inf_gap_h) + (g_y * gdp_gap_h)

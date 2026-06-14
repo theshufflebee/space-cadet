@@ -10,9 +10,9 @@ It contains a CSV Data with the following Column Names: `"...1" "structure" "typ
 
 The script `01_load_data.R` downloads the data from the link and saves it. Then the script `02_format_data.R` selects the observations we need.
 
--   `structure` = `gdp` Select full GDP and not a subset
--   `type` = `real` Real GDP
--   `seas_adj` = `cssa` Calendar, seasonally and sport event adjusted
+- `structure` = `gdp` Select full GDP and not a subset
+- `type` = `real` Real GDP
+- `seas_adj` = `cssa` Calendar, seasonally and sport event adjusted
 
 The dataframe then looks like this:
 
@@ -26,11 +26,11 @@ The SPF Data is downloaded via the `kofdata` Package using the `get_collection()
 
 The Dataframe is then saved as kof_master.csv. It inclodes all consensus forecast mean values. From it we select:
 
--   `ch.kof.consensus.q_qn_unemp_5y.mean` -\> The mean forecast of unemployment in 5 years
--   `ch.kof.consensus.q_qn_prices_5y.mean` -\> The mean forecast of yearly CPI increase in 5 years
--   `ch.kof.consensus.q_qn_3minterest_3m.mean`-\> The three month mean interest rate forecast of SARON
--   `ch.kof.consensus.q_qn_3minterest_12m.mea` -\> The 12 month mean interest rate forecast
--   `date`-\> the date column from the quarter the forecast was taken from.
+- `ch.kof.consensus.q_qn_unemp_5y.mean` -\> The mean forecast of unemployment in 5 years
+- `ch.kof.consensus.q_qn_prices_5y.mean` -\> The mean forecast of yearly CPI increase in 5 years
+- `ch.kof.consensus.q_qn_3minterest_3m.mean`-\> The three month mean interest rate forecast of SARON
+- `ch.kof.consensus.q_qn_3minterest_12m.mea` -\> The 12 month mean interest rate forecast
+- `date`-\> the date column from the quarter the forecast was taken from.
 
 This is how the master looks: <img src="man/figures/kof_master.png" alt="Data structure as of last release date" width="600"/>
 
@@ -117,6 +117,11 @@ The API call Downloads two datafiles a CSV with the actual data and the metadata
 The data looks like this: <img src="man/figures/reer.png" alt="Data structure as of last release date" width="400"/>
 
 As the Data is daily, we summarize by monthy by sleecting the last value of every month.
+
+## EU PPI Data
+
+Downloaded via the `eurostat` package with the id `sts_inppd_m`. From the Dataset, we select geographical
+location EA20, refering to the Euro Area. NACE2 Specification is code B-D. FInally I21 referes to the indexing date being 2021
 
 ## Models and Data used in them
 

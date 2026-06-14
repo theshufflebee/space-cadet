@@ -39,7 +39,8 @@ result <- creaFcstEval::run_evaluation(
   df              = Y_okun_eval,
   fcst_df         = fcst_df_fixed,
   model_name      = "Okun Model",
-  benchmark_model = "RW"
+  benchmark_model = "RW",
+  type = "growth"
   )
 
 fcst_eval_okun_df <- result$table
@@ -54,20 +55,11 @@ export_eval_to_latex(fcst_eval_okun_df, output_save_paths$tables$eval_rw_okun)
 
 
 
-colnames(philips_eval_square) <- format(as.yearqtr(colnames(philips_eval_square)), "%YQ%q")
 
-rownames(philips_eval_square) <- format(as.yearqtr(colnames(philips_eval_square)), "%YQ%q")
-
-fcst_df_inf <- philips_eval_square %>%
-  as.data.frame() %>%
-  rownames_to_column(var = "date")
-
-# 2. Format the date column to the 'YYYYQX' style the function expects
-# Based on your previous context, we remove the space
-fcst_df_inf$date <- format(as.yearqtr(fcst_df_inf$date), "%YQ%q")
 
 Y_philips <- master_philips %>%
   select(c("quarter", "log_inflation_diff")) %>%
+  filter(!is.na(log_inflation_diff)) %>%
   rename(date = quarter,
          value = log_inflation_diff) %>%
   mutate(date = format(as.yearqtr(date), "%YQ%q"))
@@ -97,9 +89,15 @@ colnames(taylor_eval_square) <- format(as.yearqtr(colnames(taylor_eval_square)),
 
 rownames(taylor_eval_square) <- format(as.yearqtr(colnames(taylor_eval_square)), "%YQ%q")
 
+taylor_eval_square <- as.data.frame(taylor_eval_square)
+
 fcst_df_policy_rate <- taylor_eval_square %>%
-  as.data.frame() %>%
-  rownames_to_column(var = "date")
+  mutate(
+    date = colnames(taylor_eval_square),
+    date = format(as.yearqtr(date, format = "%Y Q%q"), format = "%YQ%q")
+  ) %>%
+  # date goes to front
+  relocate(date, .before = everything()) 
 
 Y_taylor <- master_taylor %>%
   select(quarter, true_snb_rate) %>%
@@ -117,16 +115,4 @@ result_taylor <- creaFcstEval::run_evaluation(
 
 fcst_eval_taylor_df <- result_taylor$table
 export_eval_to_latex(fcst_eval_taylor_df, output_save_paths$tables$eval_rw_taylor)
-
-
-
-
-################################################################################
-
-
-source(here("R", "latex_formatting.R"))
-
-
-
-
 

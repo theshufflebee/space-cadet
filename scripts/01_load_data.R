@@ -40,6 +40,15 @@ get_snb_data_wrapper(data_save_paths$raw$reer_ppi_eu_csv,
                      D2 ="I")
 
 
+get_snb_data_wrapper(data_save_paths$raw$reer_ppi_eu_csv,
+                     do_api_call,
+                     "devwkieffid",
+                     "reer_ppi_eu",
+                     D0 = "P",
+                     D1 = "E",
+                     D2 ="I")
+
+
 # --- Exchange Rate ---
 
 # Average Exchange rates
@@ -69,15 +78,16 @@ get_snb_data_wrapper(data_save_paths$raw$snb_policy_csv, do_api_call, "snboffzis
 # --- CPI Data ---
 bfs_wrapper(data_external_ids$bfs_cpi,
             data_save_paths$raw$cpi_series_xlsx,
-            do_api_call = FALSE, type = "asset")
+            do_api_call = do_api_call, type = "asset")
 
 
 # --- Unemployment Data ---
 # Note: BFS 'ts' files are often Excel (.xlsx), so check the extension
 bfs_wrapper(data_external_ids$bfs_unemployment,
             data_save_paths$raw$unemployment_csv,
-            do_api_call = do_api_call,
+            do_api_call = TRUE,
             type = "asset")
+
 
 
 # --- Employment Data
@@ -124,23 +134,32 @@ download_kof_data_wrapper(file = data_save_paths$raw$kof_master_csv,
 
 # Download the PPI dataset
 # 'sts_inppd_m' = Producer prices in industry, monthly
-raw_ppi_eur <- get_eurostat("sts_inppd_m", time_format = "date")
 
-# Filter for the specific series you need
-# - geo = "EA20" (Euro area - 20 countries) or "EA19"
-# - nace_r2 = "B-D" (Total industry, except construction)
-ppi_eur_clean <- raw_ppi_eur %>%
-  filter(
-    geo == "EA20", # EA20 -> those that adapted the euro
-    nace_r2 == "B-D", # exclude the agriculture / mining sectors
-    unit == "I21" # Index, 2021 = 100
-  ) %>%
+
+if (do_api_call || !file.exists(data_save_paths$raw$eu_ppi_csv)) {
+  raw_ppi_eur <- get_eurostat("sts_inppd_m", time_format = "date")
+  
+  # Filter for the specific series you need
+  # - geo = "EA20" (Euro area - 20 countries) or "EA19"
+  # - nace_r2 = "B-D" (Total industry, except construction)
+  ppi_eur_clean <- raw_ppi_eur %>%
+    filter(
+      str_starts(geo, "EA|EU"),
+      geo == "EA20", # EA20 -> those that adapted the euro
+      nace_r2 == "B-D", # exclude the agriculture / mining sectors
+      unit == "I21" # Index, 2021 = 100
+    ) %>%
+    
   select(date = TIME_PERIOD, ppi_eur = values)
+  
+  write_csv(ppi_eur_clean, data_save_paths$raw$eu_ppi_csv)
+  message("Eurostat PPI data successfully donloaded and saved...")
+} else {
+  message("Eurostat PPI data exists. Loading from disk...")
+  ppi_eur_clean <- read_csv(data_save_paths$raw$eu_ppi_csv)
+}
 
-write_csv(ppi_eur_clean, file.path(raw_data_path, "eu_ppi_raw.csv") )
-
-
-message("DATA LOADING DONE...")
+message("[SUCCESS] DATA LOADING DONE...")
 
 
 

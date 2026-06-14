@@ -1,3 +1,12 @@
+
+
+
+
+
+
+## NEED TO CHANGE DATA PATH HANDLING HERE
+
+
 #' Function to Download Data from SNB API
 #' 
 #' This function transforms the R script on the SNB's website into a reusable function to download Data.
@@ -110,7 +119,7 @@ get_snb_data_wrapper <- function(file,
   
   if (!file.exists(file) | do_api_call){
     success <- download_snb_data(cube,
-                                 folder = raw_path, # choose storage folder must exist already
+                                 folder = raw_data_path, # choose storage folder must exist already
                                  file_name = file_name, # file saved as name
                                  from_date = from_date, # choose start date
                                  to_date = to_date, # choose end date

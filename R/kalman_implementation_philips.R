@@ -728,7 +728,8 @@ loglik_ssm_philips <- function(theta,
     message("FILTER RETURNING EXTREMLY HIGH LOG LIKELIHOOD")
   } 
   
-  cat(sprintf("Log Likelihood: %.4f\n", total_loglik))  
+  cat(sprintf("\rLog Likelihood: %.6f", total_loglik))  
+  flush.console()
   
   # For Debuggung you can have it return the full res
   if (return_full_res) {
@@ -799,9 +800,10 @@ loglik_ssm_philips <- function(theta,
 #' @export
 ssm_optimizer_wrapper_philips <- function(ssm, 
                                   methods = c("Nelder-Mead", "bobyqa", "BFGS"), 
-                                  iters = 2, 
+                                  iters = 3, 
                                   start_par = NULL,
-                                  set_silent = TRUE) {
+                                  set_silent = TRUE
+                                  ) {
   
   # Prepare Initial Parameters
   if (is.null(start_par)) {
@@ -821,7 +823,10 @@ ssm_optimizer_wrapper_philips <- function(ssm,
     }
     
   } else {
-    current_par_opt <- start_par
+    init_theta_econ <- sapply(ssm$manifest, function(x) x$val) 
+    #  CURRENTLY RUNNING WITH ALWAYS INITIAL GUESS
+    current_par_opt <- model2param_gen(init_theta_econ, ssm)
+    # current_par_opt <- start_par
     
     if(!set_silent){
       message("\n--- Transformed Optimizer Space (Theta) ---")
@@ -853,27 +858,17 @@ ssm_optimizer_wrapper_philips <- function(ssm,
           follow.on = TRUE,    # Method 2 starts where Method 1 ends
           dowarn = FALSE, 
           maximize = FALSE,
-          itnmax = 1000,  # For bobyqa/optimx
-          maxit = 1000,
-          reltol = 1e-4,  # Stop if relative improvement is less than this
-          abstol = 1e-4  # Stop if absolute improvement is less than this
+          itnmax = 5000,  # For bobyqa/optimx
+          maxit = 5000,
+          reltol = 1e-9,  # Stop if relative improvement is less than this
+          abstol = 1e-9  # Stop if absolute improvement is less than this
         )
       )
       
       # Extract the new likelihood and parameters
       current_lik <- fit$value[1]
       current_par_opt <- as.numeric(fit[1, 1:n_par])
-      
-      # check if there is important improvement
-      # If the improvement is less than 0.0001, stop the whole process
-      lik_diff <- abs(last_best_lik - current_lik)
-      if (lik_diff < 0.0001) {
-        message(sprintf("Stopping early: Likelihood converged (diff: %.6f)", lik_diff))
-        # This breaks the inner 'methods' loop. 
-        break 
-      }
-      
-      last_best_lik <- current_lik
+
     }
     
     # Update current_par_opt for the next step in the loop
@@ -881,16 +876,16 @@ ssm_optimizer_wrapper_philips <- function(ssm,
     
     
     # COnsole output message result
-    formatted_theta_opt <- paste0(
-      sprintf("  %-20s : %.4f", names(proposed_par), proposed_par), 
-      collapse = "\n")
+    # formatted_theta_opt <- paste0(
+    #   sprintf("  %-20s : %.4f", names(proposed_par), proposed_par), 
+    #   collapse = "\n")
     
     #Message for Debugging of parameters
-    cat("\n", rep("=", 45), "\n", sep = "")
-    cat("ESTIMATED OPTIMIZER PARAMETERS (Economic Space)\n")
-    cat(rep("-", 45), "\n", sep = "")
-    cat(formatted_theta_opt, "\n")
-    cat(rep("-", 45), "\n")
+    # cat("\n", rep("=", 45), "\n", sep = "")
+    # cat("Delete(?) ESTIMATED OPTIMIZER PARAMETERS (Economic Space)\n")
+    # cat(rep("-", 45), "\n", sep = "")
+    # cat(formatted_theta_opt, "\n")
+    # cat(rep("-", 45), "\n")
 
     #VValidating results if there are no inf or NaN
     if (any(is.na(proposed_par)) || any(is.infinite(proposed_par))) {

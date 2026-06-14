@@ -314,7 +314,8 @@ initialize_my_okun_ssm <- function(Y_data, X_data, parameter_guesses) {
 build_data_matrix_philips <- function(T_0 = "2005-01-01",
                                       vantage_quarter = "2023 Q1",
                                       data = master_philips,
-                                      h = 8) {
+                                      h = 8,
+                                      set_silent = TRUE) {
   
   T_0 <- as.yearqtr(T_0)
   
@@ -334,34 +335,44 @@ build_data_matrix_philips <- function(T_0 = "2005-01-01",
     filter(quarter >= as.yearqtr(model_philips_burn_in)) %>%
     filter(quarter <= as.yearqtr(vantage_quarter)) %>%
     arrange(quarter)
-  message("RAW DATA DEBUG")
-  print(raw_data)
+  
+  if(!set_silent){
+    message("RAW DATA DEBUG")
+    print(raw_data)
+    
+  }
+
   
   LOP_forecast <- splice_snb_series(vantage_quarter = vantage_quarter,
                                     snb_reer_delay = SNB_REER_DELAY,
                                     data = raw_data,
                                     burn_in = model_philips_burn_in)
   
-  message("LOP FORECAST")
-  print(tail(LOP_forecast))
+  if(!set_silent){
+    message("LOP FORECAST")
+    print(tail(LOP_forecast))
+  }
+  
   
   HP_gap_data <- get_hp_gap(raw_data,
                             raw_data, # forecast data
                             vantage_q = vantage_quarter
   )
   
-  message("HP GAP DATA DONE")
+  if(!set_silent) {
+    message("HP GAP DATA DONE")
+    print(HP_gap_data)
+  }
   
   
-  # In Retrospect only needed in forecast loop
+  # In Retrospect only needed in forecast loop -> left as artifact if needed
   # HP_gap_forecasts_data <- get_hp_gap(raw_data,
   #                                    raw_data, # forecast data
   #                                    vantage_q = vantage_quarter,
   #                                    return_forecasts = TRUE)
   
-  message("HP GAP Forecast DONE")
   
-  print(HP_gap_data)
+
   
   X_matrix <- raw_data %>%
     select(quarter, log_inflation_diff, lag_log_inflation_diff, log_gdp, `5y_cpi_forecast`) %>%
@@ -382,9 +393,12 @@ build_data_matrix_philips <- function(T_0 = "2005-01-01",
     filter(quarter >= as.yearqtr(T_0)) %>%
     arrange(quarter)
   
-  message("X_Matrix sucessfully built")
-  print(X_matrix)
   
+  if(!set_silent) {
+    message("X_Matrix sucessfully built")
+    print(X_matrix)
+  }
+
   return(X_matrix)
 }
 
@@ -544,10 +558,17 @@ initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
   # First bild manifest with the required parameters
   manifest <- list(
     # Okun's Law Betas (Unconstrained)
-    beta_y              = list(val = parameter_guesses$beta_y, rule = 2),
-    psi_lop             = list(val = parameter_guesses$psi_lop, rule = 2),
+    beta_y              = list(val = parameter_guesses$beta_y,
+                               rule = 3,
+                               low = 0.001,
+                               high = 0.3),
+    psi_lop             = list(val = parameter_guesses$psi_lop, rule = 0),
 
-    phi                 = list(val = parameter_guesses$phi, rule = 2),
+    phi                 = list(val  = parameter_guesses$phi,    # Initial guess
+                               rule = 3,      # Use the new Bounded Logistic rule (3) or standard >0 (1)
+                               low  = 0.1,    # Minimum smoothing only used if rule 3, else just disregard it
+                               high = 0.99    # Maximum smoothing only used if rule 3, else just disregard it
+    ),
     
     
     # Measurement Noise Standard Deviations (Must be positive)
@@ -579,8 +600,8 @@ initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
       ar_mat = build_AR_matrix_philips
     ),
     name = "PHILIPS",
-    rho_guess = c(1),
-    sigma_guess = c(10)
+    rho_guess = parameter_guesses$state_init,
+    sigma_guess = parameter_guesses$sigma_init
     
   )
   
@@ -766,7 +787,7 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
     xi_tp_cycl = list(val = parameter_guesses$xi_tp_cycl, rule = 1)
   )
   
-  # 3. Handle Optional SPF Anchors (Optional Specifications) 
+  # Handle Optional SPF Anchors (Optional Specifications) 
   if ("sigma_spf3m" %in% names(parameter_guesses)) {
     manifest$sigma_spf3m <- list(val = parameter_guesses$sigma_spf3m, rule = 1)
   }
@@ -791,11 +812,11 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
       ar_mat = build_AR_matrix
     ),
     name = "TAYLOR",
-    rho_guess = c(6, 1, 0.1),
-    sigma_guess = c(10)
+    rho_guess = parameter_guesses$state_init,
+    sigma_guess = parameter_guesses$sigma_init
   )
   
-  print("SSM INIT DONE")
+  print("SSM TAYLOR INIT DONE")
   
   
   return(ssm)
