@@ -1,0 +1,25 @@
+\begin{table}[htbp]
+\centering
+\caption{Out-of-Sample Predictive Evaluation: Taylor Model vs. AUTO_ARMA Benchmark}
+\label{tab:taylor_model_evaluation}
+\footnotesize
+\begin{tabular}{l cccccccc}
+\hline\hline
+\rule{0pt}{3ex}
+\textbf{H} & \textbf{MSFE} & \textbf{DM MSFE} & \textbf{MAFE} & \textbf{DM MAFE} & \textbf{MZ Test} & \textbf{Unbias} & \textbf{Strong Eff} & \textbf{Weak Eff} \\[0.5ex]
+\hline
+\rule{0pt}{2.5ex}
+1 & 6.43 & 1.82 (0.96) & 1.89 & 1.98 (0.97) & 4.49 (0.02) & -1.91 (0.06) & -2.84 (0.01) & 43.28 (0.00) \\
+2 & 2.69 & 1.24 (0.89) & 1.42 & 0.88 (0.81) & 13.42 (0.00) & -2.42 (0.02) & -4.91 (0.00) & 17.4 (0.02) \\
+3 & 1.49 & 0.56 (0.71) & 1.16 & 0.34 (0.63) & 41.32 (0.00) & -2.84 (0.01) & -8.87 (0.00) & 12.48 (0.09) \\
+4 & 1.04 & 0.06 (0.52) & 1.01 & 0.03 (0.51) & 110.92 (0.00) & -3.17 (0.00) & -14.77 (0.00) & 2.78 (0.9) \\
+5 & 0.95 & -0.07 (0.47) & 0.98 & -0.03 (0.49) & 69.1 (0.00) & -3.46 (0.00) & -11.39 (0.00) & 5.88 (0.55) \\
+6 & 1.03 & 0.04 (0.52) & 1.03 & 0.05 (0.52) & 32.96 (0.00) & -3.55 (0.00) & -8.08 (0.00) & 2.52 (0.93) \\
+7 & 1.05 & 0.07 (0.53) & 1.03 & 0.08 (0.53) & 27.52 (0.00) & -3.28 (0.00) & -7.28 (0.00) & 1 (0.99) \\
+8 & 1.10 & 0.15 (0.56) & 1.06 & 0.17 (0.57) & 1000.99 (0.00) & -2.99 (0.00) & -41.76 (0.00) & 0.36 (1.00) \\
+\hline\hline
+\end{tabular}%
+% \\
+\par\smallskip
+\parbox{\textwidth}{\scriptsize \textit{Notes:} This table reports rolling pseudo-out-of-sample forecast evaluation metrics for the Taylor Model against an unconstrained AUTO_ARMA benchmark. The evaluation period spans 2010-01-01 - 2025-07-01 using a recursive estimation scheme with a benchmark sample start date of 1990-04-01. Columns 2 and 4 present forecast error variance and absolute ratios (values $< 1.00$ denote model outperformance). Tests are as follows: Diebold-Mariano (DM) statistics, Mincer-Zarnowitz (MZ) forecast rationality properties, Systemic over or underprediction (Unbias), if the forecast itself predicts forecast errors (Strong),and serial correlation in forecast errors (Weak). All reported values display calculated test statistics with asymptotic $p$-values provided in parentheses.}
+\end{table}

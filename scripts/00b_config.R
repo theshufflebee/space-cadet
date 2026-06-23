@@ -332,8 +332,20 @@ output_save_paths <- list(
   ),
   
   tables = list(
+    
+    # RW Benchmark
     eval_rw_okun = here(output_base, "tables/okun_eval_rw_table.tex"),
     eval_rw_philips = here(output_base, "tables/philips_eval_rw_table.tex"),
-    eval_rw_taylor = here(output_base, "tables/taylor_eval_rw_table.tex")
+    eval_rw_taylor = here(output_base, "tables/taylor_eval_rw_table.tex"),
+    
+    # AR1 Benchmark
+    eval_ar1_okun = here(output_base, "tables/okun_eval_ar1_table.tex"),
+    eval_ar1_philips = here(output_base, "tables/philips_eval_ar1_table.tex"),
+    eval_ar1_taylor = here(output_base, "tables/taylor_eval_ar1_table.tex"),
+    
+    # Auto Arma Benchmark
+    eval_auto_arma_okun = here(output_base, "tables/okun_eval_auto_arma_table.tex"),
+    eval_auto_arma_philips = here(output_base, "tables/philips_eval_auto_arma_table.tex"),
+    eval_auto_arma_taylor = here(output_base, "tables/taylor_eval_auto_arma_table.tex")
   )
 )

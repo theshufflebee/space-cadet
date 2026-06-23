@@ -1,0 +1,25 @@
+\begin{table}[htbp]
+\centering
+\caption{Out-of-Sample Predictive Evaluation: Taylor Model vs. AR1(1,0) Benchmark}
+\label{tab:taylor_model_evaluation}
+\footnotesize
+\begin{tabular}{l cccccccc}
+\hline\hline
+\rule{0pt}{3ex}
+\textbf{H} & \textbf{MSFE} & \textbf{DM MSFE} & \textbf{MAFE} & \textbf{DM MAFE} & \textbf{MZ Test} & \textbf{Unbias} & \textbf{Strong Eff} & \textbf{Weak Eff} \\[0.5ex]
+\hline
+\rule{0pt}{2.5ex}
+1 & 8.02 & 1.96 (0.97) & 2.73 & 3.13 (1.00) & 4.49 (0.02) & -1.91 (0.06) & -2.84 (0.01) & 43.28 (0.00) \\
+2 & 5.93 & 1.93 (0.97) & 2.57 & 2.68 (1.00) & 13.42 (0.00) & -2.42 (0.02) & -4.91 (0.00) & 17.4 (0.02) \\
+3 & 4.42 & 2.06 (0.98) & 2.36 & 2.63 (0.99) & 41.32 (0.00) & -2.84 (0.01) & -8.87 (0.00) & 12.48 (0.09) \\
+4 & 3.28 & 2.14 (0.98) & 2.08 & 2.38 (0.99) & 110.92 (0.00) & -3.17 (0.00) & -14.77 (0.00) & 2.78 (0.9) \\
+5 & 2.64 & 2.19 (0.98) & 1.87 & 2 (0.98) & 69.1 (0.00) & -3.46 (0.00) & -11.39 (0.00) & 5.88 (0.55) \\
+6 & 2.28 & 1.7 (0.95) & 1.74 & 1.59 (0.94) & 32.96 (0.00) & -3.55 (0.00) & -8.08 (0.00) & 2.52 (0.93) \\
+7 & 1.98 & 1.23 (0.89) & 1.60 & 1.23 (0.89) & 27.52 (0.00) & -3.28 (0.00) & -7.28 (0.00) & 1 (0.99) \\
+8 & 1.84 & 1.07 (0.86) & 1.54 & 1.07 (0.86) & 1000.99 (0.00) & -2.99 (0.00) & -41.76 (0.00) & 0.36 (1.00) \\
+\hline\hline
+\end{tabular}%
+% \\
+\par\smallskip
+\parbox{\textwidth}{\scriptsize \textit{Notes:} This table reports rolling pseudo-out-of-sample forecast evaluation metrics for the Taylor Model against an unconstrained AR1(1,0) benchmark. The evaluation period spans 2010-01-01 - 2025-07-01 using a recursive estimation scheme with a benchmark sample start date of 1990-04-01. Columns 2 and 4 present forecast error variance and absolute ratios (values $< 1.00$ denote model outperformance). Tests are as follows: Diebold-Mariano (DM) statistics, Mincer-Zarnowitz (MZ) forecast rationality properties, Systemic over or underprediction (Unbias), if the forecast itself predicts forecast errors (Strong),and serial correlation in forecast errors (Weak). All reported values display calculated test statistics with asymptotic $p$-values provided in parentheses.}
+\end{table}
