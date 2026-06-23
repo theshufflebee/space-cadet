@@ -195,7 +195,7 @@ ts_names <- c(
 ################################################################################
 
 # ---  General Settings ---
-forecast_starting_date <- as.yearqtr("2010 Q1")
+forecast_starting_date <- as.yearqtr("2000 Q1")
 
 # FOr Indexing
 indexing_date <- "2020-12-01"
@@ -221,6 +221,7 @@ okun_parameter_guess <- list(
   beta1 = -0.1,
   beta2 = -0.1,
   beta3 = -0.1,
+  phi = 0.6,
   sigma_unemp_rate = 0.5,
   sigma_spf_5y_unemp = 0.5,
   xi_n = 0.1,

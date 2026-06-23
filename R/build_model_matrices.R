@@ -24,8 +24,8 @@
 #' latent state \eqn{\rho_t}.
 build_H <- function(model_params) {
   # Explicitly look for "phi", default to 1 (Random Walk) if not found
-  phi_val <- if(!is.null(model_params$phi)) model_params$phi else 1.0
-  return(matrix(phi_val, 1, 1))
+  kappa_val <- if(!is.null(model_params$kappa)) model_params$kappa else 1.0
+  return(matrix(kappa_val, 1, 1))
 }
 
 
@@ -149,6 +149,24 @@ build_mu_t <- function(model_params, X) {
 }
 
 
+build_ar_matrix_okun <- function(model_params, Y_data) {
+  # Extract phi and ensure it's a scalar double
+  phi <- as.numeric(model_params$phi)
+  
+  # Determine rows based on number of observed variables (or states)
+  # Standardizing to the number of columns in Y_data
+  nc <- ncol(Y_data)
+  
+  # Initialize a zero matrix/vector
+  ar_mat <- matrix(0, nrow = nc, ncol = 1)
+  
+  # Assign phi to the first position
+  ar_mat[1, 1] <- phi
+  
+  return(ar_mat)
+}
+
+
 ################################################################################
 #
 # OKUN SSM OBJECT
@@ -215,6 +233,8 @@ initialize_my_okun_ssm <- function(Y_data, X_data, parameter_guesses) {
     beta2              = list(val = parameter_guesses$beta2, rule = 0),
     beta3              = list(val = parameter_guesses$beta3, rule = 0),
     
+    phi                = list(val = parameter_guesses$phi, rule = 1),
+    
     
     # Measurement Noise Standard Deviations (Must be positive)
     # Names match: "sigma_" + colnames(Y_data)
@@ -250,7 +270,8 @@ initialize_my_okun_ssm <- function(Y_data, X_data, parameter_guesses) {
       H    = build_H,
       G    = build_G,
       M    = build_M,
-      N    = build_N
+      N    = build_N,
+      ar_mat = build_ar_matrix_okun
     ),
     name = "OKUN",
     rho_guess = c(2),

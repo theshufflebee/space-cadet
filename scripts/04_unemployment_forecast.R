@@ -8,7 +8,9 @@
 
 #stop("STOPPING BEFORE OKUN ESTIMATION")
 
-source(here("R", "kalman_implementation_base.R"))
+#source(here("R", "kalman_implementation_base.R"))
+source(here("R", "kalman_implementation_okun.R"))
+stop("STOPPING BEFORE OKUN ESTIMATION")
 
 # Load Data
 master_okun <- read_csv(data_save_paths$processed$okun_master_csv)
@@ -35,6 +37,19 @@ if (!exists(required_dataset)) {
 # ==============================================================================
 
 
+
+# ------------------------------------------------------------------------------
+Y_data_okun <- master_okun %>%
+  select(unemp_rate, spf_5y_unemp)
+
+
+# X Df for full FIt Estimation
+# ------------------------------------------------------------------------------
+X_data_okun <- master_okun %>%
+  select(gdp_gap, gdp_gap_lag_1, gdp_gap_lag_2)
+
+
+# ----------------------------------------------
 if(run_estimation){
   message("Starting Estimation of Model 1: Unemployment...")
   # The parameters are estimate in a rolling scheme, i.e from the T = 0 to each date
@@ -42,7 +57,7 @@ if(run_estimation){
   params_okun <- rolling_est_okun_ssm(master_okun,
                                       forecast_start = forecast_starting_date)
   
-  # Extract the parameters from the results and put them in the correctly formated dataframe
+  6# Extract the parameters from the results and put them in the correctly formated dataframe
   params_okun_df <- extract_params_df(params_okun)
   
   write_csv(params_okun_df, output_save_paths$params$rolling_param_est_okun)
@@ -119,7 +134,7 @@ ssm_okun <- initialize_my_okun_ssm( # Update function name if it matches your in
 # Run the global optimization loop to finalize corporate parameters (beta_y, coefficients, variances)
 if(run_estimation){
   
-  output_estim_okun <- ssm_optimizer_wrapper(ssm = ssm_okun)
+  output_estim_okun <- ssm_optimizer_wrapper_okun(ssm = ssm_okun)
   
   
   # Filter Execution & Latent State Extraction
@@ -129,7 +144,7 @@ if(run_estimation){
   num_latent_states_okun <- length(ssm_okun$rho_guess)
   
   # Run the fixed structural Kalman filter function with optimized inputs
-  final_res_okun <- kalman_filter(
+  final_res_okun <- kalman_filter_okun(
     Y_t       = ssm_okun$data$Y,
     nu_t      = matrix(0, nrow(ssm_okun$data$Y), num_latent_states_okun), 
     H         = ssm_okun$builders$H(output_estim_okun$params),
@@ -137,6 +152,7 @@ if(run_estimation){
     mu_t      = ssm_okun$builders$mu_t(output_estim_okun$params, ssm_okun$data$X),
     G         = ssm_okun$builders$G(),
     M         = ssm_okun$builders$M(output_estim_okun$params),
+    ar_matrix = ssm_okun$builders$ar_mat(output_estim_okun$params, ssm_okun$data$Y),
     Sigma_0   = matrix(ssm_okun$sigma_guess, nrow = num_latent_states_okun, ncol = num_latent_states_okun),
     rho_0     = matrix(ssm_okun$rho_guess, ncol = 1)
   )
@@ -207,7 +223,7 @@ if(run_estimation){
     bottom_metrics =  okun_bottom_metrics,
     top_colors     = okun_top_colors,
     bottom_colors  =  okun_bottom_colors,
-    zlb_bounds     = NULL, # Left NULL since this is a real labor market track
+    zlb_bounds     = NULL, # Left NULL since this is unemployment
     y_label_top    = "Unemployment Rate / Expectations (%)",
     y_label_bottom = "Output Gap (%)",
     save_path      = output_save_paths$plots$fit_okun

@@ -108,6 +108,7 @@ forecast_okun_ssm <- function(params_df,
     current_params <- params[i, ]
     rho_T  <- current_params$natural_rate 
     betas  <- c(current_params$beta1, current_params$beta2, current_params$beta3)
+    phi    <- current_params$phi
     
     # Isolate history baseline up to this point (Restored)
     history_gdp <- X_data %>%
@@ -181,10 +182,30 @@ forecast_okun_ssm <- function(params_df,
     # Generate paths / forecasts and store
     if (nrow(gdp_features_wide) > 0) {
       h_available <- nrow(gdp_features_wide)
+      path <- numeric(h_available)
       
-      # Predict ssm matrix operation
-      path <- predict_ssm_path_rw(rho_T, betas, gdp_features_wide)
+      actual_unemp_T <- actual_unemp_df[[target_variable]][i]
+      current_u_tilde <- as.numeric(actual_unemp_T - rho_T)
       
+      for (h in 1:h_available) {
+        
+        # Extract contemporaneous and lagged output gaps for step h
+        y_t   <- gdp_features_wide$gdp_gap[h]
+        y_lm1 <- gdp_features_wide$gap_lag1[h]
+        y_lm2 <- gdp_features_wide$gap_lag2[h]
+        
+        # Evaluate modified Okun cycle step: u_tilde_t = phi*u_tilde_{t-1} + beta(L)y_t
+        okun_fundamental <- (betas[1] * y_t) + (betas[2] * y_lm1) + (betas[3] * y_lm2)
+        new_u_tilde <- (phi * current_u_tilde) + okun_fundamental
+        
+        # Combine back with the random-walk natural rate (E_T[u_bar_{T+h}] = u_bar_T)
+        path[h] <- rho_T + new_u_tilde
+        
+        # Update the rolling persistence lag for the next step (h + 1)
+        current_u_tilde <- new_u_tilde
+      }
+      
+      # Store the path in the evaluation matrix
       look_ahead_dates <- seq(forecast_origin + 0.25, by = 0.25, length.out = h_available)
       target_rows <- as.character(look_ahead_dates)
       eval_mat[target_rows, i] <- path
@@ -351,16 +372,15 @@ forecast_taylor_ssm <- function(params_df,
                                 forecast_h = 8,
                                 exogenous_gdp_forecast_data,
                                 exogenous_inf_forecast_data = fcst_df_inf,
-                                floor_zlb = -0.75,
                                 hp_inf_gap = FALSE,
                                 inf_target = 1,
-                                zlb_start = "2009 Q2",
+                                zlb_0_start = "2009 Q2",
+                                zlb_075_start = "2015 Q1",
                                 zlb_end = "2022 Q2",
                                 use_true_data = FALSE) {
   
-  floor <- floor_zlb
-
-  zlb_start <- zoo::as.yearqtr(zlb_start)
+  zlb_0_start <- zoo::as.yearqtr(zlb_0_start)
+  zlb_075_start <- zoo::as.yearqtr(zlb_075_start)
   zlb_end   <- zoo::as.yearqtr(zlb_end)
   
   parameters <- params_df %>%
@@ -403,12 +423,13 @@ forecast_taylor_ssm <- function(params_df,
     g_y    <- current_params$gamma_y
     phi    <- current_params$phi
     
-    # 
-    if (forecast_origin >= zlb_start & forecast_origin <= zlb_end) {
-      # Inside ZLB: Use the latent estimate
+
+    # Checks if the vintage origin falls inside ANY of the ZLB regimes combined
+    if (forecast_origin >= zlb_0_start && forecast_origin <= zlb_end) {
+      # Inside ZLB era: Use the latent filter state estimate to anchor smoothing
       y_t_t <- current_params$fitted_obs
     } else {
-      # Outside ZLB: Use the actual observed SARON / LIBOR
+      # Outside ZLB era: Use the observed policy rate (SARON / LIBOR)
       y_t_t <- master_df %>% 
         filter(quarter == forecast_origin) %>% 
         pull(true_snb_rate)
@@ -557,10 +578,15 @@ forecast_taylor_ssm <- function(params_df,
         new_shadow_rate <- (phi * current_shadow_rate) + (1 - phi) * target_rate
         
 
-        # 3. Apply the ZLB for the OBSERVED forecast
-        observed_forecast <- max(floor, new_shadow_rate)
+        if (fdate >= zlb_075_start && fdate <= zlb_end) {
+          active_floor <- -0.75
+        } else if (fdate >= zlb_0_start && fdate < zlb_075_start) {
+          active_floor <- 0.00
+        } else {
+          active_floor <- -Inf # Outside structural bounds, never take the floor
+        }
         
-        # 4. Update the 'running' lag for the next h
+        observed_forecast <- max(active_floor, new_shadow_rate)
         current_shadow_rate <- new_shadow_rate
         
         # 5. Store the observed (capped) rate in the evaluation matrix
