@@ -1,18 +1,17 @@
 #!/usr/bin/env Rscript
-# FIrst line to make it an argparse file
+# First line to make it an argparse file
 
-# For saving livraries
 
 # --------- ii. Load here package to enable finding script loading other packages 
 
 
-# Erstelle einen sicheren, beschreibbaren Ordner im Benutzerverzeichnis, falls nicht existent
+# Create usable and readable folder
 user_lib <- file.path(Sys.getenv("USERPROFILE"), "Documents", "R", "win-library", "4.4")
 clean_path <- normalizePath(user_lib, mustWork = FALSE)
 print(clean_path)
 if (!dir.exists(clean_path)) dir.create(clean_path, recursive = TRUE)
 
-# Zwinge R, NUR diesen Ordner als primäre Schreib- und Lese-Bibliothek zu nutzen
+# Only use this path
 .libPaths(c(user_lib, .libPaths()))
 
 if (!require("here", character.only = TRUE, quietly=TRUE)) {
@@ -30,7 +29,7 @@ if (!require("here", character.only = TRUE, quietly=TRUE)) {
 #------------------------------------------------------------------------------
 source(here("scripts", "00a_install_dependencies.R"))
 
-# Find Python
+# Find Python STILL BASED ON MY LAPTOP
 options(python_cmd = "C:/Users/jonas/AppData/Local/Microsoft/WindowsApps/python.exe")
 
 #------------------------------------------------------------------------------
@@ -80,7 +79,7 @@ parser$add_argument(
 parser$add_argument(
   "-s", "--start-date", 
   type    = "character", 
-  default = "2015 Q1",
+  default = "2000 Q1",
   help    = "Forecast starting origin vantage point (Format: 'YYYY Q[1-4]')."
 )
 
@@ -174,4 +173,4 @@ switch(args$model,
 )
 
 message("---------------------------------------------------------")
-message("[SUCCESS] main.R script finished execution")
+message("[SUCCESS] argparse.R script finished execution")

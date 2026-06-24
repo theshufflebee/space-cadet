@@ -460,70 +460,28 @@ get_hp_gap <- function(data,
 
 
 # ==============================================================================
+# Helper Forecasts
+# ==============================================================================
 
 
-#' Forecast GDP Growth via ARIMA and extract HP Output Gap at the end
+#' Generate a Real-Time Rolling Matrix of GDP Forecasts
 #'
-#' @param data A wide data frame containing historical quarters and log GDP.
-#' @param date_col String. Name of the quarter column.
-#' @param gdp_col String. Name of the log_gdp column.
-#' @param horizon Integer. Quarters ahead to forecast (default = 8).
-#' @param hp_lambda Numeric. HP smoothing parameter (default = 1600 for quarterly data).
+#' @description Loops through a sequence of historical quarters (vintages) to simulate
+#' pseudo-real-time forecasting. At each origin date, it strips away future data, 
+#' fits an ARIMA model on log GDP growth, and projects levels out-of-sample.
 #'
-#' @return A unified tibble containing historical and forecasted values with the final HP outputs.
-forecast_gdp <- function(data, date_col, gdp_col, horizon = 8, hp_lambda = 1600) {
-  
-  # 1. Clean format and calculate growth rate using base/zoo
-  prep_df <- data %>%
-    mutate(
-      date = zoo::as.yearqtr(.data[[date_col]]),
-      log_gdp = as.numeric(.data[[gdp_col]])
-    ) %>%
-    arrange(date) %>%
-    mutate(gdp_growth = log_gdp - dplyr::lag(log_gdp, 1))
-  
-  # Extract clean vector of growth rates (removing the initial NA from lagging)
-  growth_vector <- prep_df %>% 
-    filter(!is.na(gdp_growth)) %>% 
-    pull(gdp_growth)
-  
-  # 2. Fit ARIMA using the standard 'forecast' package (No tsibble needed!)
-  # auto.arima automatically selects best p, d, q parameters
-  arima_fit <- forecast::auto.arima(growth_vector, seasonal = FALSE)
-  
-  # Forecast forward using standard numeric horizon
-  growth_fc <- forecast::forecast(arima_fit, h = horizon)
-  future_growth_rates <- as.numeric(growth_fc$mean)
-  
-  # 3. Create the future timeline
-  last_hist_date <- max(prep_df$date)
-  last_hist_gdp  <- tail(prep_df$log_gdp, 1)
-  future_dates   <- seq(last_hist_date + 1/4, length.out = horizon, by = 1/4)
-  
-  # Accumulate future log levels: y_{t+h} = y_{t+h-1} + \Delta y_{t+h}
-  future_log_gdp <- cumsum(future_growth_rates) + last_hist_gdp 
-  
-  # 4. Bind history and future levels into one single continuous vector
-  combined_df <- tibble(
-    quarter = c(prep_df$date, future_dates),
-    log_gdp = c(prep_df$log_gdp, future_log_gdp),
-    type    = c(rep("History", nrow(prep_df)), rep("Forecast", horizon))
-  )
-  
-  # 5. Run HP Filter at the very end
-  hp_final <- mFilter::hpfilter(combined_df$log_gdp, freq = hp_lambda, type = "lambda")
-  
-  # Map trends back into the dataframe
-  combined_output <- combined_df %>%
-    mutate(
-      potential_gdp = as.numeric(hp_final$trend),
-      gdp_gap       = as.numeric(hp_final$cycle)
-    )
-  
-  return(combined_output)
-}
-
-
+#' @param fcast_start String or yearqtr. The starting vintage date for the rolling loop.
+#' @param fcast_end String or yearqtr. The ending vintage date. Defaults to the maximum date in data.
+#' @param data A data frame or tibble containing the full historical time series.
+#' @param date_col Character. The name of the column containing the quarter index.
+#' @param gdp_col Character. The name of the column containing the raw or log GDP values.
+#' @param horizon Integer. The number of quarters ahead to forecast (default is 8).
+#' @param hp_lambda Numeric. Smoothing parameter for the downstream HP filter (default is 1600).
+#'
+#' @return A data frame in a triangle forecast layout where the first column is \code{date}, 
+#' and subsequent columns represent the forecast origins.
+#' @seealso [forecast_gdp()]
+#' @export
 gdp_forecast_wrapper <- function(fcast_start,
                                  fcast_end = NULL,
                                  data,
@@ -542,11 +500,11 @@ gdp_forecast_wrapper <- function(fcast_start,
     end_date <- zoo::as.yearqtr(fcast_end)
   }
   
-  # 1. Isolate the list of origin dates (vintages) to loop through
+  # Isolate the list of origin dates (vintages) to loop through
   all_fcast_dates <- all_dates[all_dates >= start_date & all_dates <= end_date]
   all_fcast_dates <- sort(unique(all_fcast_dates))
   
-  # 2. Determine total chronological span needed for rows (Target Dates)
+  # Determine total chronological span needed for rows (Target Dates)
   # Rows must span from your first origin date all the way to the final horizon of the last origin
   min_row_date <- min(all_fcast_dates)
   max_row_date <- max(all_fcast_dates) + (horizon / 4)
@@ -616,10 +574,26 @@ gdp_forecast_wrapper <- function(fcast_start,
 
 
 # ----------------------------------------------------------------------------
-
+#' Forecast GDP Growth using ARIMA with COVID Dummies
+#'
+#' @description Cleans raw input data, computes log GDP growth rates, and fits an 
+#' \code{auto.arima} model. Automatically integrates independent pulse regressors 
+#' for 2020 Q2 and 2020 Q3 if they fall within the historical window, preventing parameter 
+#' distortion from the pandemic shock.
+#'
+#' @param data A data frame containing historical quarters and log GDP.
+#' @param date_col Character. Name of the quarter column.
+#' @param gdp_col Character. Name of the log GDP column.
+#' @param horizon Integer. Quarters ahead to forecast (default is 8).
+#' @param hp_lambda Numeric. HP smoothing parameter (default is 1600).
+#'
+#' @return A continuous tibble binding historical observations and out-of-sample 
+#' level forecasts labeled by \code{type}.
+#' @seealso [gdp_forecast_wrapper()]
+#' @export
 forecast_gdp <- function(data, date_col, gdp_col, horizon = 8, hp_lambda = 1600) {
   
-  # 1. Clean format and calculate growth rate using base/zoo
+  # Clean format and calculate growth rate using base/zoo
   prep_df <- data %>%
     mutate(
       date = zoo::as.yearqtr(.data[[date_col]]),
@@ -628,16 +602,59 @@ forecast_gdp <- function(data, date_col, gdp_col, horizon = 8, hp_lambda = 1600)
     arrange(date) %>%
     mutate(gdp_growth = log_gdp - dplyr::lag(log_gdp, 1))
   
-  # Extract clean vector of growth rates
-  growth_vector <- prep_df %>% 
-    filter(!is.na(gdp_growth)) %>% 
-    pull(gdp_growth)
+  # Create and store the data frame first
+  hist_growth_df <- prep_df %>% 
+    filter(!is.na(gdp_growth))
   
-  # 2. Fit ARIMA on growth rates
-  arima_fit <- forecast::auto.arima(growth_vector, seasonal = FALSE)
+  growth_vector <- hist_growth_df %>% pull(gdp_growth)
+  n_obs <- length(growth_vector)
   
-  # Forecast growth rates forward
-  growth_fc <- forecast::forecast(arima_fit, h = horizon)
+  # Add the pulse dummies
+  hist_growth_df <- hist_growth_df %>%
+    mutate(
+      dummy_2020q2 = if_else(date == zoo::as.yearqtr("2020 Q2"), 1, 0),
+      dummy_2020q3 = if_else(date == zoo::as.yearqtr("2020 Q3"), 1, 0)
+    )
+  
+  # --------------------------------------------------------------------------
+  # DYNAMIC XREG CLEANING & BOUNDARY CONTROL (CRITICAL FIX)
+  # --------------------------------------------------------------------------
+  # Extract only the dummy columns
+  dummy_df <- hist_growth_df %>% select(dummy_2020q2, dummy_2020q3)
+  
+  # Keep ONLY columns that actually contain a 1 in this rolling window
+  active_columns <- colSums(dummy_df) > 0
+  dummy_df_cleaned <- dummy_df[, active_columns, drop = FALSE]
+  
+  # Safety Flag: We only use xreg if:
+  # 1. There is at least one active dummy column
+  # 2. The dummy isn't exclusively sitting on the very last row (causes singular fits)
+  use_covid_xreg <- ncol(dummy_df_cleaned) > 0
+  if (use_covid_xreg) {
+    # If the only active dummy is pinned to the final row, turn xreg off for this step
+    last_row_sums <- rowSums(tail(dummy_df_cleaned, 1))
+    if (last_row_sums > 0 && sum(as.matrix(dummy_df_cleaned)) == 1) {
+      use_covid_xreg <- FALSE
+    }
+  }
+  
+  # 2. Fit ARIMA on growth rates & generate out-of-sample path
+  if (use_covid_xreg) {
+    xreg_hist <- as.matrix(dummy_df_cleaned)
+    
+    # Fit ARIMA with the cleaned regressor columns
+    arima_fit <- forecast::auto.arima(growth_vector, seasonal = FALSE, xreg = xreg_hist)
+    
+    # Set future dummies to 0 matching the exact active column count
+    xreg_future <- matrix(0, nrow = horizon, ncol = ncol(xreg_hist))
+    colnames(xreg_future) <- colnames(xreg_hist)
+    
+    growth_fc <- forecast::forecast(arima_fit, h = horizon, xreg = xreg_future)
+  } else {
+    # Clean fallback route for pre-COVID or boundary edge windows
+    arima_fit <- forecast::auto.arima(growth_vector, seasonal = FALSE)
+    growth_fc <- forecast::forecast(arima_fit, h = horizon)
+  }
   future_growth_rates <- as.numeric(growth_fc$mean)
   
   # 3. Create the future timeline
@@ -659,19 +676,16 @@ forecast_gdp <- function(data, date_col, gdp_col, horizon = 8, hp_lambda = 1600)
   # -----------------------------------------------------------------------------
   cat("\n", rep("=", 50), "\n", sep = "")
   cat(sprintf("ARIMA VINTAGE SPECIFICATION FOR ORIGIN: %s\n", as.character(last_hist_date)))
+  if (use_covid_xreg) {
+    cat(sprintf("STATUS: Active COVID XREG (Columns Used: %s)\n", paste(colnames(xreg_hist), collapse=", ")))
+  } else {
+    cat("STATUS: Baseline ARIMA Standard Setup\n")
+  }
   cat(rep("-", 50), "\n", sep = "")
   
-  # Captures and prints the mathematical structure, coefficients, and AIC/BIC metrics
   print(arima_fit)
   
   cat(rep("=", 50), "\n\n", sep = "")
-
+  
   return(combined_df)
 }
-
-
-
-
-
-
-

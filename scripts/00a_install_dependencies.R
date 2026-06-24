@@ -64,7 +64,7 @@ if (!requireNamespace("data.table", quietly = TRUE) ||
   if ("data.table" %in% loadedNamespaces()) unloadNamespace("data.table")
 }
 
-remotes::install_local("C:/Users/jonas/Desktop/repos/creaFcstEval", force = TRUE)
+remotes::install_local("C:/Users/jonas/Desktop/repos/creaFcstEval")
 
 # Resolve conflicts
 conflict_prefer("filter", "dplyr")

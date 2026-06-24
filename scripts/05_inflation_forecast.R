@@ -7,7 +7,14 @@
 # Get Correct Kalman Specs
 source(here("R", "kalman_implementation_philips.R"))
 
-master_philips <- read_csv(data_save_paths$processed$philips_master_csv)
+
+gdp_forecasts_arima <- read_csv(output_save_paths$forecasts$forecast_df_gdp_arima, 
+                                show_col_types = FALSE) %>%
+  mutate(date = format(zoo::as.yearqtr(date, format = "%Y Q%q"))) %>%
+  rename_with(~ format(zoo::as.yearqtr(.x, format = "%Y Q%q")), .cols = -date)
+
+master_philips <- read_csv(data_save_paths$processed$philips_master_csv, 
+                           show_col_types = FALSE)
 
 master_philips <- master_philips %>%
   mutate(quarter = as.yearqtr(quarter))
@@ -25,6 +32,12 @@ if (!exists(required_dataset)) {
 } else (writeLines("Phillips Data set already loaded. Continuing with estimation..."))
 
 
+if (forecast_starting_date < as.yearqtr("2010 Q1")) {
+  
+  forecast_starting_date_philips <- as.yearqtr("2010 Q1")
+  message("FORECAST STARTING DATE FOR PHILLIPS MODEL SET TO Q1 2010, DUE TO DATA AVAILABILITY")
+} 
+
 # ==============================================================================
 # Run Rolling Estimation and Create The forecast
 # ==============================================================================
@@ -34,7 +47,7 @@ if(run_estimation) {
   
   # Run the Rolling estimation
   params_philips <- rolling_est_philips_ssm(data = master_philips,
-                                            forecast_start = forecast_starting_date,
+                                            forecast_start = forecast_starting_date_philips,
                                             
   )
   
@@ -45,8 +58,9 @@ if(run_estimation) {
   write_csv(params_philips_df, output_save_paths$params$rolling_param_est_philips)
   
 } else {
-  message("run_estimation set to FASE. Loading Inflation Model Parameters from Disk...")
-  params_philips_df <- read_csv(output_save_paths$params$rolling_param_est_philips)
+  message("run_estimation set to FALSE. Loading Inflation Model Parameters from Disk...")
+  params_philips_df <- read_csv(output_save_paths$params$rolling_param_est_philips, 
+                                show_col_types = FALSE)
 }
 
 

@@ -728,9 +728,6 @@ loglik_ssm_shadow <- function(theta,
   
   total_loglik <- -sum(res$loglik.vector)
   
-  # If the likelihood is extremely high such as due to failed filter or bad jump, return very high value as "punishment"
-  if (total_loglik > 50000) return(1e10)
-  
   cat(sprintf("\rLog Likelihood: %.6f", total_loglik))  
   flush.console()
   
@@ -803,7 +800,7 @@ loglik_ssm_shadow <- function(theta,
 #' @export
 ssm_optimizer_wrapper_shadow <- function(ssm, 
                                   methods = c("Nelder-Mead", "bobyqa", "BFGS"), 
-                                  iters = 2, 
+                                  iters = 3, 
                                   start_par = NULL,
                                   set_silent = TRUE) {
   
@@ -869,11 +866,6 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
       # check if there is important improvement
       # If the improvement is less than 0.0001, stop the whole process
       lik_diff <- abs(last_best_lik - current_lik)
-      if (lik_diff < 0.0001) {
-        message(sprintf("Stopping early: Likelihood converged (diff: %.6f)", lik_diff))
-        # This breaks the inner 'methods' loop. 
-        break 
-      }
       
       last_best_lik <- current_lik
     }

@@ -4,7 +4,13 @@ message("Starting SNB Policy Rate Forecast")
 # Source Correct Kalmann Specs
 source(here("R", "kalman_implementation_taylor.R"))
 
-master_taylor <- read_csv(data_save_paths$processed$taylor_master_csv)
+gdp_forecasts_arima <- read_csv(output_save_paths$forecasts$forecast_df_gdp_arima, 
+                                show_col_types = FALSE) %>%
+  mutate(date = format(zoo::as.yearqtr(date, format = "%Y Q%q"))) %>%
+  rename_with(~ format(zoo::as.yearqtr(.x, format = "%Y Q%q")), .cols = -date)
+
+master_taylor <- read_csv(data_save_paths$processed$taylor_master_csv, 
+                          show_col_types = FALSE)
 
 
 required_dataset <- "master_taylor"
@@ -52,7 +58,8 @@ if(run_estimation){
   
 }else{
   
-  taylor_params <- read.csv(output_save_paths$params$rolling_param_est_taylor)
+  taylor_params <- read_csv(output_save_paths$params$rolling_param_est_taylor, 
+                            show_col_types = FALSE)
 }
 
 rolling_natural_rate_taylor <- taylor_params %>%
@@ -75,7 +82,8 @@ taylor_forecast_df <- forecast_taylor_ssm(params_df = taylor_params,
 
 # Save the Forecast df (and reload)
 write_csv(as.data.frame(taylor_forecast_df), output_save_paths$forecasts$forecast_df_taylor)
-taylor_forecast_df <- read_csv(output_save_paths$forecasts$forecast_df_taylor)
+taylor_forecast_df <- read_csv(output_save_paths$forecasts$forecast_df_taylor, 
+                               show_col_types = FALSE)
 
 # --- Format df for the Evaluation --- 
 # Make the Dataframe a square

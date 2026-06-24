@@ -10,12 +10,14 @@
 
 #source(here("R", "kalman_implementation_base.R"))
 source(here("R", "kalman_implementation_okun.R"))
-stop("STOPPING BEFORE OKUN ESTIMATION")
+
 
 # Load Data
-master_okun <- read_csv(data_save_paths$processed$okun_master_csv)
+master_okun <- read_csv(data_save_paths$processed$okun_master_csv, 
+                        show_col_types = FALSE)
 
-gdp_forecasts_arima <- read_csv(output_save_paths$forecasts$forecast_df_gdp_arima) %>%
+gdp_forecasts_arima <- read_csv(output_save_paths$forecasts$forecast_df_gdp_arima, 
+                                show_col_types = FALSE) %>%
   mutate(date = format(zoo::as.yearqtr(date, format = "%Y Q%q"))) %>%
   rename_with(~ format(zoo::as.yearqtr(.x, format = "%Y Q%q")), .cols = -date)
 
@@ -64,7 +66,8 @@ if(run_estimation){
   
 } else {
   message("run_estimation set to FALSE. Loading Unemployment Model Parameters from Disk...")
-  params_okun_df <- read_csv(output_save_paths$params$rolling_param_est_okun)
+  params_okun_df <- read_csv(output_save_paths$params$rolling_param_est_okun, 
+                             show_col_types = FALSE)
   
 }
 
@@ -95,7 +98,8 @@ forecast_okun_df <- forecast_okun_ssm(params_df = params_okun_df,
 # save the results
 write_csv(forecast_okun_df, output_save_paths$forecasts$forecast_df_okun)
 
-forecast_okun_df <- read_csv(output_save_paths$forecasts$forecast_df_okun)
+forecast_okun_df <- read_csv(output_save_paths$forecasts$forecast_df_okun, 
+                             show_col_types = FALSE)
 
 # Turn the Dataframe into a square where we know the true values
 # (Normal DF has h rows more than columns, we drop them by dropping dates without observations)

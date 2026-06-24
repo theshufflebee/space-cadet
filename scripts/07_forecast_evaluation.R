@@ -11,6 +11,9 @@ message("Starting Forecast Evaluation")
 # OKUN Model Evaluation
 # ==============================================================================
 
+
+# Data Preparation
+# ------------------------------------------------------------------------------
 Y_okun_eval <- Y_okun %>%
   select(c("quarter", "unemp_rate")) %>%
   rename(date = quarter,
@@ -32,9 +35,10 @@ fcst_df_fixed <- okun_eval_square %>%
 fcst_df_fixed$date <- format(as.yearqtr(fcst_df_fixed$date), "%YQ%q")
 
 
-
 # Evaluate Okun Model
+# ------------------------------------------------------------------------------
 
+# --- Random Walk ---
 result_okun_rw <- creaFcstEval::run_evaluation(
   df              = Y_okun_eval,
   fcst_df         = fcst_df_fixed,
@@ -46,7 +50,7 @@ result_okun_rw <- creaFcstEval::run_evaluation(
 fcst_eval_okun_rw_df <- result_okun_rw$table
 export_eval_to_latex(fcst_eval_okun_rw_df, output_save_paths$tables$eval_rw_okun)
 
-
+# --- AR1 ---
 result_okun_ar1 <- creaFcstEval::run_evaluation(
   df              = Y_okun_eval,
   fcst_df         = fcst_df_fixed,
@@ -57,7 +61,7 @@ result_okun_ar1 <- creaFcstEval::run_evaluation(
 fcst_eval_okun_ar1_df <- result_okun_ar1$table
 export_eval_to_latex(fcst_eval_okun_ar1_df, output_save_paths$tables$eval_ar1_okun)
 
-
+# --- AUTO ARMA ---
 result_okun_auto_arma <- creaFcstEval::run_evaluation(
   df              = Y_okun_eval,
   fcst_df         = fcst_df_fixed,
@@ -71,16 +75,13 @@ fcst_eval_okun_auto_arma_df <- result_okun_auto_arma$table
 export_eval_to_latex(fcst_eval_okun_auto_arma_df, output_save_paths$tables$eval_auto_arma_okun)
 
 
-
-
 # ==============================================================================
 # Philips Model Evaluation
 # ==============================================================================
 
 
-
-
-
+# Data Preparation
+# ------------------------------------------------------------------------------
 Y_philips <- master_philips %>%
   select(c("quarter", "log_inflation_diff")) %>%
   filter(!is.na(log_inflation_diff)) %>%
@@ -89,9 +90,10 @@ Y_philips <- master_philips %>%
   mutate(date = format(as.yearqtr(date), "%YQ%q"))
   
 
+# Run Evaluation
+# ------------------------------------------------------------------------------
 
-
-
+# --- Random Walk ---
 result_philips_rw <- creaFcstEval::run_evaluation(
   df              = Y_philips,
   fcst_df         = fcst_df_inf,
@@ -103,6 +105,7 @@ fcst_eval_philips_rw_df <- result_philips_rw$table
 export_eval_to_latex(fcst_eval_philips_rw_df, output_save_paths$tables$eval_rw_philips)
 
 
+# --- AR1 ---
 result_philips_ar1 <- creaFcstEval::run_evaluation(
   df              = Y_philips,
   fcst_df         = fcst_df_inf,
@@ -114,6 +117,7 @@ fcst_eval_philips_ar1_df <- result_philips_ar1$table
 export_eval_to_latex(fcst_eval_philips_ar1_df, output_save_paths$tables$eval_ar1_philips)
 
 
+# --- AUTO ARMA ---
 result_philips_auto_arma <- creaFcstEval::run_evaluation(
   df              = Y_philips,
   fcst_df         = fcst_df_inf,
@@ -128,12 +132,13 @@ export_eval_to_latex(fcst_eval_philips_auto_arma_df, output_save_paths$tables$ev
 
 
 
-
-
 # ==============================================================================
 # Taylor Model Evaluation
 # ==============================================================================
 
+
+# Data Preparation
+#-------------------------------------------------------------------------------
 
 colnames(taylor_eval_square) <- format(as.yearqtr(colnames(taylor_eval_square)), "%YQ%q")
 
@@ -156,9 +161,10 @@ Y_taylor <- master_taylor %>%
   mutate(date = format(as.yearqtr(date), "%YQ%q"))
 
 
+# Benchmark Evaluation
+#-------------------------------------------------------------------------------
 
-
-# RW BENCHMARK EVAL
+# --- Random Walk ---
 result_taylor_rw <- creaFcstEval::run_evaluation(
   df              = Y_taylor,
   fcst_df         = fcst_df_policy_rate,
@@ -170,7 +176,7 @@ fcst_eval_taylor_rw_df <- result_taylor_rw$table
 export_eval_to_latex(fcst_eval_taylor_rw_df, output_save_paths$tables$eval_rw_taylor)
 
 
-# AR1 BENCHMARK EVAL
+# --- AR1 ---
 result_taylor_ar1 <- creaFcstEval::run_evaluation(
   df              = Y_taylor,
   fcst_df         = fcst_df_policy_rate,
@@ -182,7 +188,7 @@ fcst_eval_taylor_ar1_df <- result_taylor_ar1$table
 export_eval_to_latex(fcst_eval_taylor_ar1_df, output_save_paths$tables$eval_ar1_taylor)
 
 
-# AUTO ARMA BENCHMARK EVAL
+# --- AUTO ARMA ---
 result_taylor_auto_arma <- creaFcstEval::run_evaluation(
   df              = Y_taylor,
   fcst_df         = fcst_df_policy_rate,
@@ -195,3 +201,4 @@ result_taylor_auto_arma <- creaFcstEval::run_evaluation(
 fcst_eval_taylor_auto_arma_df <- result_taylor_auto_arma$table
 export_eval_to_latex(fcst_eval_taylor_auto_arma_df, output_save_paths$tables$eval_auto_arma_taylor)
 
+message("[SUCCESS] Finished Forecast Evaluation")
