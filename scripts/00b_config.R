@@ -201,7 +201,7 @@ forecast_starting_date <- as.yearqtr("2000 Q1")
 indexing_date <- "2020-12-01"
 
 
-run_estimation <- TRUE
+run_estimation <- FALSE
 
 h <- 8
 
@@ -284,7 +284,7 @@ model_philips_burn_in <- "2000 Q4"
 
 # --- Output Save paths ---
 
-store_temp <- TRUE
+store_temp <- FALSE
 
 # Only concerns the output folder
 

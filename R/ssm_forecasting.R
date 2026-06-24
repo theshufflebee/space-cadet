@@ -386,10 +386,23 @@ forecast_taylor_ssm <- function(params_df,
   parameters <- params_df %>%
     mutate(quarter = zoo::as.yearqtr(!!sym(date_col)))
   
-  dates <- parameters %>% pull(quarter)
+  param_dates <- parameters %>% pull(quarter)
   
-  # Setup empty output df
-  extended_rows <- seq(min(dates), by = 0.25, length.out = length(dates) + forecast_h)
+  inf_matrix_dates <- zoo::as.yearqtr(exogenous_inf_forecast_data[[1]])
+  
+  fcast_start <- max(min(param_dates), min(inf_matrix_dates), na.rm = TRUE)
+  
+  fcast_end   <- min(max(param_dates), max(inf_matrix_dates), na.rm = TRUE)
+  
+  message(sprintf("Data alignment successful. Filtering loop window: %s to %s", 
+                  as.character(fcast_start), as.character(fcast_end)))
+  
+  dates <- param_dates[param_dates >= fcast_start & param_dates <= fcast_end]
+  
+  # build full pseudo out of sample fcst dates vector
+  min_global_date <- min(dates)
+  max_global_date <- max(dates) + (forecast_h / 4)
+  extended_rows   <- seq(min_global_date, max_global_date, by = 1/4)
   
   # Setup size -> + h rows so we can forecast into the future
   eval_mat <- matrix(NA, nrow = length(extended_rows), ncol = length(dates))
@@ -441,6 +454,8 @@ forecast_taylor_ssm <- function(params_df,
     }else{
       
       vintage_col_str <- format(forecast_origin, format = "%Y Q%q")
+      
+      print(exogenous_gdp_forecast_data)
       
       future_gdp <- exogenous_gdp_forecast_data %>%
         select(quarter = date, log_gdp = all_of(vintage_col_str)) %>%
@@ -511,7 +526,7 @@ forecast_taylor_ssm <- function(params_df,
       # For exogenous forecasts
       
       
-      vintage_col_str <- format(forecast_origin, format = "%YQ%q")
+      vintage_col_str <- format(forecast_origin, format = "%Y Q%q")
       
       future_inf <- exogenous_inf_forecast_data %>%
         select(quarter = date, inf = all_of(vintage_col_str)) %>%
@@ -590,6 +605,254 @@ forecast_taylor_ssm <- function(params_df,
         current_shadow_rate <- new_shadow_rate
         
         # 5. Store the observed (capped) rate in the evaluation matrix
+        eval_mat[fdate_str, i] <- observed_forecast
+      }
+    }
+  }
+  
+  return(eval_mat)
+}
+
+
+
+
+#' Strict Pseudo-Out-of-Sample Taylor Rule State-Space Model Forecasting Engine
+#'
+#' @description Takes estimated latent structural parameter timelines and rolls forward
+#' across matched data vintages. Restricts operations to strict information sets available 
+#' at each origin to calculate pure out-of-sample policy rate forecast trajectories.
+#' Throws a critical error if any requested vintage columns are missing to prevent data leakage.
+#'
+#' @param params_df Dataframe containing the historical optimized parameter paths.
+#' @param date_col Character. Column name for the time index in params_df (default: "quarter").
+#' @param master_df Dataframe containing observed historical macro values (e.g., true_snb_rate).
+#' @param forecast_h Integer. Forward-looking planning horizon in quarters (default: 8).
+#' @param exogenous_gdp_forecast_data Matrix/DF containing real-time rolling level GDP projections.
+#' @param exogenous_inf_forecast_data Matrix/DF containing real-time rolling inflation projections.
+#' @param hp_inf_gap Logical. If TRUE, runs a rolling HP filter extraction on CPI logs (default: FALSE).
+#' @param inf_target Numeric. Steady-state central bank inflation target (default: 1).
+#' @param zlb_0_start String/yearqtr. Lower bound era threshold marking a 0% floor.
+#' @param zlb_075_start String/yearqtr. Lower bound era threshold marking a -0.75% floor.
+#' @param zlb_end String/yearqtr. The final termination quarter of the negative interest rate regime.
+#' @param use_true_data Logical. If TRUE, sets forecasts using perfect ex-post realizations (cheating benchmark).
+#'
+#' @return A matrix containing the tracking trajectories across target dates (rows) and forecast origins (columns).
+#' @export
+forecast_taylor_ssm <- function(params_df,
+                                date_col = "quarter",
+                                master_df,
+                                forecast_h = 8,
+                                exogenous_gdp_forecast_data,
+                                exogenous_inf_forecast_data = fcst_df_inf,
+                                hp_inf_gap = FALSE,
+                                inf_target = 1,
+                                zlb_0_start = "2009 Q2",
+                                zlb_075_start = "2015 Q1",
+                                zlb_end = "2022 Q2",
+                                use_true_data = FALSE) {
+  
+  # 1. Parse structural boundary time coordinates
+  zlb_0_start   <- zoo::as.yearqtr(zlb_0_start)
+  zlb_075_start <- zoo::as.yearqtr(zlb_075_start)
+  zlb_end       <- zoo::as.yearqtr(zlb_end)
+  
+  parameters <- params_df %>%
+    mutate(quarter = zoo::as.yearqtr(!!sym(date_col)))
+  
+  param_dates      <- parameters %>% pull(quarter)
+  inf_matrix_dates <- zoo::as.yearqtr(exogenous_inf_forecast_data[[1]])
+  
+  # Calculate exact overlapping limits between model steps and available vintages
+  fcast_start <- max(min(param_dates), min(inf_matrix_dates), na.rm = TRUE)
+  fcast_end   <- min(max(param_dates), max(inf_matrix_dates), na.rm = TRUE)
+  
+  message(sprintf("Data alignment successful. Filtering loop window: %s to %s", 
+                  as.character(fcast_start), as.character(fcast_end)))
+  
+  # Filter parameter sequence into clean unique steps to prevent duplicated iteration cycles
+  clean_param_dates <- sort(unique(param_dates))
+  dates <- clean_param_dates[clean_param_dates >= fcast_start & clean_param_dates <= fcast_end]
+  
+  # Determine matrix dimension requirements based strictly on evaluation horizons
+  min_global_date <- min(dates)
+  max_global_date <- max(dates) + (forecast_h / 4)
+  extended_rows   <- seq(min_global_date, max_global_date, by = 1/4)
+  
+  # Setup empty tracking matrix
+  eval_mat <- matrix(NA_real_, nrow = length(extended_rows), ncol = length(dates))
+  rownames(eval_mat) <- as.character(zoo::as.yearqtr(extended_rows))
+  colnames(eval_mat) <- as.character(zoo::as.yearqtr(dates))
+  
+  # Seed evaluation matrix diagonal endpoints with true historical initial reference constraints
+  for(i in seq_along(dates)) {
+    vantage_str <- as.character(dates[i])
+    actual_val <- master_df %>% 
+      filter(quarter == dates[i]) %>% 
+      pull(true_snb_rate) 
+    
+    if(length(actual_val) > 0) eval_mat[vantage_str, i] <- actual_val
+  }
+  
+  # ============================================================================
+  # MAIN FORECAST ROLLING LOOP
+  # ============================================================================
+  for (i in seq_along(dates)) {
+    forecast_origin <- dates[i] 
+    
+    # Extract unique state parameter snapshot matching current historical step
+    current_params <- parameters %>% filter(quarter == forecast_origin) %>% slice(1)
+    
+    i_bar <- current_params$natural_rate 
+    g_pi  <- current_params$gamma_pi
+    g_y   <- current_params$gamma_y
+    phi   <- current_params$phi
+    
+    # Establish baseline tracking lag position under potential ZLB distortion
+    if (forecast_origin >= zlb_0_start && forecast_origin <= zlb_end) {
+      y_t_t <- current_params$fitted_obs
+    } else {
+      y_t_t <- master_df %>% 
+        filter(quarter == forecast_origin) %>% 
+        pull(true_snb_rate)
+    }
+    
+    # ------------------------------------------------------------------------
+    # PART 1: STRICT EXOGENOUS GDP PROCESSING
+    # ------------------------------------------------------------------------
+    if(use_true_data) {
+      future_gdp <- exogenous_gdp_forecast_data
+    } else {
+      v_str_space   <- format(forecast_origin, format = "%Y Q%q")
+      v_str_compact <- format(forecast_origin, format = "%YQ%q")
+      
+      if (v_str_space %in% colnames(exogenous_gdp_forecast_data)) {
+        target_gdp_col <- v_str_space
+      } else if (v_str_compact %in% colnames(exogenous_gdp_forecast_data)) {
+        target_gdp_col <- v_str_compact
+      } else {
+        stop(sprintf("CRITICAL: Vintage column '%s' or '%s' not found in exogenous_gdp_forecast_data matrix.", 
+                     v_str_space, v_str_compact))
+      }
+      
+      future_gdp <- exogenous_gdp_forecast_data %>%
+        select(quarter = 1, log_gdp = all_of(target_gdp_col)) %>%
+        mutate(quarter = zoo::as.yearqtr(quarter, format = ifelse(grepl(" ", target_gdp_col), "%Y Q%q", "%YQ%q"))) %>%
+        filter(!is.na(log_gdp)) %>%
+        arrange(quarter)
+      
+      actual_gdp_val <- master_df %>% 
+        filter(quarter == forecast_origin) %>% 
+        pull(log_gdp)
+      
+      matrix_baseline_val <- future_gdp$log_gdp[1]
+      if (length(actual_gdp_val) > 0 && length(matrix_baseline_val) > 0) {
+        if (abs(matrix_baseline_val - actual_gdp_val) > 1e-6) {
+          warning(sprintf("[BASELINE OBS GDP MISMATCH] at origin %s. History: %f, Matrix Diagonal: %f", 
+                          v_str_space, actual_gdp_val, matrix_baseline_val))
+        }
+      }
+      
+      future_gdp <- future_gdp %>%
+        filter(quarter > forecast_origin) %>%
+        slice(1:forecast_h)
+    }
+    
+    gdp_forecasts <- get_hp_gap(vantage_q = forecast_origin,
+                                h = forecast_h,
+                                data = master_df,
+                                gdp_forecast_data = future_gdp,
+                                return_forecasts = TRUE)
+    
+    gdp_forecasts <- gdp_forecasts %>% mutate(quarter = as.yearqtr(quarter))
+    
+    # ------------------------------------------------------------------------
+    # PART 2: STRICT EXOGENOUS INFLATION PROCESSING
+    # ------------------------------------------------------------------------
+    if(use_true_data) {
+      if(hp_inf_gap){
+        inf_forecasts <- get_hp_gap(vantage_q = forecast_origin,
+                                    h = forecast_h,
+                                    data = master_df,
+                                    gdp_forecast_data = exogenous_inf_forecast_data,
+                                    gdp_col = "log_cpi",
+                                    return_forecasts = TRUE)
+      } else {
+        inf_forecasts <- master_taylor %>%
+          select(quarter, yoy_inf) %>%
+          filter(quarter > forecast_origin) %>%
+          slice(1:forecast_h) %>%
+          mutate(gap = yoy_inflation - inf_target,
+                 quarter = as.yearqtr(quarter)) %>%
+          select(quarter, gap)
+      }
+    } else {
+      
+      # DUE TO DATA FORMATTING SOMETHING I NEED TO CHANGE
+      
+      v_str_space   <- format(forecast_origin, format = "%Y Q%q")
+      v_str_compact <- format(forecast_origin, format = "%YQ%q")
+      
+      if (v_str_space %in% colnames(exogenous_inf_forecast_data)) {
+        target_inf_col <- v_str_space
+      } else if (v_str_compact %in% colnames(exogenous_inf_forecast_data)) {
+        target_inf_col <- v_str_compact
+      } else {
+        stop(sprintf("ERROR: Vintage column '%s' or '%s' not found in exogenous_inf_forecast_data matrix.", 
+                     v_str_space, v_str_compact))
+      }
+      
+      future_inf <- exogenous_inf_forecast_data %>%
+        select(quarter = 1, inf = all_of(target_inf_col)) %>%
+        mutate(quarter = zoo::as.yearqtr(quarter, format = ifelse(grepl(" ", target_inf_col), "%Y Q%q", "%YQ%q")),
+               inf = inf - 1) %>% 
+        filter(!is.na(inf)) %>%
+        arrange(quarter)
+      
+      future_inf <- future_inf %>%
+        filter(quarter > forecast_origin) %>%
+        slice(1:forecast_h)
+    }
+    
+    # ------------------------------------------------------------------------
+    # PART 3: VECTOR ALIGNMENT AND SMOOTHED FORECAST PROJECTION
+    # ------------------------------------------------------------------------
+    X_future <- gdp_forecasts %>%
+      rename(gdp_gap = gap) %>%
+      left_join(future_inf, by = "quarter") %>%
+      filter(quarter > forecast_origin)
+    
+    X_future$gdp_gap <- X_future$gdp_gap * 100
+    h_available      <- nrow(X_future)
+    
+    if (h_available > 0) {
+      current_shadow_rate <- y_t_t 
+      
+      for (h in 1:h_available) {
+        fdate     <- forecast_origin + h/4
+        fdate_str <- as.character(fdate)
+        
+        exog_now <- X_future %>% filter(quarter == fdate)
+        
+        inf_gap_h <- exog_now$inf 
+        gdp_gap_h <- exog_now$gdp_gap
+        
+        # Calculate dynamic unconstrained Taylor Rule target vector
+        target_rate     <- i_bar + (g_pi * inf_gap_h) + (g_y * gdp_gap_h)
+        new_shadow_rate <- (phi * current_shadow_rate) + (1 - phi) * target_rate
+        
+        # Bind floor rules by chronological policy regimes
+        if (fdate >= zlb_075_start && fdate <= zlb_end) {
+          active_floor <- -0.75
+        } else if (fdate >= zlb_0_start && fdate < zlb_075_start) {
+          active_floor <- 0.00
+        } else {
+          active_floor <- -Inf
+        }
+        
+        observed_forecast   <- max(active_floor, new_shadow_rate)
+        current_shadow_rate <- new_shadow_rate
+        
+        # Store observations inside the evaluation matrix layout
         eval_mat[fdate_str, i] <- observed_forecast
       }
     }
