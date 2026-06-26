@@ -1,3 +1,22 @@
+\begin{table}[htbp]
+\centering
+\caption{Phillips Curve State-Space Model: Parameter Guesses and Constraints}
+\label{tab:phillips_curve_ssm_specs}
+\begin{tabular}{llcl}
+\hline\hline
+\textbf{Parameter Category} & \textbf{Variable Identifier} & \textbf{Initial Value} & \textbf{Estimation Restriction Schema} \\ \hline
+\textit{Structural Dynamics} &&& \\
+    & \texttt{beta\_y} & 0.10 & Bounded Logistic Range: $[0.001, 0.300]$ \\
+    & \texttt{psi\_lop} & -0.10 & Unconstrained (Linear Mapping) \\
+    & \texttt{phi} & 0.80 & Bounded Logistic Range: $[0.100, 0.990]$ \\
+\hline
+\textit{Measurement Noise} &&& \\
+    & \texttt{sigma\_cpi} & 0.20 & Strictly Positive Exponential ($>0$) \\
+    & \texttt{sigma\_spf} & 0.20 & Strictly Positive Exponential ($>0$) \\
+\hline
+\textit{State Innovation} &&& \\
+    & \texttt{xi\_n} & 0.10 & Strictly Positive Exponential ($>0$) \\
+\hline
 \hline\hline
 \end{tabular}
 \end{table}

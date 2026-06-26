@@ -98,8 +98,6 @@ export_eval_to_latex <- function(eval_df, output_path = NULL) {
   return(invisible(final_latex))
 }
 
-
-
 #' Generate and Export Parameter Specification LaTeX Tables
 #'
 #' @param manifest_source List. The nested list configuration structure.
@@ -134,19 +132,27 @@ generate_param_latex_table <- function(manifest_source, model_name, save_path = 
     for (item in cat_items) {
       # Decode optimization rules into human-readable text strings
       restriction_text <- switch(as.character(item$rule),
-                                 "0" = "Unconstrained (Linear Mapping)",
-                                 "1" = "Strictly Positive Exponential ($>0$)",
-                                 "2" = "Logit Probability Range ($[0, 1]$)",
-                                 "3" = sprintf("Bounded Logistic Range: $[%s, %s]$", 
-                                               format(item$low, nsmall = 3), format(item$high, nsmall = 3)),
+                                 "-1" = "Fixed State Environment Anchor",
+                                 "0"  = "Unconstrained (Linear Mapping)",
+                                 "1"  = "Strictly Positive Exponential ($>0$)",
+                                 "2"  = "Logit Probability Range ($[0, 1]$)",
+                                 "3"  = sprintf("Bounded Logistic Range: $[%s, %s]$", 
+                                                format(item$low, nsmall = 3), format(item$high, nsmall = 3)),
                                  "Unknown Mapping Setup"
       )
+      
+      # SAFE PARSING: If item$val is a vector (like state_init), collapse it to a string cleanly
+      if (length(item$val) > 1) {
+        val_string <- paste0("[", paste(format(item$val, nsmall = 1), collapse = ", "), "]")
+      } else {
+        val_string <- format(item$val, nsmall = 2)
+      }
       
       # Format individual row strings escaping the underscores safely for LaTeX compiler
       escaped_name <- gsub("_", "\\_", item$name, fixed = TRUE)
       row_string <- sprintf("    & \\texttt{%s} & %s & %s \\\\", 
                             escaped_name, 
-                            format(item$val, nsmall = 2), 
+                            val_string, 
                             restriction_text)
       
       tex_lines <- c(tex_lines, row_string)
@@ -154,8 +160,9 @@ generate_param_latex_table <- function(manifest_source, model_name, save_path = 
     tex_lines <- c(tex_lines, "\\hline")
   }
   
-  # 3. Add Matrix Initial Closures Footer
+  # 3. FIXED BUG: Append the Matrix Initial Closures Footer onto existing tex_lines array
   tex_lines <- c(
+    tex_lines, # Crucial reference to pull in the content built by the loop!
     "\\hline\\hline",
     "\\end{tabular}",
     "\\end{table}"

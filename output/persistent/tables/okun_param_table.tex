@@ -1,3 +1,27 @@
+\begin{table}[htbp]
+\centering
+\caption{Okuns Law State-Space Model: Parameter Guesses and Constraints}
+\label{tab:okuns_law_ssm_specs}
+\begin{tabular}{llcl}
+\hline\hline
+\textbf{Parameter Category} & \textbf{Variable Identifier} & \textbf{Initial Value} & \textbf{Estimation Restriction Schema} \\ \hline
+\textit{Structural Dynamics} &&& \\
+    & \texttt{beta1} & -0.10 & Unconstrained (Linear Mapping) \\
+    & \texttt{beta2} & -0.10 & Unconstrained (Linear Mapping) \\
+    & \texttt{beta3} & -0.10 & Unconstrained (Linear Mapping) \\
+    & \texttt{phi} & 0.60 & Logit Probability Range ($[0, 1]$) \\
+\hline
+\textit{Measurement Noise} &&& \\
+    & \texttt{sigma\_unemp\_rate} & 0.50 & Strictly Positive Exponential ($>0$) \\
+    & \texttt{sigma\_spf\_5y\_unemp} & 0.50 & Strictly Positive Exponential ($>0$) \\
+\hline
+\textit{State Innovation} &&& \\
+    & \texttt{xi\_n} & 0.10 & Strictly Positive Exponential ($>0$) \\
+\hline
+\textit{State Initialization} &&& \\
+    & \texttt{state\_init} & 1.30 & Fixed State Environment Anchor \\
+    & \texttt{sigma\_init} & 10.00 & Fixed State Environment Anchor \\
+\hline
 \hline\hline
 \end{tabular}
 \end{table}

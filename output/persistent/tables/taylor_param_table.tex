@@ -1,3 +1,28 @@
+\begin{table}[htbp]
+\centering
+\caption{Taylor Rule State-Space Model: Parameter Guesses and Constraints}
+\label{tab:taylor_rule_ssm_specs}
+\begin{tabular}{llcl}
+\hline\hline
+\textbf{Parameter Category} & \textbf{Variable Identifier} & \textbf{Initial Value} & \textbf{Estimation Restriction Schema} \\ \hline
+\textit{Structural Dynamics} &&& \\
+    & \texttt{gamma\_pi} & 0.90 & Strictly Positive Exponential ($>0$) \\
+    & \texttt{gamma\_y} & 0.50 & Strictly Positive Exponential ($>0$) \\
+    & \texttt{phi} & 0.50 & Logit Probability Range ($[0, 1]$) \\
+    & \texttt{rho\_tp} & 0.60 & Logit Probability Range ($[0, 1]$) \\
+\hline
+\textit{Measurement Noise} &&& \\
+    & \texttt{sigma\_policy} & 0.10 & Strictly Positive Exponential ($>0$) \\
+\hline
+\textit{State Innovation} &&& \\
+    & \texttt{xi\_i} & 0.10 & Strictly Positive Exponential ($>0$) \\
+    & \texttt{xi\_tp\_bar} & 0.05 & Strictly Positive Exponential ($>0$) \\
+    & \texttt{xi\_tp\_cycl} & 0.05 & Strictly Positive Exponential ($>0$) \\
+\hline
+\textit{State Initialization} &&& \\
+    & \texttt{state\_init} & [6.0, 1.0, 0.1] & Fixed State Environment Anchor \\
+    & \texttt{sigma\_init} & 10.00 & Fixed State Environment Anchor \\
+\hline
 \hline\hline
 \end{tabular}
 \end{table}

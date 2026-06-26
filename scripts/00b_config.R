@@ -203,7 +203,7 @@ ts_names <- c(
 #===============================================================================
 
 # ---  General Settings ---
-forecast_starting_date <- as.yearqtr("2024 Q2")
+forecast_starting_date <- as.yearqtr("2000 Q1")
 
 # FOr Indexing
 indexing_date <- "2020-12-01"
