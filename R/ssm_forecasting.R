@@ -219,9 +219,67 @@ forecast_okun_ssm <- function(params_df,
 
 
 ################################################################################
+#
+# PHILIPS MODEL FORECASTING FUNCTION
+#
+################################################################################
 
 
-
+#' Rolling Pseudo-Out-of-Sample Phillips Curve State-Space Forecasting Engine
+#'
+#' @description
+#' Generates iterative rolling real-time forecasts of inflation differentials 
+#' using a hybrid New Keynesian Phillips Curve state-space framework. The engine loops 
+#' through a sequence of chronological historical origins (vintages), extracts 
+#' filtered parameters unique to each vintage, isolates exogenous real-time macro projections, 
+#' and dynamically projects path trajectories using a recursive autoregressive step configuration.
+#'
+#' @param params_df A long-format or wide-format data frame containing estimated latent 
+#'   structural coefficients and state variables generated via recursive rolling estimations. 
+#'   Must contain structural columns matching the model's parameters: \code{natural_rate} 
+#'   (\eqn{\bar{\pi}_t}), \code{beta_y} (\eqn{\beta_y}), \code{psi_lop} (\eqn{\psi_{lop}}), 
+#'   \code{phi} (\eqn{\phi}), and a chronological index defined by \code{date_col}.
+#' @param date_col Character. The column handle name mapping the chronological 
+#'   vintage timeline within \code{params_df}. Defaults to \code{"quarter"}.
+#' @param master_df A comprehensive data frame housing true historical realized baseline metrics. 
+#'   Must feature index column \code{quarter} (formatted as \code{zoo::yearqtr}) alongside 
+#'   \code{log_inflation_diff}, \code{log_gdp}, and the base series needed for HP gap extractions.
+#' @param forecast_h Integer. The forward-looking pseudo out-of-sample prediction planning 
+#'   horizon expressed in quarterly steps. Defaults to \code{8} (a 2-year forward horizon).
+#' @param exogenous_gdp_forecast_data A wide-format data frame or matrix housing rolling 
+#'   real-time GDP projections. Row index position 1 must denote target forecast quarters, 
+#'   while remaining columns must map cleanly to distinct forecast vantage origins named via space-separated 
+#'   or compact string representations of year-quarters (e.g., \code{"2010 Q1"} or \code{"2010Q1"}).
+#' @param use_true_data Logical. Benchmark flag. If \code{TRUE}, the model bypasses real-time 
+#'   exogenous vintage frames and substitutes perfect ex-post historical realizations for future paths. 
+#'   Defaults to \code{FALSE} to enforce a strict pseudo-out-of-sample information constraint.
+#'
+#' @details 
+#' At each forecast origin \eqn{t}, the function extracts the corresponding parameters to 
+#' initialize a rolling New Keynesian structural projection loop. Exogenous output gaps 
+#' and Law of One Price (LOP) gaps are isolated using \code{\link{get_hp_gap}} and 
+#' \code{\link{splice_snb_series}}. Both indicators are automatically scaled up by a factor 
+#' of 100 to perfectly align with the underlying variance-covariance estimation scaling.
+#' 
+#' The underlying projection step calculates values recursively for horizons \eqn{h = 1 \dots H}:
+#' \deqn{\pi_{t+h} = \bar{\pi}_t + \phi(\pi_{t+h-1} - \bar{\pi}_t) + \psi_{lop} \cdot lop\_gap_{t+h} + \beta_y \cdot gdp\_gap_{t+h}}
+#' Where the historical lag anchor at horizon \eqn{h=1} (\eqn{\pi_{t}}) is bound directly to 
+#' the observed, real-time value present in history.
+#'
+#' @return A dense evaluation matrix containing tracking projections where:
+#'   \item{Columns}{Represent specific chronological forecast origins / deployment vintages (\code{dates}).}
+#'   \item{Rows}{Represent forward-looking calendar target quarters matching the background sample history extended by \code{forecast_h}.}
+#'   The matrix diagonal is automatically seeded with true historical values. Out-of-sample cells contain pure multi-step recursive projections.
+#'
+#' @note 
+#' The function relies on global environment configuration variables \code{SNB_REER_DELAY} 
+#' and \code{model_philips_burn_in} to parameterize the real-time real exchange rate splicing 
+#' sub-functions. Ensure these are defined globally or within your package environment namespace.
+#'
+#' @importFrom dplyr %>% mutate filter pull select arrange left_join rename slice
+#' @importFrom zoo as.yearqtr as.Date
+#' @importFrom tidyselect all_of
+#' @export
 forecast_philips_ssm <- function(params_df,
                                  date_col = "quarter",
                                  master_df,
@@ -359,7 +417,8 @@ forecast_philips_ssm <- function(params_df,
       }
     }
   }
-  message("ENDED PHILIPS FORECASTS")
+  message("[SUCCESS] FINISHED OKUNS LAW FORECASTS")
+  
   return(eval_mat)
 }
 
@@ -609,11 +668,12 @@ forecast_taylor_ssm <- function(params_df,
       }
     }
   }
-  
+  message("[SUCCESS] FINISHED PHILLIPS CURVE FORECASTS")
   return(eval_mat)
 }
 
 
+# TODO FOR BELOW: SOLVE DATE ISSUE
 
 
 #' Strict Pseudo-Out-of-Sample Taylor Rule State-Space Model Forecasting Engine
@@ -651,25 +711,31 @@ forecast_taylor_ssm <- function(params_df,
                                 zlb_end = "2022 Q2",
                                 use_true_data = FALSE) {
   
-  # 1. Parse structural boundary time coordinates
+  # Load boundaries and turn into yearqtr
   zlb_0_start   <- zoo::as.yearqtr(zlb_0_start)
   zlb_075_start <- zoo::as.yearqtr(zlb_075_start)
   zlb_end       <- zoo::as.yearqtr(zlb_end)
   
+  # --- Select Date range where everything is available ---
+  
+  # Select Parameter dates
   parameters <- params_df %>%
     mutate(quarter = zoo::as.yearqtr(!!sym(date_col)))
   
   param_dates      <- parameters %>% pull(quarter)
+  
+  # Select dates from the inflation forecast matrix
   inf_matrix_dates <- zoo::as.yearqtr(exogenous_inf_forecast_data[[1]])
   
   # Calculate exact overlapping limits between model steps and available vintages
+  # Essentially check that I have all the data needed for forecasting -> prevents crash
   fcast_start <- max(min(param_dates), min(inf_matrix_dates), na.rm = TRUE)
   fcast_end   <- min(max(param_dates), max(inf_matrix_dates), na.rm = TRUE)
   
   message(sprintf("Data alignment successful. Filtering loop window: %s to %s", 
                   as.character(fcast_start), as.character(fcast_end)))
   
-  # Filter parameter sequence into clean unique steps to prevent duplicated iteration cycles
+  # Filter parameter sequence into unique date steps
   clean_param_dates <- sort(unique(param_dates))
   dates <- clean_param_dates[clean_param_dates >= fcast_start & clean_param_dates <= fcast_end]
   
@@ -678,12 +744,14 @@ forecast_taylor_ssm <- function(params_df,
   max_global_date <- max(dates) + (forecast_h / 4)
   extended_rows   <- seq(min_global_date, max_global_date, by = 1/4)
   
+  # --- Build Eval Mat
+  
   # Setup empty tracking matrix
   eval_mat <- matrix(NA_real_, nrow = length(extended_rows), ncol = length(dates))
   rownames(eval_mat) <- as.character(zoo::as.yearqtr(extended_rows))
   colnames(eval_mat) <- as.character(zoo::as.yearqtr(dates))
   
-  # Seed evaluation matrix diagonal endpoints with true historical initial reference constraints
+  # Build evaluation matrix diagonal with true data
   for(i in seq_along(dates)) {
     vantage_str <- as.character(dates[i])
     actual_val <- master_df %>% 
@@ -699,7 +767,7 @@ forecast_taylor_ssm <- function(params_df,
   for (i in seq_along(dates)) {
     forecast_origin <- dates[i] 
     
-    # Extract unique state parameter snapshot matching current historical step
+    # Extract Parameters from vantage points rolling estimatation
     current_params <- parameters %>% filter(quarter == forecast_origin) %>% slice(1)
     
     i_bar <- current_params$natural_rate 
@@ -717,7 +785,7 @@ forecast_taylor_ssm <- function(params_df,
     }
     
     # ------------------------------------------------------------------------
-    # PART 1: STRICT EXOGENOUS GDP PROCESSING
+    # Handle GDP
     # ------------------------------------------------------------------------
     if(use_true_data) {
       future_gdp <- exogenous_gdp_forecast_data
@@ -766,7 +834,7 @@ forecast_taylor_ssm <- function(params_df,
     gdp_forecasts <- gdp_forecasts %>% mutate(quarter = as.yearqtr(quarter))
     
     # ------------------------------------------------------------------------
-    # PART 2: STRICT EXOGENOUS INFLATION PROCESSING
+    # Handle Inflation
     # ------------------------------------------------------------------------
     if(use_true_data) {
       if(hp_inf_gap){
@@ -814,7 +882,7 @@ forecast_taylor_ssm <- function(params_df,
     }
     
     # ------------------------------------------------------------------------
-    # PART 3: VECTOR ALIGNMENT AND SMOOTHED FORECAST PROJECTION
+    # Align Data to run forecasts
     # ------------------------------------------------------------------------
     X_future <- gdp_forecasts %>%
       rename(gdp_gap = gap) %>%
@@ -858,6 +926,8 @@ forecast_taylor_ssm <- function(params_df,
     }
   }
   
+  
+  message("[SUCCESS] FINISHED TAYLOR RULE FORECASTS")
   return(eval_mat)
 }
 

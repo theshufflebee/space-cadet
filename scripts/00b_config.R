@@ -1,16 +1,27 @@
 ################################################################################
-# 
-# All variables that are choses, selected, defined are here
+# CONFIGURATION AND INITIALIZATION MANIFEST
 #
+# All variables that are chosen, selected, and defined are here.
+# 
+# SUMMARY OF OPERATIONS IN THIS SCRIPT:
+#   1. Load Internal Functions (Data, Kalman Engine, Forecasting, Plots)
+#   2. Define Input & Output System Paths (Raw Data & Directory Creation)
+#   3. Assign External API & Programmatic Metadata IDs (KOF, BFS, SECO, Eurostat)
+#   4. Establish Global Time-Series & Query Parameters (SNB API, Download Switches)
+#   5. Map Data Assets & CSV/XLSX Save Formats (Raw & Joined Processed Sets)
+#   6. Define Core Dynamic Model Target & Time-Series Arrays
+#   7. Configure Model-Specific Parameter Guesses & Bounds (Okun, Phillips, Taylor)
+#   8. Initialize Output Storage Ingestion Targets (Plots, Params, TeX Tables)
 ################################################################################
 
 
 # ==============================================================================
-# Load functions
+# 1. Load internal functions
 # ==============================================================================
 
 
-# Loading Data Handling / FOrmatting Functions
+# Data Handling / Formatting Functions
+# ------------------------------------------------------------------------------
 source(here("R", "load_snb_data.R")) # Data loading SNB
 source(here("R", "load_kof_data.R")) # Data loading KOF
 source(here("R", "utils.R")) # Diverse Utility functions
@@ -38,38 +49,37 @@ source(here("R", "visualizations.R"))
 
 
 # ==============================================================================
-# Downloading and Data Prep Settings
+# 2. FILE SYSTEM PATHS & DIRECTORY ENVIRONMENT SETUP
 # ==============================================================================
-
 # This section handles all paths with here. All paths are relative to the repo
 # root. Further we handle external id's or link to download data from external
 # sources. Finally we handle the date range for downloads and if we want to
 # force a re-download of all data
 
+
+
 # --- Set Paths / create folders ---
 
 
-# Base Data  Path
-#master_df_path <- here("data")
+# Base Data  Storage Path
+# ------------------------------------------------------------------------------
 data_base_path <- here("data")
 
-#data_base_path <- if(store_temp) output_temp else output_persistent
-
-
-# Set Base Raw Data Paths and create the dir if needed
 raw_data_path  <- here("data", "raw")
 if (!dir.exists(raw_data_path)) dir.create(raw_data_path, recursive = TRUE)
 
 
 # Data Keys for Downloads / API Calls
 # ------------------------------------------------------------------------------
-### KOF Data
 
 ### BFS Data
-cpi_asset_id <- "36483229" # ID for CPI Download
-emp_asset_id <- "px-x-0602000000_101" # ID From Package
-unemp_asset_id <- "36453929" # Id from package Catalogue
-ppi_asset_id <- "36532319"
+#cpi_asset_id <- "36483229" # ID for CPI Download
+#emp_asset_id <- "px-x-0602000000_101" # ID From Package
+#unemp_asset_id <- "36453929" # Id from package Catalogue
+
+# alternative id for other value:
+# unemp_asset_id = "36453929", # Id from package Catalog
+
 
 # --- External Metadata and IDs ---
 # IDs for programmatic downloads via BFS/KOF wrappers
@@ -77,10 +87,7 @@ data_external_ids <- list(
   bfs_cpi        = "36483229",
   bfs_employment = "px-x-0602000000_101",
   bfs_unemployment = "36589267",
-  url_seco_gdp   = "https://www.seco.admin.ch/dam/seco/de/dokumente/Wirtschaft/Wirtschaftslage/BIP_Daten/ch_seco_gdp_csv.csv.download.csv/ch_seco_gdp.csv",
-  cpi_asset_id = "36483229", # ID for CPI Download
-  emp_asset_id = "px-x-0602000000_101", # ID From Package
-  unemp_asset_id = "36453929", # Id from package Catalog
+  url_seco_gdp   = "https://scheduler.swissdatas.ch/scheduled/ch-seco-gdp.csv",
   ppi_asset_id =  "36532319",
   kof_data_key = "kof_consensus_forecast_mean"
   
@@ -109,7 +116,8 @@ data_save_paths <- list(
   
   # --- Raw Data: Source files directly from APIs or URLs ---
   raw = list(
-    ## SNB Data
+    
+    # --- SNB Data ---
     money_market_csv    = here(raw_data_path, "money_market.csv"),
     money_market_json   = here(raw_data_path, "money_market_metadata.json"),
     
@@ -128,19 +136,19 @@ data_save_paths <- list(
     snb_policy_csv     = here(raw_data_path, "snb_policy_rate.csv"),
     snb_policy_json    = here(raw_data_path, "snb_policy_rate_metadata.json"),
     
-    ## KOF Data
+    # --- KOF Data ---
     kof_master_csv      = here(raw_data_path, "kof_consensus_master.csv"),
     
-    ## BFS Data
+    # --- BFS Data ---
     cpi_series_xlsx     = here(raw_data_path, "cpi_series.xlsx"),
     employment_csv      = here(raw_data_path, "employment_data.csv"),
     unemployment_csv    = here(raw_data_path, "unemployment_canton.csv"),
     ppi_csv             = here(raw_data_path, "ppi_ch.xlsx"),
     
-    ## SECO Data
+    # --- SECO Data ---
     gdp_seco_csv        = here(raw_data_path, "gdp.csv"),
     
-    ## EUROSTAT
+    # --- EUROSTAT ---
     eu_ppi_csv         = here(raw_data_path, "eu_ppi_raw.csv")
     
   ),
@@ -190,9 +198,9 @@ ts_names <- c(
   "snb_policy_rate_ts")
 
 
-################################################################################
+#===============================================================================
 #Forecasting Settings
-################################################################################
+#===============================================================================
 
 # ---  General Settings ---
 forecast_starting_date <- as.yearqtr("2000 Q1")
@@ -200,27 +208,34 @@ forecast_starting_date <- as.yearqtr("2000 Q1")
 # FOr Indexing
 indexing_date <- "2020-12-01"
 
-
+# If FALSE loading from files
 run_estimation <- FALSE
 
+# Forecast Horizon
 h <- 8
 
+# If true use params from last estimation, if false reestimate over full sample
+fit_plot_last_est <- TRUE
+
 # Inflation Lag is wether we use quarterly or yearly inf differentia
-inf_diff_q <- 4
+# inf_diff_q <- 4
 
+# hp_filter_burn_in <- "1990-01-01"
   
-# --- Okun Model Configuration settings ---
+# ==============================================================================
+# Parameter Guesses Settings
+# ==============================================================================
 
-# We run the HP filter to estimate the gap. this determines the first observation
-# of the GDP Variable
-hp_filter_burn_in <- "1990-01-01"
 
 # --- Initial guesses for Okun ---
-# Initial parameters guess for okun model
 okun_parameter_guess <- list(
+  
+  # Parameters on gdp gap and lags
   beta1 = -0.1,
   beta2 = -0.1,
   beta3 = -0.1,
+  
+  # AR Parameter
   phi = 0.6,
   sigma_unemp_rate = 0.5,
   sigma_spf_5y_unemp = 0.5,
@@ -231,13 +246,12 @@ okun_parameter_guess <- list(
 
 
 # --- Initial Guesses for Philips Model ---
-
 philips_parameter_guess <- list(
   
   # Parameters on exogenous variables
-  beta_y = 0.1,
-  psi_lop = -0.1,
-  phi = 0.8,
+  beta_y = 0.1, # Output gap
+  psi_lop = -0.1, # Law of one price gap
+  phi = 0.8, # AR parameter
   
   # sd on measurement variables
   sigma_cpi = 0.2,
@@ -251,19 +265,18 @@ philips_parameter_guess <- list(
 )
 
 # --- Initial guesses for Taylor Rule / SNB Policy Rate ---
-# Initial parameters guess for the Taylor Rule State-Space Model
 snb_rate_parameter_guess <- list(
   # Taylor Rule Parameters (Unconstrained)
   gamma_pi            = 0.9,    # Inflation gap coefficient
   gamma_y             = 0.5,    # Output gap coefficient
   
-  # Persistence Parameters (Rule 2: Logit 0 to 1)
-  phi                 = 0.5,    # Interest rate smoothing (it = rho*i_t-1 + ...)
+  # Persistence Parameters 
+  phi                 = 0.5,    # Interest rate smoothing
   rho_tp              = 0.6,    # Persistence of cyclical term premium component
   
   # Measurement Noise Standard Deviations (Rule 1: Exponential > 0)
   sigma_policy        = 0.1,   # Error in the shadow policy rate equation
-  # sigma_fwd           = 0.2,   # Error in the 5y-5y forward rate identification
+  # sigma_fwd           = 0.2,   there is no error here as error comps of other parts already completly 
 
   # State Innovation Standard Deviations (Rule 1: Exponential > 0)
   xi_i                = 0.1,  # Shock to the nominal natural rate (random walk)
@@ -281,19 +294,19 @@ SNB_REER_DELAY <- 3
 model_philips_burn_in <- "2000 Q4"
 
 
+# ==============================================================================
+# Output Save Path handling
+# ==============================================================================
 
-# --- Output Save paths ---
+# Either store in Temp for just checking results or in persisten for true runs / proper output
+# This only concerns the output folders
 
+# Boolean to adjust
 store_temp <- FALSE
 
-# Only concerns the output folder
-
-# Define the base output directory
-# can store either in the persistent folder which should contain clean and proper outputs
-# or temp to check what you have (example shorter estimations)
+# Logic
 output_persistent <- here("output", "persistent")
 output_temp <- here("output", "temp")
-
 output_base <- if(store_temp) output_temp else output_persistent
 
 # generate sub folders

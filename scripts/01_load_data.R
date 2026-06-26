@@ -91,7 +91,7 @@ bfs_wrapper(data_external_ids$bfs_unemployment,
 
 
 # --- Employment Data
-bfs_wrapper(data_external_ids$emp_asset_id,
+bfs_wrapper(data_external_ids$bfs_employment,
             data_save_paths$raw$employment_csv,
             do_api_call = do_api_call,
             type = "data")
@@ -160,8 +160,3 @@ if (do_api_call || !file.exists(data_save_paths$raw$eu_ppi_csv)) {
 }
 
 message("[SUCCESS] DATA LOADING DONE...")
-
-
-
-
-

@@ -186,7 +186,10 @@ employment_ts <- format_time_series_df(employment,
 # ==============================================================================
 
 # Read Data
-data_gdp_raw <- read_csv(data_save_paths$raw$gdp_seco_csv)                   
+data_gdp_raw <- read_csv(data_save_paths$raw$gdp_seco_csv,
+                         name_repair = "minimal") %>% 
+  # Remove the first index column
+  select(-1)                  
 
 # Select the data that has the correct type, adjustments and structure
 gdp_data <- data_gdp_raw %>% 
@@ -267,3 +270,4 @@ write_csv(master_df, data_save_paths$processed$master_df_csv)
 
 
 message("Data formatting done")
+

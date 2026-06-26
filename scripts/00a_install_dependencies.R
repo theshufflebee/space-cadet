@@ -5,9 +5,9 @@
 ################################################################################
 
 
-# ------------------------------------------------------------------------------
+# ==============================================================================
 # Required Package List
-# ------------------------------------------------------------------------------
+# ==============================================================================
 
 # All packages saved into a vector to load later
 required_packages <- c(
@@ -45,9 +45,9 @@ required_packages <- c(
 # also sources install_missing_packages function
 source(here("R", "utils.R"))
 
-# ------------------------------------------------------------------------------
+# ==============================================================================
 # Execute installation and loading
-# ------------------------------------------------------------------------------
+# ==============================================================================
 
 # installs only missing packages, does not re install installed packages
 install_missing_packages(required_packages)
@@ -55,15 +55,7 @@ install_missing_packages(required_packages)
 # Loads all packages
 load_packages(required_packages)
 
-if (!requireNamespace("data.table", quietly = TRUE) || 
-    packageVersion("data.table") < "1.16.0") {
-  message(">>> CRITICAL OUTDATED DEPENDENCY: Updating 'data.table' to restore 'sort_by'...")
-  install.packages("data.table", repos = "https://cloud.r-project.org", type = "binary")
-  
-  # Unload and reload the updated namespace to prevent memory corruption
-  if ("data.table" %in% loadedNamespaces()) unloadNamespace("data.table")
-}
-
+# Install local CREA Package
 remotes::install_local("C:/Users/jonas/Desktop/repos/creaFcstEval")
 
 # Resolve conflicts
@@ -73,5 +65,4 @@ conflict_prefer("lag",    "stats")
 conflict_prefer("complete", "tidyr") 
 conflict_prefer("last", "dplyr")
 conflict_prefer("yearqtr", "zoo")
-
-
+conflict_prefer("index", "zoo")

@@ -255,8 +255,7 @@ master_taylor <- master_quarterly %>%
                   "lag_rate", "log_gdp", "gdp_gap", "12m_interest_forecast", "hp_inf_gap"))) %>%
   mutate(
     across(c("saron_libor_splice", "true_snb_rate",
-             "forward_rate", "log_cpi", "lag_rate",
-             "12m_interest_forecast", "hp_inf_gap", "gdp_gap"), ~ .x * 100) 
+             "forward_rate", "lag_rate"), ~ .x * 100) 
   ) %>%
   mutate(
     inf_gap = yoy_inf -1,
@@ -296,5 +295,5 @@ if (run_estimation || !file.exists(output_save_paths$forecasts$forecast_df_gdp_a
 }
 
 
-
+message("DATA PREPARATION SUCCESSFUL, CONTINUING TO ESTIMATION...")
 

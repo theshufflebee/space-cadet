@@ -7,7 +7,6 @@
 
 
 
-
 #' Plot and Save Model Parameter Evolution
 #'
 #' @description
@@ -51,13 +50,11 @@ plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter
     
     # Intercept
     geom_hline(yintercept = 0.00, color = "grey75", linewidth = 0.5, linetype = "dotted") +
-    # Line for tracking
+    # Line for tracking (Points removed to keep it strictly lines)
     geom_line(color = "#34495e", linewidth = 1.0) +
-    # show points to see exact date -> when less dates more visible
-    geom_point(color = "#34495e", size = 1.2, alpha = 0.6) +
     
-    # stack plots for all parameters
-    facet_wrap(~parameter, ncol = 1, scales = "free_y") +
+    # Constrain rows to exactly 3 parameters per column, release bottom axis limits
+    facet_wrap(~parameter, nrow = 3, scales = "free_y", axes = "margins") +
     
     # Labeling payload
     labs(
@@ -67,8 +64,8 @@ plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter
       y        = "Coefficient Magnitude"
     ) +
     
-    # Native Time Mapping
-    scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
+    # MODIFIED: Changed date_breaks to '4 years' to reduce crowded text labels
+    scale_x_date(date_labels = "%Y", date_breaks = "4 years") +
     
     #Clean Academic Theme Styling
     # ----------------------------------------------------------------------------
@@ -84,13 +81,16 @@ plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter
       strip.background = element_blank(),
       strip.text       = element_text(face = "bold", size = 10, color = "#2c3e50", hjust = 0),
       
+      # Forces x-axis labels to display on interior bottom panels explicitly
+      axis.text.x      = element_text(color = "grey30", size = 9),
+      
       # Format Grid
       panel.grid.minor = element_blank(),
       panel.grid.major = element_line(color = "grey95", linewidth = 0.5),
       panel.spacing    = unit(1.5, "lines") # Give panels breathing room
     )
   
-  # Esport and saving Logic
+  # Export and saving Logic
   # ----------------------------------------------------------------------------
   if (!is.null(save_path)) {
     dir_name <- dirname(save_path)
@@ -99,19 +99,20 @@ plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter
     }
     
     num_params <- length(unique(plot_data$parameter))
+    num_cols   <- ceiling(num_params / 3) # Calculate dynamic layout width
     
-    # Dynamically scales height according to amount of parameters
+    # Width scales with columns, height stays locked to a solid 3-row baseline
     ggplot2::ggsave(
       filename = save_path, 
       plot     = p, 
-      width    = 8.5, 
-      height   = max(4, 2.2 * num_params), 
+      width    = max(7.5, 4.2 * num_cols), 
+      height   = 7.5, 
       units    = "in",
       dpi      = 300
     )
-    message(paste(title, "Plott successfully saved to disk:", save_path))
+    message(paste(title, "Plot successfully saved to disk:", save_path))
   } else {
-    message("Proceeding without saving", title, " Plot")
+    message("Proceeding without saving ", title, " Plot")
   }
   
   return(p)
