@@ -97,3 +97,80 @@ export_eval_to_latex <- function(eval_df, output_path = NULL) {
   
   return(invisible(final_latex))
 }
+
+
+
+#' Generate and Export Parameter Specification LaTeX Tables
+#'
+#' @param manifest_source List. The nested list configuration structure.
+#' @param model_name Character. Human-readable name of the target model for labels.
+#' @param save_path Character. Clean system path destination where the .tex file will be written.
+#'
+#' @return Character string containing the raw LaTeX code block.
+#' @export
+generate_param_latex_table <- function(manifest_source, model_name, save_path = NULL) {
+  
+  # 1. Initialize LaTeX Table Header Architecture
+  tex_lines <- c(
+    "\\begin{table}[htbp]",
+    "\\centering",
+    sprintf("\\caption{%s State-Space Model: Parameter Guesses and Constraints}", model_name),
+    sprintf("\\label{tab:%s_ssm_specs}", tolower(gsub(" ", "_", model_name))),
+    "\\begin{tabular}{llcl}",
+    "\\hline\\hline",
+    "\\textbf{Parameter Category} & \\textbf{Variable Identifier} & \\textbf{Initial Value} & \\textbf{Estimation Restriction Schema} \\\\ \\hline"
+  )
+  
+  # 2. Group the components by their category attribute
+  categories <- unique(sapply(manifest_source, function(x) x$category))
+  
+  for (cat in categories) {
+    # Add category sub-header row line
+    tex_lines <- c(tex_lines, sprintf("\\textit{%s} &&& \\\\", cat))
+    
+    # Filter variables belonging strictly to this group
+    cat_items <- manifest_source[sapply(manifest_source, function(x) x$category == cat)]
+    
+    for (item in cat_items) {
+      # Decode optimization rules into human-readable text strings
+      restriction_text <- switch(as.character(item$rule),
+                                 "0" = "Unconstrained (Linear Mapping)",
+                                 "1" = "Strictly Positive Exponential ($>0$)",
+                                 "2" = "Logit Probability Range ($[0, 1]$)",
+                                 "3" = sprintf("Bounded Logistic Range: $[%s, %s]$", 
+                                               format(item$low, nsmall = 3), format(item$high, nsmall = 3)),
+                                 "Unknown Mapping Setup"
+      )
+      
+      # Format individual row strings escaping the underscores safely for LaTeX compiler
+      escaped_name <- gsub("_", "\\_", item$name, fixed = TRUE)
+      row_string <- sprintf("    & \\texttt{%s} & %s & %s \\\\", 
+                            escaped_name, 
+                            format(item$val, nsmall = 2), 
+                            restriction_text)
+      
+      tex_lines <- c(tex_lines, row_string)
+    }
+    tex_lines <- c(tex_lines, "\\hline")
+  }
+  
+  # 3. Add Matrix Initial Closures Footer
+  tex_lines <- c(
+    "\\hline\\hline",
+    "\\end{tabular}",
+    "\\end{table}"
+  )
+  
+  full_tex_code <- paste(tex_lines, collapse = "\n")
+  
+  # 4. Handle Disk Export Saving Operations
+  if (!is.null(save_path)) {
+    dir_target <- dirname(save_path)
+    if (!dir.exists(dir_target)) dir.create(dir_target, recursive = TRUE)
+    
+    writeLines(full_tex_code, con = save_path)
+    message(sprintf("[SUCCESS] Exported %s parameter LaTeX matrix file to: %s", model_name, save_path))
+  }
+  
+  return(full_tex_code)
+}

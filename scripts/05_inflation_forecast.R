@@ -6,6 +6,7 @@
 
 # Get Correct Kalman Specs
 source(here("R", "kalman_implementation_philips.R"))
+run_estimation <- TRUE
 
 
 gdp_forecasts_arima <- read_csv(output_save_paths$forecasts$forecast_df_gdp_arima, 
@@ -47,8 +48,8 @@ if(run_estimation) {
   
   # Run the Rolling estimation
   params_philips <- rolling_est_philips_ssm(data = master_philips,
-                                            forecast_start = forecast_starting_date_philips_taylor,
-                                            
+                                            forecast_start = forecast_starting_date,
+                                            forecast_end = as.yearqtr("2025 Q4")
   )
   
   #Turn Estimation output into a df
@@ -62,6 +63,15 @@ if(run_estimation) {
   params_philips_df <- read_csv(output_save_paths$params$rolling_param_est_philips, 
                                 show_col_types = FALSE)
 }
+
+# --- Save the table for the initial guesses, restrictions ---
+
+generate_param_latex_table(
+  manifest_source = philips_manifest_source,
+  model_name      = "Phillips Curve",
+  save_path       = output_save_paths$tables$philips_param_table
+)
+
 
 
 rolling_natural_rate_philips <- params_philips_df %>%
@@ -132,7 +142,7 @@ X_data_philips <- X_matrix_full %>%
 ssm_philips <- initialize_my_philips_ssm(
   Y_data            = Y_data_philips,
   X_data            = X_data_philips,
-  parameter_guesses = philips_parameter_guess # Your setup initial config list
+  manifest_source   = philips_manifest_source # Your setup initial config list
 )
 
 

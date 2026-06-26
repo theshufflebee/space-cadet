@@ -61,7 +61,7 @@ X_data_taylor <- clean_taylor_data %>%
 if(run_estimation){
   
   taylor_param_est <- rolling_est_taylor_ssm(data = master_taylor,
-                                             forecast_start = as.yearqtr(forecast_starting_date_philips_taylor))
+                                             forecast_start = forecast_starting_date)
   
   taylor_params <- extract_params_df(taylor_param_est, extract_fitted_obs = TRUE)
   
@@ -72,6 +72,13 @@ if(run_estimation){
   taylor_params <- read_csv(output_save_paths$params$rolling_param_est_taylor, 
                             show_col_types = FALSE)
 }
+
+
+generate_param_latex_table(
+  manifest_source = taylor_manifest_source,
+  model_name      = "Taylor Rule",
+  save_path       = output_save_paths$tables$taylor_param_table
+)
 
 rolling_natural_rate_taylor <- taylor_params %>%
   select(all_of(c("quarter", "natural_rate"))) %>%
@@ -121,7 +128,7 @@ dim(taylor_eval_square)
 # --- Initialize SSM
 ssm_taylor <- initialize_taylor_ssm(Y_data = Y_data_taylor,
                                     X_data = X_data_taylor,
-                                    parameter_guesses =snb_rate_parameter_guess)
+                                    manifest_source = taylor_manifest_source)
 
 
 if(run_estimation & !fit_plot_last_est){

@@ -518,7 +518,7 @@ rolling_est_okun_ssm <- function(data,
     # Initialize Blueprint
     my_ssm_model <- initialize_my_okun_ssm(Y_final,
                                            X_final,
-                                           parameter_guesses = okun_parameter_guess)
+                                           manifest_source = okun_manifest_source)
     
     # Optimization: Multiple estimations with Warm Start
     # We use Nelder-Mead and BFGS that are very different for robustnes
@@ -621,7 +621,7 @@ rolling_est_philips_ssm <- function(data,
     # Initialize Blueprint
     my_ssm_model <- initialize_my_philips_ssm(Y_final,
                                            X_final,
-                                           parameter_guesses = philips_parameter_guess)
+                                           manifest_source = philips_manifest_source)
     
 
     message("SSM PHILIPS INIT SUCCESSFUL")
@@ -779,7 +779,7 @@ rolling_est_taylor_ssm <- function(data,
     # Initialize Blueprint
     my_ssm_model <- initialize_taylor_ssm(Y_data = Y_final,
                                            X_data =X_final,
-                                           parameter_guesses = snb_rate_parameter_guess)
+                                           manifest_source = taylor_manifest_source)
     
     # Optimization: Multiple estimations with Warm Start
     # We use Nelder-Mead and BFGS that are very different for robustnes

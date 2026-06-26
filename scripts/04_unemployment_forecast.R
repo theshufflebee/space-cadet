@@ -6,7 +6,7 @@
 
 # Load correct Kalman Specs
 
-stop("STOPPING BEFORE OKUN ESTIMATION")
+# stop("STOPPING BEFORE OKUN ESTIMATION")
 
 #source(here("R", "kalman_implementation_base.R"))
 source(here("R", "kalman_implementation_okun.R"))
@@ -76,6 +76,11 @@ rolling_natural_rate_okun <- params_okun_df %>%
   mutate(quarter = as.yearqtr(quarter))
 
 
+generate_param_latex_table(
+  manifest_source = okun_manifest_source,
+  model_name      = "Okuns Law",
+  save_path       = output_save_paths$tables$okun_param_table
+)
 
 
 # ==============================================================================
@@ -133,7 +138,7 @@ X_data_okun <- master_okun %>%
 ssm_okun <- initialize_my_okun_ssm( # Update function name if it matches your initialize setup
   Y_data            = Y_data_okun,
   X_data            = X_data_okun,
-  parameter_guesses = okun_parameter_guess # Your configuration guess object
+  manifest_source = okun_manifest_source
 )
 
 

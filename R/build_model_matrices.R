@@ -175,90 +175,54 @@ build_ar_matrix_okun <- function(model_params, Y_data) {
 
 
 
-#' Initialize the Okun State-Space Blueprint
+#' Initialize Okun State-Space Model Blueprint
 #'
-#' @description
-#' This function constructs the "Blueprint" or "SSM Object" required for Kalman filtering 
-#' and parameter optimization. It defines the parameter manifest, which includes initial 
-#' guesses and transformation rules, and bundles the data with the builder functions.
+#' @param Y_data Matrix/DataFrame. Observed metrics (unemployment, SPF expectations).
+#' @param X_data Matrix/DataFrame. Exogenous determinants (current and lagged GDP gaps).
+#' @param manifest_source List. The master external parameter configuration list.
 #'
-#' @param Y_data A matrix or data frame of observed variables. Typically 
-#' includes columns for the unemployment rate and the SPF 5-year forecast.
-#' @param X_data A matrix of exogenous regressors, such as contemporaneous and 
-#' lagged GDP gaps, used to calculate the cyclical component of the measurement equation.
-#' @param parameter_guesses A named list containing initial values for the model 
-#' parameters. Required keys: \code{"beta1"}, \code{"beta2"}, \code{"beta3"}, 
-#' \code{"sigma_unemp_rate"}, and \code{"sigma_spf_5y_unemp"}. Optional: \code{"xi_n"}
-#' and \code{"phi"}.
-#'
-#' @details
-#' The function sets up a \bold{Manifest} that dictates how parameters are treated during optimization:
-#' \itemize{
-#'   \item \bold{Rule 0 (Linear):} No transformation. Used for coefficients like \eqn{\beta} that can be positive or negative.
-#'   \item \bold{Rule 1 (Exponential):} Parameter is exponentiated (\eqn{e^\theta}). Used for standard deviations (\eqn{\sigma}, \eqn{\xi}) to ensure they remain strictly positive.
-#'   \item \bold{Rule 2 (Logit):} Parameter is constrained between 0 and 1. Used for persistence parameters like \eqn{\phi}.
-#' }
-#' 
-#' If \code{xi_n} is missing from \code{parameter_guesses}, the function will proceed 
-#' with a fixed variance in the state equation, and \code{xi_n} will not be 
-#' added to the manifest for estimation.
-#' 
-#' If \code{phi} is missing from \code{parameter_guesses}, the function will proceed 
-#' with a \code{phi = 1}, treating the state equation as a random walk
-#'
-#' @return A structured list containing:
-#' \item{data}{A list with matrices \eqn{Y} and \eqn{X}.}
-#' \item{manifest}{A named list of parameter metadata for optimization.}
-#' \item{builders}{A list of functions (\code{build_mu_t}, \code{build_H}, etc.) used to construct SSM matrices.}
-#'
+#' @return A configured SSM blueprint list ready for optimization and filtering.
 #' @export
-initialize_my_okun_ssm <- function(Y_data, X_data, parameter_guesses) {
+initialize_my_okun_ssm <- function(Y_data, X_data, manifest_source) {
   
-  # Define the Manifest
-  # This acts as the "Single Source of Truth" for your parameters
-  # Rules: 0 = Linear, 1 = Exponential (>0), 2 = Logit (0 to 1)
+  # 1. Enforce validation rules on the incoming master list
   required_params <- c("beta1", "beta2", "beta3", "sigma_unemp_rate", "sigma_spf_5y_unemp")
-  if (!all(required_params %in% names(parameter_guesses))) {
-    stop("Missing required parameters in parameter_guesses list!")
+  if (!all(required_params %in% names(manifest_source))) {
+    stop("CRITICAL: Missing core parameters in manifest_source list layout!")
   }
   
-  if(!all(c("xi_n") %in% names(parameter_guesses))) {
-    message("Missing xi_n in parameters. Using Fixed variance")
+  # 2. Dynamically build the internal estimation manifest
+  manifest <- list()
+  
+  for (param_name in names(manifest_source)) {
+    item <- manifest_source[[param_name]]
+    
+    # Skip processing environmental filter seeds into the optimization bounds
+    if (item$rule == -1) next
+    
+    # Initialize optimization properties
+    manifest[[param_name]] <- list(val = item$val, rule = item$rule)
+    
+    # Retain capability to handle bounded constraints (Rule 3) seamlessly if expanded later
+    if (item$rule == 3) {
+      manifest[[param_name]]$low  <- item$low
+      manifest[[param_name]]$high <- item$high
+    }
   }
   
-  # First bild manifest with the required parameters
-  manifest <- list(
-    # Okun's Law Betas (Unconstrained)
-    beta1              = list(val = parameter_guesses$beta1, rule = 0),
-    beta2              = list(val = parameter_guesses$beta2, rule = 0),
-    beta3              = list(val = parameter_guesses$beta3, rule = 0),
-    
-    phi                = list(val = parameter_guesses$phi, rule = 1),
-    
-    
-    # Measurement Noise Standard Deviations (Must be positive)
-    # Names match: "sigma_" + colnames(Y_data)
-    sigma_unemp_rate   = list(val = parameter_guesses$sigma_unemp_rate,  rule = 1),
-    sigma_spf_5y_unemp = list(val = parameter_guesses$sigma_spf_5y_unemp, rule = 1)
-  )
-  
-  # Then add those that are optional
-  
-  # State Persistence (Bounded for stability)
-  if ("phi" %in% names(parameter_guesses) && !is.null(parameter_guesses$phi)) {
-    manifest$phi <- list(val = parameter_guesses$phi, rule = 2)
-  } else {
-    message("--- phi not provided. Fixing phi = 1 (Random Walk) ---")
+  # 3. Dynamic Fallbacks and Messaging Operations
+  if (!("phi" %in% names(manifest_source))) {
+    message("--- phi not provided. Fixing phi = 1 (Random Walk variant) ---")
   }
-  
-  if ("xi_n" %in% names(parameter_guesses) && !is.null(parameter_guesses$xi_n)) {
-    manifest$xi_n <- list(val = parameter_guesses$xi_n, rule = 1)
-  } else {
+  if (!("xi_n" %in% names(manifest_source))) {
     message("--- xi_n not provided. Using Fixed variance defined in build_N ---")
   }
   
-  # Bundle the builders and data into the blueprint
-  # These are the standalone functions you defined earlier
+  # 4. Extract unlisted state anchors for the filter initialization vectors
+  state_init  <- if (!is.null(manifest_source$state_init)) manifest_source$state_init$val else 1.3
+  sigma_init  <- if (!is.null(manifest_source$sigma_init)) manifest_source$sigma_init$val else 10.0
+  
+  # 5. Bundle everything into the blueprint object
   ssm <- list(
     data = list(
       Y = as.matrix(Y_data), 
@@ -266,17 +230,16 @@ initialize_my_okun_ssm <- function(Y_data, X_data, parameter_guesses) {
     ),
     manifest = manifest,
     builders = list(
-      mu_t = build_mu_t,
-      H    = build_H,
-      G    = build_G,
-      M    = build_M,
-      N    = build_N,
+      mu_t   = build_mu_t,
+      H      = build_H,
+      G      = build_G,
+      M      = build_M,
+      N      = build_N,
       ar_mat = build_ar_matrix_okun
     ),
-    name = "OKUN",
-    rho_guess = c(2),
-    sigma_guess = c(10)
-    
+    name        = "OKUN",
+    rho_guess   = state_init,
+    sigma_guess = sigma_init
   )
   
   return(ssm)
@@ -347,7 +310,7 @@ build_data_matrix_philips <- function(T_0 = "2005-01-01",
     arrange(quarter) %>%
     mutate(
       cpi = as.numeric(cpi),
-      log_inflation_diff = (log(cpi) - dplyr::lag(log(cpi), 4)) * 100,
+      log_inflation_diff = (log(cpi) - dplyr::lag(log(cpi), 1)) * 100 * 4,
       lag_log_inflation_diff = dplyr::lag(log_inflation_diff, 1) # Fixed syntax
     )
   
@@ -516,96 +479,49 @@ build_AR_matrix_philips <- function(model_params, Y_data) {
 
 ################################################################################
 
-#' Initialize the Phillips Curve State-Space Model Blueprint
+#' Initialize Phillips State-Space Model Blueprint
 #'
-#' @description
-#' This function initializes a structured State-Space Model (SSM) object
-#' specifically for the Phillips curve estimation. It defines the parameter 
-#' manifest, containing what parameters are to be estimated and what the initial guesses are,
-#' the functions that build the matrices for the optimizer and the used data.
+#' @param Y_data Matrix/DataFrame. Observed metrics (inflation, survey expectations).
+#' @param X_data Matrix/DataFrame. Exogenous structural determinants (gdp gaps, lop gaps).
+#' @param manifest_source List. The master external parameter configuration list.
 #'
-#' @details
-#' The manifest also sets the specific constraints on parameter estimation:
-#' \itemize{
-#'   \item \bold{Rule 0 (Linear):} No transformation. Applied to \code{beta1} (lagged inflation), 
-#'   \code{beta2} (output gap), and \code{beta3} (exchange rate gap).
-#'   \item \bold{Rule 1 (Exponential):} Constraints parameters to be strictly positive (\eqn{>0}). 
-#'   Applied to measurement noise (\code{sigma_cpi}, \code{sigma_spf}) and state variance (\code{xi_n}).
-#'   \item \bold{Rule 2 (Logit):} Constraints parameters between 0 and 1. Applied to 
-#'   state persistence (\code{phi}).
-#' }
-#' 
-#' If \code{phi} is not provided, the model defaults to a Random Walk (\eqn{\phi = 1}) for the State Transition.
-#' If \code{xi_n} is not provided, the model utilizes a fixed variance defined within 
-#' the \code{build_N} function for the state variance
-#'
-#' @param Y_data A matrix or dataframe containing the observation variables (typically 
-#' actual inflation and inflation expectations).
-#' @param X_data A matrix or dataframe containing the exogenous drivers (typically 
-#' lagged inflation, output gap(s), and LOP gap(s)).
-#' @param parameter_guesses A named list containing initial starting values for 
-#' \code{beta1}, \code{beta2}, \code{beta3}, \code{sigma_cpi}, and \code{sigma_spf}.
-#' Optional parameters when left out will used predetermined fixed values.
-#'
-#' @return A structured list (\code{ssm}) containing:
-#' \itemize{
-#'   \item \code{data}: A list with matrices \code{Y} and \code{X}.
-#'   \item \code{manifest}: A list defining the initial values and transformation rules for each parameter.
-#'   \item \code{builders}: A list of function pointers (\code{mu_t}, \code{H}, \code{G}, \code{M}, \code{N}) 
-#'   used to construct the SSM matrices during filtering.
-#' }
-#' 
-#' @seealso \code{\link{build_mu_t}} for exogenous regressor matrix construction.
-#' @seealso \code{\link{build_H}} for state factor loading matrices.
-#' @seealso \code{\link{build_G}} for state-to-measurement mapping.
-#' @seealso \code{\link{build_M}} for measurement error covariance structures.
-#' @seealso \code{\link{build_N}} for state innovation covariance matrices.
-#' 
+#' @return A configured SSM blueprint list ready for optimization and filtering.
 #' @export
-initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
+initialize_my_philips_ssm <- function(Y_data, X_data, manifest_source) {
   
-  # Define the Manifest
-  # This acts as the "Single Source of Truth" for your parameters
-  # Rules: 0 = Linear, 1 = Exponential (>0), 2 = Logit (0 to 1)
+  # 1. Enforce validation rules on the incoming master list
   required_params <- c("beta_y", "psi_lop", "phi", "sigma_cpi", "sigma_spf")
-  if (!all(required_params %in% names(parameter_guesses))) {
-    stop("Missing required parameters in parameter_guesses list!")
+  if (!all(required_params %in% names(manifest_source))) {
+    stop("CRITICAL: Missing core parameters in manifest_source list layout!")
   }
   
-  if(!all(c("xi_n") %in% names(parameter_guesses))) {
-    message("Missing xi_n in parameters. Using Fixed variance")
-  }
+  # 2. Dynamically build the internal estimation manifest 
+  # This maps your external list elements into the exact format your optimizer expects
+  manifest <- list()
   
-  # First bild manifest with the required parameters
-  manifest <- list(
-    # Okun's Law Betas (Unconstrained)
-    beta_y              = list(val = parameter_guesses$beta_y,
-                               rule = 3,
-                               low = 0.001,
-                               high = 0.3),
-    psi_lop             = list(val = parameter_guesses$psi_lop, rule = 0),
-
-    phi                 = list(val  = parameter_guesses$phi,    # Initial guess
-                               rule = 3,      # Use the new Bounded Logistic rule (3) or standard >0 (1)
-                               low  = 0.1,    # Minimum smoothing only used if rule 3, else just disregard it
-                               high = 0.99    # Maximum smoothing only used if rule 3, else just disregard it
-    ),
+  for (param_name in names(manifest_source)) {
+    item <- manifest_source[[param_name]]
     
+    # Initialize the structural sub-list payload required by the SSM engine
+    manifest[[param_name]] <- list(val = item$val, rule = item$rule)
     
-    # Measurement Noise Standard Deviations (Must be positive)
-    # Names match: "sigma_" + colnames(Y_data)
-    sigma_cpi           = list(val = parameter_guesses$sigma_cpi,  rule = 1),
-    sigma_spf           = list(val = parameter_guesses$sigma_spf, rule = 1)
-  )
-  
-  if ("xi_n" %in% names(parameter_guesses) && !is.null(parameter_guesses$xi_n)) {
-    manifest$xi_n <- list(val = parameter_guesses$xi_n, rule = 1)
-  } else {
-    message("--- xi_n not provided. Using Fixed variance defined in build_N ---")
+    # If the rule contains custom upper/lower boundaries (Rule 3), attach them cleanly
+    if (item$rule == 3) {
+      manifest[[param_name]]$low  <- item$low
+      manifest[[param_name]]$high <- item$high
+    }
   }
   
-  # Bundle the builders and data into the blueprint
-  # These are the standalone functions defined earlier
+  # 3. Extract unlisted state anchors for the Kalman Filter vectors
+  # Fall back to flat defaults if state specs are separated from structural elements
+  state_init  <- if (!is.null(manifest_source$state_init)) manifest_source$state_init$val else 1.3
+  sigma_init  <- if (!is.null(manifest_source$sigma_init)) manifest_source$sigma_init$val else 10.0
+  
+  if (!("xi_n" %in% names(manifest_source))) {
+    message("--- xi_n not provided in manifest_source. Using Fixed variance defined in build_N ---")
+  }
+  
+  # 4. Bundle into the finalized system blueprint object
   ssm <- list(
     data = list(
       Y = as.matrix(Y_data), 
@@ -613,23 +529,20 @@ initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
     ),
     manifest = manifest,
     builders = list(
-      mu_t = build_mu_t_philips,
-      H    = build_H_philips,
-      G    = build_G_philips,
-      M    = build_M_philips,
-      N    = build_N_philips,
+      mu_t   = build_mu_t_philips,
+      H      = build_H_philips,
+      G      = build_G_philips,
+      M      = build_M_philips,
+      N      = build_N_philips,
       ar_mat = build_AR_matrix_philips
     ),
-    name = "PHILIPS",
-    rho_guess = parameter_guesses$state_init,
-    sigma_guess = parameter_guesses$sigma_init
-    
+    name        = "PHILIPS",
+    rho_guess   = state_init,
+    sigma_guess = sigma_init
   )
   
   return(ssm)
 }
-
-
 ################################################################################
 #
 # Taylor Rule / Policy Rate Model Forecast
@@ -761,84 +674,74 @@ build_AR_matrix <- function(model_params, Y_data) {
 }
 
 
-#' Initialize Taylor Rule State-Space Model
+#' Initialize Taylor Rule State-Space Model Blueprint
 #'
-#' @description
-#' Bundles data, parameters, and builders for Model 3 as defined in 0_technical_note.pdf.
-#' Variables include the natural rate (i_bar), term premium trend (TP_bar), 
-#' and term premium cycle (TP_tilde).
-initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
+#' @param Y_data Matrix/DataFrame. Observed metrics (policy rate, forward rates).
+#' @param X_data Matrix/DataFrame. Exogenous structural determinants (inflation gaps, output gaps, lagged rate blocks).
+#' @param manifest_source List. The master external parameter configuration list.
+#'
+#' @return A configured SSM blueprint list ready for optimization and filtering.
+#' @export
+initialize_taylor_ssm <- function(Y_data, X_data, manifest_source) {
   
-  # 1. Define Required Parameters for Taylor Rule and Term Premium
-  # gamma_pi: Response to inflation gap
-  # gamma_y: Response to output gap
-  # rho: Interest rate smoothing
-  # rho_tp: Persistence of cyclical term premium
+  # 1. Enforce validation rules on the incoming master list layout
   required_params <- c("gamma_pi", "gamma_y", "phi", "rho_tp", 
                        "sigma_policy", "xi_i", "xi_tp_bar", "xi_tp_cycl")
-  
-  if (!all(required_params %in% names(parameter_guesses))) {
-    stop("Missing required parameters for Taylor SSM (Model 3)!")
+  if (!all(required_params %in% names(manifest_source))) {
+    stop("CRITICAL: Missing core parameters for Taylor SSM (Model 3) layout configuration!")
   }
   
-  # 2. Build the Manifest
-  # Rules: 0 = Linear, 1 = Exponential (>0), 2 = Logit (0 to 1)
-  manifest <- list(
-    # Taylor Rule Coefficients (Unconstrained or slightly positive)
-    gamma_pi    = list(val = parameter_guesses$gamma_pi, rule = 1),
-    gamma_y     = list(val = parameter_guesses$gamma_y,  rule = 1),
+  # 2. Dynamically extract structural constraints and populate optimization manifest
+  manifest <- list()
+  
+  for (param_name in names(manifest_source)) {
+    item <- manifest_source[[param_name]]
     
-    # Smoothing and Persistence (Bounded 0-1 for stability)
-    phi         = list(val  = 0.8,    # Initial guess
-                       rule = 2,      # Use the new Bounded Logistic rule (3) or standard >0 (1)
-                       low  = 0.5,    # Minimum smoothing only used if rule 3, else just disregard it
-                       high = 0.99    # Maximum smoothing only used if rule 3, else just disregard it
-                       ),
-    rho_tp      = list(val = parameter_guesses$rho_tp,  rule = 2),
+    # Skip processing environmental filter initialization seeds
+    if (item$rule == -1) next
     
-    # Measurement Noise (Must be positive) 
-    # sigma_i: Policy rate noise | sigma_fwd: Forward rate noise
-    sigma_policy     = list(val = parameter_guesses$sigma_policy,   rule = 1),
-    # sigma_fwd   = list(val = parameter_guesses$sigma_fwd, rule = 1),
-
-    # State Innovation Noise (Must be positive)
-    # ibar: Natural rate | tp_bar: TP trend | tp_tilde: TP cycle
-    xi_i     = list(val = parameter_guesses$xi_i,     rule = 1),
-    xi_tp_bar   = list(val = parameter_guesses$xi_tp_bar,   rule = 1),
-    xi_tp_cycl = list(val = parameter_guesses$xi_tp_cycl, rule = 1)
-  )
-  
-  # Handle Optional SPF Anchors (Optional Specifications) 
-  if ("sigma_spf3m" %in% names(parameter_guesses)) {
-    manifest$sigma_spf3m <- list(val = parameter_guesses$sigma_spf3m, rule = 1)
+    # Initialize optimization metadata properties
+    manifest[[param_name]] <- list(val = item$val, rule = item$rule)
+    
+    # Keep support for explicit upper/lower box constraints (Rule 3) if activated
+    if (item$rule == 3) {
+      manifest[[param_name]]$low  <- item$low
+      manifest[[param_name]]$high <- item$high
+    }
   }
   
-  if ("sigma_spf12m" %in% names(parameter_guesses)) {
-    manifest$sigma_spf12m <- list(val = parameter_guesses$sigma_spf12m, rule = 1)
+  # 3. Handle Optional SPF Anchors Specifications dynamically
+  optional_anchors <- c("sigma_spf3m", "sigma_spf12m")
+  for (anchor in optional_anchors) {
+    if (anchor %in% names(manifest_source)) {
+      manifest[[anchor]] <- list(val = manifest_source[[anchor]]$val, rule = manifest_source[[anchor]]$rule)
+    }
   }
   
-  # 4. Bundle Blueprint
+  # 4. Extract state tracking guess boundaries safely from the master structure
+  state_init  <- if (!is.null(manifest_source$state_init)) manifest_source$state_init$val else c(6, 1, 0.1)
+  sigma_init  <- if (!is.null(manifest_source$sigma_init)) manifest_source$sigma_init$val else c(10)
+  
+  # 5. Bundle everything into the consolidated blueprint engine object
   ssm <- list(
     data = list(
-      Y = as.matrix(Y_data), # Should contain policy rate, forward rate
-      X = as.matrix(X_data)  # Should contain inf_gap, gdp_gap, and lag_rate
+      Y = as.matrix(Y_data), 
+      X = as.matrix(X_data)  
     ),
     manifest = manifest,
     builders = list(
-      mu_t = build_mu_t_taylor, 
-      H    = build_H_taylor,   
-      G    = build_G_taylor,   
-      M    = build_M_taylor,  
-      N    = build_N_taylor,
+      mu_t   = build_mu_t_taylor, 
+      H      = build_H_taylor,    
+      G      = build_G_taylor,    
+      M      = build_M_taylor,   
+      N      = build_N_taylor,
       ar_mat = build_AR_matrix
     ),
-    name = "TAYLOR",
-    rho_guess = parameter_guesses$state_init,
-    sigma_guess = parameter_guesses$sigma_init
+    name        = "TAYLOR",
+    rho_guess   = state_init,
+    sigma_guess = sigma_init
   )
   
-  print("SSM TAYLOR INIT DONE")
-  
-  
+  message("--- SSM TAYLOR INITIALIZATION COMPLETED ---")
   return(ssm)
 }

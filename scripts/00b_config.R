@@ -203,13 +203,13 @@ ts_names <- c(
 #===============================================================================
 
 # ---  General Settings ---
-forecast_starting_date <- as.yearqtr("2000 Q1")
+forecast_starting_date <- as.yearqtr("2024 Q2")
 
 # FOr Indexing
 indexing_date <- "2020-12-01"
 
 # If FALSE loading from files
-run_estimation <- FALSE
+run_estimation <- TRUE
 
 # Forecast Horizon
 h <- 8
@@ -227,64 +227,198 @@ fit_plot_last_est <- TRUE
 # ==============================================================================
 
 
-# --- Initial guesses for Okun ---
-okun_parameter_guess <- list(
+# Define outside your functions as your master configuration object
+okun_manifest_source <- list(
+  beta1 = list(
+    name = "beta1",
+    label = "Contemporaneous GDP gap coefficient",
+    category = "Structural Dynamics",
+    val = -0.1,
+    rule = 0
+  ),
+  beta2 = list(
+    name = "beta2",
+    label = "First lag GDP gap coefficient",
+    category = "Structural Dynamics",
+    val = -0.1,
+    rule = 0
+  ),
+  beta3 = list(
+    name = "beta3",
+    label = "Second lag GDP gap coefficient",
+    category = "Structural Dynamics",
+    val = -0.1,
+    rule = 0
+  ),
+  phi = list(
+    name = "phi",
+    label = "Autoregressive persistence parameter",
+    category = "Structural Dynamics",
+    val = 0.6,
+    rule = 2
+  ),
+  sigma_unemp_rate = list(
+    name = "sigma_unemp_rate",
+    label = "Unemployment rate deviation shock SD",
+    category = "Measurement Noise",
+    val = 0.5,
+    rule = 1
+  ),
+  sigma_spf_5y_unemp = list(
+    name = "sigma_spf_5y_unemp",
+    label = "Survey expectation shock SD",
+    category = "Measurement Noise",
+    val = 0.5,
+    rule = 1
+  ),
+  xi_n = list(
+    name = "xi_n",
+    label = "Natural rate innovation variance",
+    category = "State Innovation",
+    val = 0.1,
+    rule = 1
+  ),
   
-  # Parameters on gdp gap and lags
-  beta1 = -0.1,
-  beta2 = -0.1,
-  beta3 = -0.1,
-  
-  # AR Parameter
-  phi = 0.6,
-  sigma_unemp_rate = 0.5,
-  sigma_spf_5y_unemp = 0.5,
-  xi_n = 0.1,
-  state_init = c(1.3),
-  sigma_init = c(10)
+  # Filter Environment States
+  state_init = list(
+    name = "state_init",
+    label = "Initial State rho_0",
+    category = "State Initialization",
+    val = 1.3,
+    rule = -1
+  ),
+  sigma_init = list(
+    name = "sigma_init",
+    label = "Initial Variance Sigma_0",
+    category = "State Initialization",
+    val = 10.0,
+    rule = -1
+  )
 )
 
-
-# --- Initial Guesses for Philips Model ---
-philips_parameter_guess <- list(
-  
-  # Parameters on exogenous variables
-  beta_y = 0.1, # Output gap
-  psi_lop = -0.1, # Law of one price gap
-  phi = 0.8, # AR parameter
-  
-  # sd on measurement variables
-  sigma_cpi = 0.2,
-  sigma_spf = 0.2,
-  
-  # state innovation
-  xi_n = 0.1,
-  
-  state_init = c(1.3),
-  sigma_init = c(10)
+# Define this outside your functions as your master configuration object
+philips_manifest_source <- list(
+  beta_y = list(
+    name = "beta_y",
+    label = "Output gap coefficient",
+    category = "Structural Dynamics",
+    val = 0.1,
+    rule = 3,
+    low = 0.001,
+    high = 0.3
+  ),
+  psi_lop = list(
+    name = "psi_lop",
+    label = "Law of One Price coefficient",
+    category = "Structural Dynamics",
+    val = -0.1,
+    rule = 0
+  ),
+  phi = list(
+    name = "phi",
+    label = "Autoregressive persistence",
+    category = "Structural Dynamics",
+    val = 0.8,
+    rule = 3,
+    low = 0.1,
+    high = 0.99
+  ),
+  sigma_cpi = list(
+    name = "sigma_cpi",
+    label = "CPI deviation shock SD",
+    category = "Measurement Noise",
+    val = 0.2,
+    rule = 1
+  ),
+  sigma_spf = list(
+    name = "sigma_spf",
+    label = "Survey expectation shock SD",
+    category = "Measurement Noise",
+    val = 0.2,
+    rule = 1
+  ),
+  xi_n = list(
+    name = "xi_n",
+    label = "Latent factor shock variance",
+    category = "State Innovation",
+    val = 0.1,
+    rule = 1
+  )
 )
 
-# --- Initial guesses for Taylor Rule / SNB Policy Rate ---
-snb_rate_parameter_guess <- list(
-  # Taylor Rule Parameters (Unconstrained)
-  gamma_pi            = 0.9,    # Inflation gap coefficient
-  gamma_y             = 0.5,    # Output gap coefficient
+taylor_manifest_source <- list(
+  gamma_pi = list(
+    name = "gamma_pi",
+    label = "Inflation gap response coefficient",
+    category = "Structural Dynamics",
+    val = 0.9,
+    rule = 1
+  ),
+  gamma_y = list(
+    name = "gamma_y",
+    label = "Output gap response coefficient",
+    category = "Structural Dynamics",
+    val = 0.5,
+    rule = 1
+  ),
+  phi = list(
+    name = "phi",
+    label = "Policy interest rate smoothing parameter",
+    category = "Structural Dynamics",
+    val = 0.5,
+    rule = 2
+  ),
+  rho_tp = list(
+    name = "rho_tp",
+    label = "Cyclical term premium persistence",
+    category = "Structural Dynamics",
+    val = 0.6,
+    rule = 2
+  ),
+  sigma_policy = list(
+    name = "sigma_policy",
+    label = "Shadow policy equation shock SD",
+    category = "Measurement Noise",
+    val = 0.1,
+    rule = 1
+  ),
+  xi_i = list(
+    name = "xi_i",
+    label = "Nominal natural rate shock SD",
+    category = "State Innovation",
+    val = 0.1,
+    rule = 1
+  ),
+  xi_tp_bar = list(
+    name = "xi_tp_bar",
+    label = "Trend term premium shock SD",
+    category = "State Innovation",
+    val = 0.05,
+    rule = 1
+  ),
+  xi_tp_cycl = list(
+    name = "xi_tp_cycl",
+    label = "Cyclical term premium shock SD",
+    category = "State Innovation",
+    val = 0.05,
+    rule = 1
+  ),
   
-  # Persistence Parameters 
-  phi                 = 0.5,    # Interest rate smoothing
-  rho_tp              = 0.6,    # Persistence of cyclical term premium component
-  
-  # Measurement Noise Standard Deviations (Rule 1: Exponential > 0)
-  sigma_policy        = 0.1,   # Error in the shadow policy rate equation
-  # sigma_fwd           = 0.2,   there is no error here as error comps of other parts already completly 
-
-  # State Innovation Standard Deviations (Rule 1: Exponential > 0)
-  xi_i                = 0.1,  # Shock to the nominal natural rate (random walk)
-  xi_tp_bar         = 0.05,  # Shock to the trend term premium (random walk)
-  xi_tp_cycl          = 0.05,    # Shock to the cyclical term premium (AR1)
-  
-  state_init = c(6, 1, 0.1),
-  sigma_init = c(10)
+  # Filter Environment States
+  state_init = list(
+    name = "state_init",
+    label = "Initial State rho_0 Vector",
+    category = "State Initialization",
+    val = c(6, 1, 0.1),
+    rule = -1
+  ),
+  sigma_init = list(
+    name = "sigma_init",
+    label = "Initial Variance Sigma_0 Matrix Seed",
+    category = "State Initialization",
+    val = c(10),
+    rule = -1
+  )
 )
 
 # FOr model 2 the SNB data is released with a year delay -> more like 3q due to late release of all other data
@@ -345,6 +479,15 @@ output_save_paths <- list(
   ),
   
   tables = list(
+    
+    # --- Parameter Tables ---
+    
+    okun_param_table = here(output_base, "tables/okun_param_table.tex"),
+    philips_param_table = here(output_base, "tables/philips_param_table.tex"),
+    taylor_param_table = here(output_base, "tables/taylor_param_table.tex"),
+    
+    
+    # --- Benchmark Evaluation Tables ---
     
     # RW Benchmark
     eval_rw_okun = here(output_base, "tables/okun_eval_rw_table.tex"),
