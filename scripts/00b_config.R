@@ -209,7 +209,7 @@ forecast_starting_date <- as.yearqtr("2000 Q1")
 indexing_date <- "2020-12-01"
 
 # If FALSE loading from files
-run_estimation <- TRUE
+run_estimation <- FALSE
 
 # Forecast Horizon
 h <- 8

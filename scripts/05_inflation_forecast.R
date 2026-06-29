@@ -6,7 +6,6 @@
 
 # Get Correct Kalman Specs
 source(here("R", "kalman_implementation_philips.R"))
-run_estimation <- TRUE
 
 
 gdp_forecasts_arima <- read_csv(output_save_paths$forecasts$forecast_df_gdp_arima, 
@@ -48,7 +47,7 @@ if(run_estimation) {
   
   # Run the Rolling estimation
   params_philips <- rolling_est_philips_ssm(data = master_philips,
-                                            forecast_start = forecast_starting_date,
+                                            forecast_start = forecast_starting_date_philips_taylor,
                                             forecast_end = as.yearqtr("2025 Q4")
   )
   
