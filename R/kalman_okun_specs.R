@@ -72,11 +72,11 @@
 #' defined by the function (used in QKF for augmented state vectors).
 #' 
 #' @export
-kalman_filter_philips <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
-                          indic_pos=0,
-                          Rfunction=calc_covariance, Qfunction=calc_covariance,
-                          reconciliationf = function(x,opt){x},
-                          ar_matrix = 0
+kalman_filter_okun <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
+                               indic_pos=0,
+                               Rfunction=calc_covariance, Qfunction=calc_covariance,
+                               reconciliationf = function(x,opt){x},
+                               ar_matrix = 0
 ){
   # Y_t is the observed data matrix
   # rho_0 is the starting guess for the state vector
@@ -114,7 +114,7 @@ kalman_filter_philips <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
   
   # Number of observed variables:
   
-
+  
   ny = NCOL(Y_t)
   # Number of unobs. variables:
   nr = NCOL(G)
@@ -158,22 +158,20 @@ kalman_filter_philips <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
       Sigma <- Sigma_0
       
       lag_val <- rho_0[1, 1]
-
+      
     } else {
       rho <- rho_tt[t-1, ]
       Sigma <- Sigma_tt[t-1, ]
       
-      if (is.na(Y_t[t-1, 1])) {
+      if (is.na(Y_t[t-1, 1])) { # if there is no past y obs for value one
         # USE THE MODEL'S PREVIOUS PREDICTION
-        # This is the 'Shadow Rate' the model thought was appropriate
         lag_val <- as.numeric(fitted_obs_t_t[t-1, ])
       } else {
         # USE THE ACTUAL DATA
-        # For periods outside the ZLB (pre-2009, post-2022)
         lag_val <- as.numeric(Y_t[t-1, ])
       }
     }
-      
+    
     # First we project forward the initial guess of rho_0. here both H and nu_t[1,] will be estimated
     
     # I replaced the one below with the function visible next
@@ -182,7 +180,9 @@ kalman_filter_philips <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
                                            H = H,
                                            nu_t = nu_step,
                                            nr = nr)
-
+    
+    
+    
     # Calculate the Noise, these square M and N are the shocks hitting the system
     # Functions are defined below
     R = Rfunction(M, rho, t)
@@ -196,7 +196,7 @@ kalman_filter_philips <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     }
     
     # to put H into form
-
+    
     H_mat     <- matrix(as.numeric(H), nrow = nr, ncol = nr)
     
     # Old way
@@ -210,9 +210,13 @@ kalman_filter_philips <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     #y_tp1_t[t,] = mu_t[t,] + t(G %*% rho_tp1_t[t,]) # forecast the measurement from t-1
     
     
-    y_tp1_t[t,] <- forecast_measurement_eq_philips(mu_t = mu_t[t,], G = G, rho = rho, ar_mat = ar_matrix, lag_val = lag_val)
-      
-
+    y_tp1_t[t,] <- forecast_measurement_eq(mu_t = mu_t[t,],
+                                           G = G, rho = rho,
+                                           ar_mat = ar_matrix,
+                                           lag_val = lag_val)
+    
+    
+    
     
     
     # Predict Sigma: If first step, use initial guess
@@ -274,7 +278,7 @@ kalman_filter_philips <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
       # K = aux_Sigma_tp1_t %*% t(G_aux) %*% MASS::ginv(R_aux + G_aux %*% aux_Sigma_tp1_t %*% t(G_aux))
       
       K = calculate_kalman_gain(aux_Sigma_tp1_t, G_aux, R_aux)
-
+      
       
       # Calculate Forecast error when you actually observe new variables
       lambda_t   = Y_t[t, ] - y_tp1_t[t, ] # forecast error
@@ -319,7 +323,7 @@ kalman_filter_philips <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
                              ny_aux/2*log(2*pi) - 1/2*(log(det_omega) +
                                                          t(lambda_t) %*% MASS::ginv(omega) %*% lambda_t)
       )
-
+      
       
       # Sum pu for what needs to be finalized
       logl <- logl + loglik.vector[t] # what needs to be optimmized
@@ -372,7 +376,7 @@ kalman_filter_philips <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
 project_state_forward <- function(rho, H, nu_t, nr) {
   # nu_t_step should be the specific row for time t: nu_t[t, ]
   # Ensure rho is a column vector
-
+  
   rho <- as.numeric(rho)  # ADDED due to Bug in third model worked fine first two
   
   H_mat <- matrix(H, nrow = nr, ncol = nr) # resize H from vector to matrix
@@ -385,83 +389,45 @@ project_state_forward <- function(rho, H, nu_t, nr) {
 }
 
 
-#' Forecast Measurement Equation (Observation Equation)
-#'
-#' @description
-#' Calculates the predicted observation for the current period:
-#' \eqn{y_{t|t-1} = \mu_t + G \rho_{t|t-1} + \Phi y_{t-1}}.
-#' This function handles the "Shadow Rate" logic by choosing between the 
-#' observed lag or the model's previous fitted estimate during ZLB periods.
-#'
-#' @param mu_t Vector. Intercept or exogenous component (e.g., Taylor Rule gaps).
-#' @param G Matrix. The observation matrix mapping states to observables.
-#' @param rho Vector. The predicted latent state (\eqn{\rho_{t|t-1}}).
-#' @param ar_mat Vector. The autoregressive coefficients (smoothing parameter \eqn{\phi}).
-#' @param lag_val Scalar. The lagged value of the dependent variable (Hybrid lag).
-#'
-#' @return A numeric vector of predicted observations.
-#' 
-#' @seealso 
-#' \code{\link{kalman_filter_taylor}} for the main loop integration and
-#' \code{\link{forecast_taylor_ssm}} for the out-of-sample forecasting implementation.
-#' 
-#' @export
-forecast_measurement_eq_philips <- function(mu_t, G, rho, ar_mat, lag_val) {
-  
-  obs_row <- nrow(G) 
-  
-  # 1. Calculate the structural inflation deviation explicitly
-  # This targets ONLY the first element of lag_val (inflation)
-  inf_deviation <- as.numeric(lag_val[1] - rho)
-  phi_param     <- as.numeric(ar_mat[1, 1])
-  
-  # 2. Reconstruct the full structural AR vector: Inflation gets phi*diff, SPF gets 0
-  full_ar_comp <- matrix(c(phi_param * inf_deviation, 0), ncol = 1)
-  
-  # 3. Match row dimensions safely based on what variables are currently observed
-  # If row is 1 (e.g. only inflation is present), it safely grabs row 1.
-  if (obs_row == 1) {
-    ar_vec_final <- full_ar_comp[1, , drop = FALSE]
-  } else {
-    ar_vec_final <- full_ar_comp
-  }
-  
-  # 4. Standard Projection Math
-  mu_vec     <- matrix(as.numeric(mu_t), nrow = obs_row, ncol = 1)
-  state_comp <- G %*% matrix(as.numeric(rho))
-  
-  y_tp1_t <- state_comp + ar_vec_final + mu_vec
-  
-  return(as.vector(y_tp1_t))
-}
-
-
-
 forecast_measurement_eq <- function(mu_t, G, rho, ar_mat, lag_val) {
   
   
-  ny_total <- length(ar_mat)
-  obs_row <- nrow(G) # Number of variables NOT NA in this step
+  obs_row <- nrow(G) # Number of active observable rows this quarter (1 or 2)
   
-  # Apply the lag value to get the persistence component (rho * i_{t-1})
-  #here rho is the state
-  # We do this on the full vector first
-  full_ar_comp <- ar_mat * lag_val
+  # --------------------------------------------------------------------------
+  # 1. ISOLATE CYCLICAL PERSISTENCE
+  # --------------------------------------------------------------------------
+  # Unemployment (Row 1) uses the phi parameter. 
+  # SPF (Row 2) has NO cyclical persistence layer.
+  phi_param    <- as.numeric(ar_mat[1])
   
-  # Reduce (if necessary) th AR component to match the dimensions of G
-  # if SPF is NA then we only take the first row
+  # Calculate the deviation of the last historical value from its latent state
+  # This represents the unobserved cyclical component tracking forward
+  cyc_unemp <- as.numeric(lag_val[1] - rho[1])
+  
+  # Reconstruct a clean, safe system vector:
+  # Row 1 gets the AR persistence modification; Row 2 gets exactly 0
+  full_ar_comp <- matrix(c(phi_param * cyc_unemp, 0), ncol = 1)
+  
+  # --------------------------------------------------------------------------
+  # 2. DYNAMIC DIMENSION SLICING
+  # --------------------------------------------------------------------------
+  # Slice down the AR component to match what is observed this quarter
   if (obs_row == 1) {
     ar_vec_final <- full_ar_comp[1, , drop = FALSE]
   } else {
     ar_vec_final <- full_ar_comp
   }
   
-  # Standard Matrix Math for projection
-  mu_vec <- matrix(as.numeric(mu_t), nrow = obs_row, ncol = 1)
-  ar_vec <- matrix(as.numeric(ar_vec_final), nrow = obs_row, ncol = 1)
+  # --------------------------------------------------------------------------
+  # 3. MATRIX PROJECTION MATH
+  # --------------------------------------------------------------------------
+  mu_vec     <- matrix(as.numeric(mu_t), nrow = obs_row, ncol = 1)
+  ar_vec     <- matrix(as.numeric(ar_vec_final), nrow = obs_row, ncol = 1)
   state_comp <- G %*% matrix(as.numeric(rho))
   
-  y_tp1_t <- state_comp + ar_vec + mu_vec
+  # Assemble total measurement forecast: y_{t|t-1} = G*rho + AR + Intercept
+  y_tp1_t    <- state_comp + ar_vec + mu_vec
   
   return(as.vector(y_tp1_t))
 }
@@ -514,7 +480,7 @@ project_covariance_H <- function(noise, sigma_base, transform_matrix, nr = nr) {
   H_mat <- matrix(transform_matrix, nrow = nr, ncol = nr)
   
   sig_mat <- matrix(sigma_base, nrow = nr, ncol = nr)
-
+  
   uncertainty <- noise + H_mat %*% sig_mat %*% t(H_mat)
   
   return(uncertainty)
@@ -634,11 +600,11 @@ calculate_kalman_gain <- function(sigma, G, R){
 #' \code{\link{initialize_taylor_ssm}} for setting up the SSM object.
 #'
 #' @export
-loglik_ssm_philips <- function(theta,
-                       ssm,
-                       return_full_res = FALSE,
-                       rho_guess = c(6, 2, 1),
-                       set_silent = TRUE) {
+loglik_ssm_okun <- function(theta,
+                            ssm,
+                            return_full_res = FALSE,
+                            rho_guess = c(6, 2, 1),
+                            set_silent = TRUE) {
   
   # Initial State Vector (rho_0)
   # For model 3 its a 3x1 vector, for all others a 1x1 vector
@@ -694,7 +660,7 @@ loglik_ssm_philips <- function(theta,
   # Run Kalman Filter with the matrices
   # The Y data is from the ssm object the X data is already in mu_t
   # we also add initial guesses for the state and give a prior
-  res <- kalman_filter_philips(
+  res <- kalman_filter_okun(
     Y_t     = ssm$data$Y, 
     nu_t    = nu_t, 
     H       = H, 
@@ -717,7 +683,9 @@ loglik_ssm_philips <- function(theta,
     
     message("FILTER CRASHED AND RETURNED NON NUMERIC RES: RETURNING HIGH PENALTY")
     return(1e10)
-  
+    browser()
+    stop("STOPPING DUE TO CRASH")
+    
   }
   
   total_loglik <- -sum(res$loglik.vector)
@@ -798,12 +766,12 @@ loglik_ssm_philips <- function(theta,
 #' \code{\link{model2param_gen}} for the unconstraining transformation logic.
 #'
 #' @export
-ssm_optimizer_wrapper_philips <- function(ssm, 
-                                  methods = c("Nelder-Mead", "bobyqa", "BFGS"), 
-                                  iters = 3, 
-                                  start_par = NULL,
-                                  set_silent = TRUE
-                                  ) {
+ssm_optimizer_wrapper_okun <- function(ssm, 
+                                       methods = c("Nelder-Mead", "bobyqa", "BFGS"), 
+                                       iters = 3, 
+                                       start_par = NULL,
+                                       set_silent = TRUE
+) {
   
   # Prepare Initial Parameters
   if (is.null(start_par)) {
@@ -850,7 +818,7 @@ ssm_optimizer_wrapper_philips <- function(ssm,
     for (m in methods) {
       fit <- optimx::optimx(
         par     = current_par_opt,
-        fn      = loglik_ssm_philips,
+        fn      = loglik_ssm_okun,
         ssm     = ssm,
         method  = m,
         control = list(
@@ -868,7 +836,7 @@ ssm_optimizer_wrapper_philips <- function(ssm,
       # Extract the new likelihood and parameters
       current_lik <- fit$value[1]
       current_par_opt <- as.numeric(fit[1, 1:n_par])
-
+      
     }
     
     # Update current_par_opt for the next step in the loop
@@ -886,7 +854,7 @@ ssm_optimizer_wrapper_philips <- function(ssm,
     # cat(rep("-", 45), "\n", sep = "")
     # cat(formatted_theta_opt, "\n")
     # cat(rep("-", 45), "\n")
-
+    
     #VValidating results if there are no inf or NaN
     if (any(is.na(proposed_par)) || any(is.infinite(proposed_par))) {
       
@@ -942,3 +910,159 @@ ssm_optimizer_wrapper_philips <- function(ssm,
   ))
 }
 
+
+
+
+#===============================================================================
+# Rolling Estimation Functions
+#===============================================================================
+
+# Okun I can still implement the HP filter function
+
+#' Rolling Okun SSM Estimation
+#' 
+#' Generate Rolling SSM Parameters for Forecasting
+#' 
+#' Estimates model parameters over an expanding window up to a specified end date.
+#' Returns a list of parameters to be used in a separate forecasting step.
+#' 
+#' We have T = 1 as the start of the data, T=T is the end of the data,
+#' T=t as the current date up until we have the data availabe for the pseudo forecast
+#' and t+h would then be the forecast horizon.
+#' What we do here is just get the parameter estimation at time t.
+#' 
+#' At each step we have to reestimate the HP filter to get the gaps. This is done via a burn in
+#' where we start the estimation at the first observation in the dataframe. the dataframe is cut to the burn in start in the preparation
+#' this assures there is no starting point bias.
+#' 
+#' @param data Raw merged dataframe containing log_gdp, unemp_rate, and spf_5y_unemp
+#' @param forecast_start The first date to generate a forecast/parameter set for
+#' @param forecast_end End date of rolling window (optional)
+#' @param val_T1 The start date for the Kalman Filter (e.g., 2015-01-01)
+rolling_est_okun_ssm <- function(data,
+                                 forecast_start,
+                                 forecast_end = NULL,
+                                 date_col = "quarter",
+                                 val_T1 = "1991-01-01") {
+  
+  # Assure correct format
+  data[[date_col]] <- as.yearqtr(data[[date_col]])
+  
+  # Select the starting quarter
+  start_q <- as.yearqtr(as.Date(forecast_start))
+  
+  # Sleect T = 0
+  val_T1 <- as.yearqtr(as.Date(val_T1))
+  
+  # Either estimate until last obs or estimate until a given date
+  if(is.null(forecast_end)) {
+    end_q <- max(data[[date_col]], na.rm = TRUE)
+  } else {
+    end_q <- as.yearqtr(as.Date(forecast_end))
+  }
+  
+  # Define the sequence of "Vantage Points" (The end of the period on which we estimate)
+  # Is the today (end of information set) for the forecast
+  forecast_dates <- data[[date_col]][data[[date_col]] >= start_q & data[[date_col]] <= end_q] 
+  
+  comp <- list()
+  
+  # Initial setup for the first warm start
+  # We initialize with NULL so the wrapper uses manifest defaults for the first run
+  current_theta <- NULL 
+  
+  message(sprintf("Rolling Estimation: %s to %s", start_q, end_q))
+  
+  # This always estimates from val_T1 to the forecast vantage point -> today
+  # run parameter estimation on the full information set
+  for (i in seq_along(forecast_dates)) {
+    target_date <- forecast_dates[i]
+    message("\n--- Vantage Point: ", target_date, " ---")
+    
+    # Slice Data available "Today"
+    data_t <- data[data[[date_col]] <= target_date, ]
+    
+    # Process Exogenous Data
+    # HP Filter is estimated inclduing the burn in period before the start of the information set
+    
+    # Error if there ar not enough valid gdp obs 
+    valid_gdp_indices <- which(!is.na(data_t$log_gdp))
+    if (length(valid_gdp_indices) < 5) {
+      message("Skipping ", target_date, ": Not enough GDP data points.")
+      next
+    }
+    
+    # select GDP series
+    first_obs_idx <- valid_gdp_indices[1]
+    gdp_series    <- data_t$log_gdp[first_obs_idx:nrow(data_t)]
+    
+    # Run filter
+    hp_res    <- mFilter::hpfilter(gdp_series, freq = 1600)
+    gdp_cycle <- as.numeric(hp_res$cycle) * 100
+    
+    # Align cycle back to the time-series and create lags
+    processed_data <- data_t
+    processed_data$gap_l0 <- NA_real_
+    processed_data$gap_l0[first_obs_idx:nrow(data_t)] <- gdp_cycle
+    
+    processed_data <- processed_data %>%
+      mutate(
+        gap_l1 = dplyr::lag(gap_l0, 1),
+        gap_l2 = dplyr::lag(gap_l0, 2)
+      ) %>%
+      # Filter for Estimation Window
+      filter(quarter >= val_T1) %>%
+      filter(complete.cases(unemp_rate, gap_l0, gap_l1, gap_l2))
+    
+    if (nrow(processed_data) < 5) {
+      message("Skipping ", target_date, ": No valid overlapping observations.")
+      next
+    }
+    
+    # Build Data Matrices
+    Y_final <- as.matrix(processed_data[, c("unemp_rate", "spf_5y_unemp")])
+    X_final <- as.matrix(processed_data[, c("gap_l0", "gap_l1", "gap_l2")])
+    
+    message(sprintf("Estimation range: %s to %s (%d obs)", 
+                    min(processed_data$quarter), max(processed_data$quarter), nrow(processed_data)))
+    
+    # Initialize Blueprint
+    my_ssm_model <- initialize_my_okun_ssm(Y_final,
+                                           X_final,
+                                           parameter_guesses = okun_parameter_guess)
+    
+    # Optimization: Multiple estimations with Warm Start
+    # We use Nelder-Mead and BFGS that are very different for robustnes
+    # each previous result becomes guess for the next
+    opt_results <- ssm_optimizer_wrapper_okun(
+      ssm       = my_ssm_model, 
+      methods   = c("Nelder-Mead", "BFGS"), 
+      iters     = 2, 
+      start_par = current_theta
+    )
+    
+    # Update current_theta for the next vantage point (Warm Start)
+    current_theta <- opt_results$theta
+    
+    if(any(is.na(current_theta))) {
+      message("Warning: Optimizer crashed. Resetting to manifest defaults.")
+      current_theta <- NULL
+    }
+    
+    
+    # 8. Final Extraction of States
+    final_states <- loglik_ssm_okun(current_theta, my_ssm_model, return_full_res = TRUE)
+    
+    # Store results
+    comp[[as.character(target_date)]] <- list(
+      target_date = target_date,
+      params      = opt_results$params,
+      states      = final_states
+    )
+    
+    cat("Likelihood: ", -final_states$loglik, "Parameters", current_theta)
+    cat(sprintf("\n [%d/%d] Estimated: %s\n", i, length(forecast_dates), as.character(target_date)))
+  }
+  
+  return(comp)
+}

@@ -1,8 +1,8 @@
 message("Starting SNB Policy Rate Forecast")
+source(here("R", "kalman_taylor_specs.R"))
 
 
 # Source Correct Kalmann Specs
-source(here("R", "kalman_implementation_taylor.R"))
 
 gdp_forecasts_arima <- read_csv(output_save_paths$forecasts$forecast_df_gdp_arima, 
                                 show_col_types = FALSE) %>%
@@ -115,6 +115,8 @@ if(run_estimation) {
   
   
   # --- Estimate the full Model ---
+  
+  # Currently not working??
   output_estim <- ssm_optimizer_wrapper_shadow(ssm = ssm_taylor)
   
   

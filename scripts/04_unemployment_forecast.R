@@ -7,10 +7,7 @@
 # Load correct Kalman Specs
 
 #stop("STOPPING BEFORE OKUN ESTIMATION")
-
-#source(here("R", "kalman_implementation_base.R"))
-source(here("R", "kalman_implementation_okun.R"))
-
+source(here("R", "kalman_okun_specs.R"))
 
 # Load Data
 master_okun <- read_csv(data_save_paths$processed$okun_master_csv, 
@@ -59,7 +56,7 @@ if(run_estimation){
   params_okun <- rolling_est_okun_ssm(master_okun,
                                       forecast_start = forecast_starting_date)
   
-  6# Extract the parameters from the results and put them in the correctly formated dataframe
+  # Extract the parameters from the results and put them in the correctly formated dataframe
   params_okun_df <- extract_params_df(params_okun)
   
   write_csv(params_okun_df, output_save_paths$params$rolling_param_est_okun)

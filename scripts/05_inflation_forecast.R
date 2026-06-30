@@ -5,7 +5,7 @@
 ################################################################################
 
 # Get Correct Kalman Specs
-source(here("R", "kalman_implementation_philips.R"))
+source(here("R", "kalman_phillips_specs.R"))
 
 
 gdp_forecasts_arima <- read_csv(output_save_paths$forecasts$forecast_df_gdp_arima, 
@@ -36,7 +36,7 @@ if (forecast_starting_date < as.yearqtr("2010 Q1")) {
   
   forecast_starting_date_philips <- as.yearqtr("2010 Q1")
   message("FORECAST STARTING DATE FOR PHILLIPS MODEL SET TO Q1 2010, DUE TO DATA AVAILABILITY")
-} 
+} else {forecast_starting_date_philips <- forecast_starting_date }
 
 # ==============================================================================
 # Run Rolling Estimation and Create The forecast

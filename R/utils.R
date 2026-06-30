@@ -395,3 +395,138 @@ calculate_forward_rate <- function(yield_5y, yield_10y, input_as_percent = TRUE)
 }
 
 
+
+
+
+# ==============================================================================
+# parameter mapping for keeping them positive if needed
+# ==============================================================================
+
+#' Map Optimizer Parameters to Model Parameters (Economic Scale)
+#'
+#' @description
+#' Transforms unconstrained parameters from the optimizer to their 
+#' constrained economic scale using the rules defined in the SSM manifest.
+#' This is the inverse operation of \code{model2param_gen}.
+#'
+#' @param theta Numeric vector. The unconstrained parameter values (often 
+#' produced by \code{optim} or \code{optimx}).
+#' @param ssm A structured SSM object containing a \code{manifest} list. 
+#' The manifest defines the transformation \code{rule} for each parameter.
+#'
+#' @details
+#' Optimization algorithms often work best in an unconstrained space 
+#' (\eqn{(-\infty, \infty)}). To ensure economic variables like variances 
+#' are positive or persistence is bounded, we apply the following transformations:
+#' \itemize{
+#'   \item \bold{Rule 0 (Linear/Default):} \eqn{f(\theta) = \theta}. No transformation. 
+#'   Used for parameters that can take any real value, such as Okun's Law \eqn{\beta} coefficients.
+#'   \item \bold{Rule 1 (Exponential):} \eqn{f(\theta) = \exp(\theta)}. Constrains 
+#'   the parameter to be strictly positive (\eqn{>0}). Used for measurement and process 
+#'   standard deviations (\eqn{\sigma, \xi}).
+#'   \item \bold{Rule 2 (Logistic):} \eqn{f(\theta) = \frac{1}{1 + \exp(-\theta)}}. 
+#'   Constrains the parameter between 0 and 1. Used for persistence parameters 
+#'   (\eqn{\phi}) to ensure stationarity in the State-Space model.
+#' }
+#'
+#' @return A named list of parameters on their natural economic scale, 
+#' ready to be used by the SSM matrix builders.
+#'
+#' @seealso \code{\link{model2param_gen}} for the forward transformation into 
+#' optimizer space.
+#' @export
+param2model_gen <- function(theta, ssm) {
+  
+  # Extract the manifest from the ssm object
+  spec <- ssm$manifest
+  
+  # get all available parameters
+  p_names <- names(spec)
+  
+  # Initialize
+  out <- list()
+  
+  for (i in seq_along(p_names)) {
+    # Loop over each parameters and apply the given rule
+    # This takes a guess by the optimizer such as -3 and applies the selected rule
+    # variances have to be positive this is why we would apply exp()
+    # they map one  to one so at the end we just take the last and best guess
+    # from teh optimizer and apply the rule to get the true parameters
+    name <- p_names[i]
+    rule <- spec[[name]]$rule
+    val  <- theta[i]
+    
+    # Switch has a default for all non 1 or 2 here -> 0 is exactly that, therefore
+    # if there is no transformation specification it just takes the given value
+    out[[name]] <- switch(as.character(rule),
+                          "1" = exp(val) + 1e-7,                    # Exponential (Variances) I sthis okay to do
+                          "2" = 1 / (1 + exp(-val)),         # Logistic (AR Phi)
+                          "3" = {                           # Rule 3: Bounded
+                            low  <- spec[[name]]$low
+                            high <- spec[[name]]$high
+                            low + (high - low) / (1 + exp(-val))
+                          },
+                          val                                # Default / Rule 0 (Betas)
+    )
+  }
+  return(out)
+}
+
+
+
+#' Map Model Parameters to Optimizer Parameters (Unconstrained Scale)
+#'
+#' @description
+#' Transforms parameters from their constrained economic scale back to the 
+#' unconstrained scale used by the optimizer. This ensures that initial guesses 
+#' are correctly represented in the search space.
+#'
+#' @param model_list A named list of parameters on their natural economic scale 
+#' (e.g., standard deviations as positive numbers, persistence as values between 0 and 1).
+#' @param ssm A structured SSM object containing a \code{manifest} list. 
+#' The manifest defines the transformation \code{rule} for each parameter.
+#'
+#' @details
+#' This function applies the inverse of the transformations found in \code{param2model_gen}:
+#' \itemize{
+#'   \item \bold{Rule 0 (Linear):} \eqn{g(y) = y}. Used for unconstrained parameters like betas.
+#'   \item \bold{Rule 1 (Logarithmic):} \eqn{g(y) = \log(y)}. The inverse of \eqn{\exp(\theta)}. 
+#'   Ensures that a positive standard deviation maps to a real number.
+#'   \item \bold{Rule 2 (Logit):} \eqn{g(y) = \log\left(\frac{y}{1-y}\right)}. The inverse of the 
+#'   logistic function. Maps a parameter bounded in \eqn{(0, 1)} to the real line \eqn{(-\infty, \infty)}.
+#' }
+#'
+#' @return A numeric vector (\code{theta}) of unconstrained parameters suitable for 
+#' use in \code{optim} or \code{optimx}.
+#'
+#' @seealso \code{\link{param2model_gen}} for the forward transformation used 
+#' within the likelihood function.
+#' @export
+model2param_gen <- function(model_list, ssm) {
+  spec <- ssm$manifest
+  p_names <- names(spec)
+  theta <- numeric(length(p_names))
+  
+  for (i in seq_along(p_names)) {
+    name <- p_names[i]
+    rule <- spec[[name]]$rule
+    val  <- model_list[[name]]
+    
+    # Switch has a default for all non 1 or 2 here -> 0 is exactly that, therefore
+    # if there is no transformation specification it just takes the given value
+    theta[i] <- switch(as.character(rule),
+                       "1" = log(val),
+                       "2" = log(val / (1 - val)),        # Logit inverse
+                       "3" = {
+                         low  <- spec[[name]]$low
+                         high <- spec[[name]]$high
+                         # Inverse: Maps [low, high] back to (-inf, inf)
+                         log((val - low) / (high - val))
+                       },
+                       val
+    )
+  }
+  return(theta)
+}
+
+

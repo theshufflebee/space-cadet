@@ -21,14 +21,11 @@ source(here("R", "latex_formatting.R"))
 # Kalman Implementation Functions
 # ------------------------------------------------------------------------------
 
-# General Functions implementation
-source(here("R", "kalman_estimation_engine.R")) # Functions to
+# General Kalman Filter Functions
 source(here("R", "build_model_matrices.R"))
-
-# Specific Math Stuff
-source(here("R", "kalman_implementation_base.R"))
-source(here("R", "kalman_implementation_philips.R"))
-source(here("R", "kalman_implementation_taylor.R"))
+source(here("R", "kalman_okun_specs.R"))
+source(here("R", "kalman_phillips_specs.R"))
+source(here("R", "kalman_taylor_specs.R"))
 
 #Forecasting Functions
 source(here("R", "ssm_forecasting.R"))
@@ -195,13 +192,13 @@ ts_names <- c(
 ################################################################################
 
 # ---  General Settings ---
-forecast_starting_date <- as.yearqtr("2000 Q1")
+forecast_starting_date <- as.yearqtr("2025 Q2")
 
 # FOr Indexing
 indexing_date <- "2020-12-01"
 
 
-run_estimation <- FALSE
+run_estimation <- TRUE
 
 h <- 8
 
@@ -284,7 +281,7 @@ model_philips_burn_in <- "2000 Q4"
 
 # --- Output Save paths ---
 
-store_temp <- FALSE
+store_temp <- TRUE
 
 # Only concerns the output folder
 

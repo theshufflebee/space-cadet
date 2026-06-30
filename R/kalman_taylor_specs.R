@@ -73,10 +73,10 @@
 #' 
 #' @export
 kalman_filter_taylor <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
-                          indic_pos=0,
-                          Rfunction=calc_covariance, Qfunction=calc_covariance,
-                          reconciliationf = function(x,opt){x},
-                          ar_matrix = 0# In case
+                                 indic_pos=0,
+                                 Rfunction=calc_covariance, Qfunction=calc_covariance,
+                                 reconciliationf = function(x,opt){x},
+                                 ar_matrix = 0# In case
 ){
   # Y_t is the observed data matrix
   # rho_0 is the starting guess for the state vector
@@ -114,8 +114,8 @@ kalman_filter_taylor <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
   
   # Number of observed variables:
   
-
-
+  
+  
   ny = NCOL(Y_t)
   # Number of unobs. variables:
   nr = NCOL(G)
@@ -159,7 +159,7 @@ kalman_filter_taylor <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
       Sigma <- Sigma_0
       
       lag_val <- rho_0[1, 1]
-
+      
     } else {
       rho <- rho_tt[t-1, ]
       Sigma <- Sigma_tt[t-1, ]
@@ -174,7 +174,7 @@ kalman_filter_taylor <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
         lag_val <- as.numeric(Y_t[t-1, ])
       }
     }
-      
+    
     # First we project forward the initial guess of rho_0. here both H and nu_t[1,] will be estimated
     
     # I replaced the one below with the function visible next
@@ -198,7 +198,7 @@ kalman_filter_taylor <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     }
     
     # to put H into form
-
+    
     H_mat     <- matrix(as.numeric(H), nrow = nr, ncol = nr)
     
     # Old way
@@ -213,8 +213,8 @@ kalman_filter_taylor <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     
     
     y_tp1_t[t,] <- forecast_measurement_eq(mu_t = mu_t[t,], G = G, rho = rho, ar_mat = ar_matrix[t,], lag_val = lag_val)
-      
-
+    
+    
     
     
     # Predict Sigma: If first step, use initial guess
@@ -276,7 +276,7 @@ kalman_filter_taylor <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
       # K = aux_Sigma_tp1_t %*% t(G_aux) %*% MASS::ginv(R_aux + G_aux %*% aux_Sigma_tp1_t %*% t(G_aux))
       
       K = calculate_kalman_gain(aux_Sigma_tp1_t, G_aux, R_aux)
-
+      
       
       # Calculate Forecast error when you actually observe new variables
       lambda_t   = Y_t[t, ] - y_tp1_t[t, ] # forecast error
@@ -321,7 +321,7 @@ kalman_filter_taylor <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
                              ny_aux/2*log(2*pi) - 1/2*(log(det_omega) +
                                                          t(lambda_t) %*% MASS::ginv(omega) %*% lambda_t)
       )
-
+      
       
       # Sum pu for what needs to be finalized
       logl <- logl + loglik.vector[t] # what needs to be optimmized
@@ -334,7 +334,7 @@ kalman_filter_taylor <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
     # Calculate partial stuff here so next iter I can use it for shadow rate estim
     fitted_obs_t_t[t,] <- mu_t[t,] + rho_tt[t,] %*% t(G) + ar_matrix[t,] *lag_val# fitted observables -> estimate of y_hat_t given t
     
-
+    
   }
   
   # Create output list
@@ -373,7 +373,7 @@ kalman_filter_taylor <- function(Y_t,nu_t,H,N,mu_t,G,M,Sigma_0,rho_0,
 project_state_forward <- function(rho, H, nu_t, nr) {
   # nu_t_step should be the specific row for time t: nu_t[t, ]
   # Ensure rho is a column vector
-
+  
   rho <- as.numeric(rho)  # ADDED due to Bug in third model worked fine first two
   
   H_mat <- matrix(H, nrow = nr, ncol = nr) # resize H from vector to matrix
@@ -522,7 +522,7 @@ project_covariance_H <- function(noise, sigma_base, transform_matrix, nr = nr) {
   H_mat <- matrix(transform_matrix, nrow = nr, ncol = nr)
   
   sig_mat <- matrix(sigma_base, nrow = nr, ncol = nr)
-
+  
   uncertainty <- noise + H_mat %*% sig_mat %*% t(H_mat)
   
   return(uncertainty)
@@ -643,10 +643,10 @@ calculate_kalman_gain <- function(sigma, G, R){
 #'
 #' @export
 loglik_ssm_shadow <- function(theta,
-                       ssm,
-                       return_full_res = FALSE,
-                       rho_guess = c(6, 2, 1),
-                       set_silent = TRUE) {
+                              ssm,
+                              return_full_res = FALSE,
+                              rho_guess = c(6, 2, 1),
+                              set_silent = TRUE) {
   
   # Initial State Vector (rho_0)
   # For model 3 its a 3x1 vector, for all others a 1x1 vector
@@ -799,10 +799,10 @@ loglik_ssm_shadow <- function(theta,
 #'
 #' @export
 ssm_optimizer_wrapper_shadow <- function(ssm, 
-                                  methods = c("Nelder-Mead", "bobyqa", "BFGS"), 
-                                  iters = 3, 
-                                  start_par = NULL,
-                                  set_silent = TRUE) {
+                                         methods = c("Nelder-Mead", "bobyqa", "BFGS"), 
+                                         iters = 3, 
+                                         start_par = NULL,
+                                         set_silent = TRUE) {
   
   # Prepare Initial Parameters
   if (is.null(start_par)) {
@@ -885,7 +885,7 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
     cat(rep("-", 45), "\n", sep = "")
     cat(formatted_theta_opt, "\n")
     cat(rep("-", 45), "\n")
-
+    
     #VValidating results if there are no inf or NaN
     if (any(is.na(proposed_par)) || any(is.infinite(proposed_par))) {
       
@@ -939,5 +939,155 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
     fit_summary = fit,          # The last optimx result object
     ssm = ssm
   ))
+}
+
+
+
+
+
+
+
+rolling_est_taylor_ssm <- function(data,
+                                   forecast_start,
+                                   forecast_end = NULL,
+                                   date_col = "quarter",
+                                   val_T1 = "1991-01-01",
+                                   hp_inf_gap = FALSE) {
+  
+  # Assure correct format
+  
+  data <- as.data.frame(data)
+  
+  data[[date_col]] <- as.yearqtr(data[[date_col]])
+  
+  # Select the starting quarter
+  start_q <- as.yearqtr(as.Date(forecast_start))
+  
+  # Sleect T = 0
+  val_T1 <- as.yearqtr(as.Date(val_T1))
+  
+  # Either estimate until last obs or estimate until a given date
+  if(is.null(forecast_end)) {
+    end_q <- max(data[[date_col]], na.rm = TRUE)
+  } else {
+    end_q <- as.yearqtr(as.Date(forecast_end))
+  }
+  
+  # Define the sequence of "Vantage Points" (The end of the period on which we estimate)
+  # Is the today (end of information set) for the forecast
+  forecast_dates <- data[[date_col]][data[[date_col]] >= start_q & data[[date_col]] <= end_q] 
+  
+  comp <- list()
+  
+  # Initial setup for the first warm start
+  # We initialize with NULL so the wrapper uses manifest defaults for the first run
+  current_theta <- NULL 
+  
+  message(sprintf("Rolling Estimation: %s to %s", start_q, end_q))
+  
+  # This always estimates from val_T1 to the forecast vantage point -> today
+  # run parameter estimation on the full information set
+  for (i in seq_along(forecast_dates)) {
+    target_date <- forecast_dates[i]
+    message("\n--- Vantage Point: ", target_date, " ---")
+    
+    # Slice Data available "Today"
+    data_t <- data[data[[date_col]] <= target_date, ]
+    
+    # Process Exogenous Data
+    # HP Filter is estimated inclduing the burn in period before the start of the information set
+    
+    # Error if there ar not enough valid gdp obs 
+    valid_inf_indices <- which(!is.na(data_t$log_cpi))
+    if (length(valid_inf_indices) < 5) {
+      message("Stopping: Not enough GDP data points.")
+      stop()
+    }
+    
+    # select GDP series
+    first_obs_idx <- valid_inf_indices[1]
+    inf_series    <- data_t$log_cpi[first_obs_idx:nrow(data_t)]
+    
+    gdp_gap_data <- get_hp_gap(data = data_t,
+                               gdp_forecast_data = data_t, # forecast data
+                               vantage_q = target_date
+    )
+    gdp_gap_data$gap <- gdp_gap_data$gap * 100
+    
+    if(hp_inf_gap) {
+      inf_gap_data <- get_hp_gap(data = data_t,
+                                 gdp_forecast_data = data_t, # forecast data
+                                 vantage_q = target_date,
+                                 gdp_col = "log_cpi"
+      ) 
+      
+    } else {
+      inf_gap_data <- data_t %>%
+        select(all_of(c("quarter", "inf_gap")))
+    }
+    
+    
+    
+    
+    
+    processed_data <- data_t %>%
+      select(quarter, saron_libor_splice, forward_rate, yoy_inf) %>%
+      left_join(gdp_gap_data %>% select(quarter, gdp_gap = gap), by = "quarter") %>%
+      left_join(inf_gap_data %>% select(quarter, inf_gap), by = "quarter") %>%
+      filter(quarter >= as.yearqtr(val_T1)) %>%
+      arrange(quarter) %>%
+      filter(complete.cases("gdp_gap", "inf_gap"))
+    
+    
+    if (nrow(processed_data) < 20) { # 20 is a safe minimum for a 3-state SSM
+      message(sprintf("Skipping %s: Insufficient observations after filtering (%d obs)", 
+                      target_date, nrow(processed_data)))
+      next # Skip to the next quarter in the rolling loop
+    }
+    
+    
+    # Build Data Matrices
+    Y_final <- as.matrix(processed_data[, c("saron_libor_splice", "forward_rate")])
+    X_final <- as.matrix(processed_data[, c("gdp_gap", "inf_gap")])
+    
+    message(sprintf("Estimation range: %s to %s (%d obs)", 
+                    min(processed_data$quarter), max(processed_data$quarter), nrow(processed_data)))
+    
+    # Initialize Blueprint
+    my_ssm_model <- initialize_taylor_ssm(Y_data = Y_final,
+                                          X_data =X_final,
+                                          parameter_guesses = snb_rate_parameter_guess)
+    
+    # Optimization: Multiple estimations with Warm Start
+    # We use Nelder-Mead and BFGS that are very different for robustnes
+    # each previous result becomes guess for the next
+    opt_results <- ssm_optimizer_wrapper_shadow(
+      ssm = my_ssm_model
+    )
+    
+    # Update current_theta for the next vantage point (Warm Start)
+    current_theta <- opt_results$theta
+    
+    if(any(is.na(current_theta))) {
+      message("Warning: Optimizer crashed. Resetting to manifest defaults.")
+      current_theta <- NULL
+    }
+    
+    
+    # 8. Final Extraction of States
+    final_states <- loglik_ssm_shadow(current_theta, my_ssm_model, return_full_res = TRUE)
+    
+    # Store results
+    comp[[as.character(target_date)]] <- list(
+      target_date = target_date,
+      params      = opt_results$params,
+      states      = final_states
+    )
+    
+    cat("Likelihood: ", -final_states$loglik, "Parameters", current_theta)
+    cat(sprintf("\n [%d/%d] Estimated: %s\n", i, length(forecast_dates), as.character(target_date)))
+  }
+  
+  return(comp)
 }
 
