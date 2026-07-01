@@ -768,7 +768,7 @@ loglik_ssm_okun <- function(theta,
 #' @export
 ssm_optimizer_wrapper_okun <- function(ssm, 
                                        methods = c("Nelder-Mead", "bobyqa", "BFGS"), 
-                                       iters = 3, 
+                                       iters = 2, 
                                        start_par = NULL,
                                        set_silent = TRUE
 ) {
@@ -792,7 +792,7 @@ ssm_optimizer_wrapper_okun <- function(ssm,
     
   } else {
     init_theta_econ <- sapply(ssm$manifest, function(x) x$val) 
-    #  CURRENTLY RUNNING WITH ALWAYS INITIAL GUESS
+    #  CURRENTLY RUNNING WITH ALWAYS INITIAL GUESS (Matches Phillips Blueprint)
     current_par_opt <- model2param_gen(init_theta_econ, ssm)
     # current_par_opt <- start_par
     
@@ -832,9 +832,9 @@ ssm_optimizer_wrapper_okun <- function(ssm,
           abstol = 1e-9  # Stop if absolute improvement is less than this
         )
       )
-      
       # Extract the new likelihood and parameters
       current_lik <- fit$value[1]
+      
       current_par_opt <- as.numeric(fit[1, 1:n_par])
       
     }
@@ -1062,6 +1062,15 @@ rolling_est_okun_ssm <- function(data,
     
     cat("Likelihood: ", -final_states$loglik, "Parameters", current_theta)
     cat(sprintf("\n [%d/%d] Estimated: %s\n", i, length(forecast_dates), as.character(target_date)))
+    
+    # ---- DIAGNOSTICS REAK ----
+    if (i == length(forecast_dates)) {
+      message("!!! CAPTURING FINAL ROLLING LOOP MATRICES FOR  ANALYSIS !!!")
+      .GlobalEnv$Y_loop_final <- Y_final
+      .GlobalEnv$X_loop_final <- X_final
+      .GlobalEnv$model_loop_final <- my_ssm_model
+      .GlobalEnv$theta_loop_final <- current_theta
+    }
   }
   
   return(comp)

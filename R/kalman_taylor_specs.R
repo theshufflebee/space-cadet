@@ -723,6 +723,7 @@ loglik_ssm_shadow <- function(theta,
   # Numerical Saveguard. if calculation crashes return a high penalization value
   if (is.null(res) || any(is.na(res$loglik.vector)) || any(is.infinite(res$loglik.vector))) {
     # Return a massive penalty value so the optimizer moves away
+    message("WARNING FILTER CRASHED")
     return(1e10) 
   }
   
@@ -799,10 +800,10 @@ loglik_ssm_shadow <- function(theta,
 #'
 #' @export
 ssm_optimizer_wrapper_shadow <- function(ssm, 
-                                         methods = c("Nelder-Mead", "bobyqa", "BFGS"), 
-                                         iters = 3, 
+                                         methods = c("Nelder-Mead", "bobyqa"), 
+                                         iters = 2, 
                                          start_par = NULL,
-                                         set_silent = TRUE) {
+                                         set_silent = FALSE) {
   
   # Prepare Initial Parameters
   if (is.null(start_par)) {
@@ -822,7 +823,10 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
     }
     
   } else {
-    current_par_opt <- start_par
+    init_theta_econ <- sapply(ssm$manifest, function(x) x$val) 
+    #  CURRENTLY RUNNING WITH ALWAYS INITIAL GUESS (Aligned with Phillips Blueprint)
+    current_par_opt <- model2param_gen(init_theta_econ, ssm)
+    # current_par_opt <- start_par
     
     if(!set_silent){
       message("\n--- Transformed Optimizer Space (Theta) ---")
@@ -833,13 +837,14 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
   
   n_par <- length(current_par_opt)
   
+  message("DEBUG FOR CURRENT PAR OPT")
+  print(current_par_opt)
+  
   # Run Optimization Loop
   # ----------------------------------------------------------------------------
   # Cycles through each method for the specified number of iterations
   
   # Sets up a break of the method partloglik loop if repeated estimation doesn't lead to improvement 
-  last_best_lik <- Inf
-  
   for (i in 1:iters) {
     for (m in methods) {
       fit <- optimx::optimx(
@@ -860,14 +865,18 @@ ssm_optimizer_wrapper_shadow <- function(ssm,
       )
       
       # Extract the new likelihood and parameters
-      current_lik <- fit$value[1]
       current_par_opt <- as.numeric(fit[1, 1:n_par])
+      message("DEBUG FOR CURRENT PAR OPT AFTER")
+      print(current_par_opt)
       
-      # check if there is important improvement
-      # If the improvement is less than 0.0001, stop the whole process
-      lik_diff <- abs(last_best_lik - current_lik)
+      if(any(is.na(current_par_opt))) {
+        message("OPTIMIZER RETURNED NA PARAMETERS. REENITIALIZING...")
+        browser()
+        current_par_opt <- model2param_gen(init_theta_econ, ssm)
+      }
       
-      last_best_lik <- current_lik
+      
+
     }
     
     # Update current_par_opt for the next step in the loop
@@ -1009,7 +1018,7 @@ rolling_est_taylor_ssm <- function(data,
     inf_series    <- data_t$log_cpi[first_obs_idx:nrow(data_t)]
     
     gdp_gap_data <- get_hp_gap(data = data_t,
-                               gdp_forecast_data = data_t, # forecast data
+                               gdp_forecast_data = gdp_forecasts_arima, # forecast data
                                vantage_q = target_date
     )
     gdp_gap_data$gap <- gdp_gap_data$gap * 100

@@ -336,9 +336,12 @@ build_data_matrix_philips <- function(T_0 = "2005-01-01",
                                       vantage_quarter = "2023 Q1",
                                       data = master_philips,
                                       h = 8,
-                                      set_silent = TRUE) {
+                                      set_silent = FALSE,
+                                      quarterly = TRUE) {
   
   T_0 <- as.yearqtr(T_0)
+  
+  if(quarterly) {inf_lag <- 1} else {inf_lag <- 4}
   
   vantage_quarter <- as.yearqtr(vantage_quarter)
   
@@ -347,9 +350,12 @@ build_data_matrix_philips <- function(T_0 = "2005-01-01",
     arrange(quarter) %>%
     mutate(
       cpi = as.numeric(cpi),
-      log_inflation_diff = (log(cpi) - dplyr::lag(log(cpi), 4)) * 100,
-      lag_log_inflation_diff = dplyr::lag(log_inflation_diff, 1) # Fixed syntax
+      log_inflation_diff = (log(cpi) - dplyr::lag(log(cpi), inf_lag)) * 100 * (4/inf_lag),
+      lag_log_inflation_diff = dplyr::lag(log_inflation_diff, 1)
     )
+  
+  print("DEBUG FOR INFLATION 1 MEANS QUARTERLY DIFF")
+  print(inf_lag)
   
   # Add burn in cutoff
   raw_data <- raw_data %>%
@@ -376,7 +382,7 @@ build_data_matrix_philips <- function(T_0 = "2005-01-01",
   
   
   HP_gap_data <- get_hp_gap(raw_data,
-                            raw_data, # forecast data
+                            gdp_forecast_data = gdp_forecasts_arima, # forecast data
                             vantage_q = vantage_quarter
   )
   
@@ -660,7 +666,7 @@ build_H_taylor <- function(model_params) {
 #' @return A 2 x 3 matrix of factor loadings.
 build_G_taylor <- function(model_params) {
   # rho is the interest rate smoothing parameter
-  phi_val <- if(!is.null(model_params$rho)) model_params$phi else 0.8
+  phi_val <- if(!is.null(model_params$phi)) model_params$phi else 0.8
   
   G <- matrix(0, 2, 3)
   

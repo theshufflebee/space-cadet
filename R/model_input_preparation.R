@@ -398,13 +398,14 @@ extract_lop_gap <- function(spliced_df, hp_freq = 1600) {
 get_hp_gap <- function(data,
                        gdp_forecast_data,
                        vantage_q,
-                       h = 8,
+                       h = h,
                        gdp_col = "log_gdp",
                        date_col = "quarter",
                        return_forecasts = FALSE) {
   
   vantage_q <- as.yearqtr(vantage_q)
   vantage_name <- as.character(vantage_q)
+  vantage_str <- format(vantage_q, format = "%Y Q%q") # Matches your triangle col format
   
   # from observed data select up until the vantage point
   # that you have observed at that time
@@ -413,18 +414,28 @@ get_hp_gap <- function(data,
     arrange(.data[[date_col]]) %>%
     filter(.data[[date_col]] <= vantage_q) %>%
     select(all_of(c(date_col, gdp_col)))
-  
+ 
   # Select the forecast data as t+h extension
-  forecast_data <- gdp_forecast_data %>%
-    mutate(across(all_of(date_col), zoo::as.yearqtr)) %>%
-    arrange(.data[[date_col]]) %>%
-    filter(.data[[date_col]] > vantage_q) %>%
-    slice_head(n = h) %>%
-    select(all_of(c(date_col, gdp_col)))
+  forecast_data_clean <- gdp_forecast_data[, c("date", vantage_str)] %>%
+    stats::setNames(c("quarter", "log_gdp")) %>%
+    mutate(quarter = zoo::as.yearqtr(quarter)) %>%
+    drop_na()
+  
+  
+  obs_val   <- obs_data$log_gdp[obs_data$quarter == vantage_q]
+  fcast_val <- forecast_data_clean$log_gdp[forecast_data_clean$quarter == vantage_q]
+  
+  if (length(obs_val) && length(fcast_val) && abs(obs_val - fcast_val) > 1e-5) {
+    warning(sprintf("[DISCREPANCY] At %s: Obs = %.5f, Fcast = %.5f", vantage_str, obs_val, fcast_val))
+  }
+  
+  # obs data last row forecast data first row should be the same date and value
   
   # Fuse and check for enough data
-  extended_df <- bind_rows(obs_data, forecast_data)
-  
+  extended_df <- bind_rows(
+    obs_data, 
+    filter(forecast_data_clean, quarter > vantage_q)
+  )  
   # Safety check for minimum data points
   if (nrow(extended_df) < 12) {
     message("Not enough Data for HP Filter")
@@ -689,3 +700,296 @@ forecast_gdp <- function(data, date_col, gdp_col, horizon = 8, hp_lambda = 1600)
   
   return(combined_df)
 }
+
+
+
+################################################################################
+#
+# Forecast Helper for Inflation
+#
+################################################################################
+
+#' Forecast YoY Inflation using ARIMA with COVID Dummies
+#'
+#' @description Cleans raw inputs, computes changes in quarterly inflation, 
+#' fits an \code{auto.arima} model with COVID-shock overrides, and reconstructs 
+#' rolling 4-quarter cumulative paths to return Year-on-Year headline inflation rates.
+#'
+#' @param data A data frame containing historical quarters and quarterly inflation.
+#' @param date_col Character. Name of the quarter column.
+#' @param inf_col Character. Name of the inflation column.
+#' @param horizon Integer. Quarters ahead to forecast (default is 8).
+#'
+#' @return A continuous tibble binding historical quarters, forecasted YoY inflation rates,
+#' and data type labels.
+#' @export
+forecast_inflation <- function(data, date_col, inf_col, horizon = 8) {
+  
+  # Clean format and calculate changes in quarterly inflation momentum
+  prep_df <- data %>%
+    mutate(
+      date = zoo::as.yearqtr(.data[[date_col]]),
+      inflation = as.numeric(.data[[inf_col]])
+    ) %>%
+    arrange(date) %>%
+    mutate(inf_diff = inflation - dplyr::lag(inflation, 1))
+  
+  hist_diff_df <- prep_df %>% 
+    filter(!is.na(inf_diff))
+  
+  diff_vector <- hist_diff_df %>% pull(inf_diff)
+  
+  # Add the pulse dummies matching the critical shocks
+  hist_diff_df <- hist_diff_df %>%
+    mutate(
+      dummy_2020q2 = if_else(date == zoo::as.yearqtr("2020 Q2"), 1, 0),
+      dummy_2020q3 = if_else(date == zoo::as.yearqtr("2020 Q3"), 1, 0)
+    )
+  
+  # Extract and clean active dummy fields
+  dummy_df <- hist_diff_df %>% select(dummy_2020q2, dummy_2020q3)
+  active_columns <- colSums(dummy_df) > 0
+  dummy_df_cleaned <- dummy_df[, active_columns, drop = FALSE]
+  
+  use_covid_xreg <- ncol(dummy_df_cleaned) > 0
+  if (use_covid_xreg) {
+    last_row_sums <- rowSums(tail(dummy_df_cleaned, 1))
+    if (last_row_sums > 0 && sum(as.matrix(dummy_df_cleaned)) == 1) {
+      use_covid_xreg <- FALSE
+    }
+  }
+  
+  # Fit ARIMA on changes
+  if (use_covid_xreg) {
+    xreg_hist <- as.matrix(dummy_df_cleaned)
+    arima_fit <- forecast::auto.arima(diff_vector, seasonal = FALSE, xreg = xreg_hist)
+    
+    xreg_future <- matrix(0, nrow = horizon, ncol = ncol(xreg_hist))
+    colnames(xreg_future) <- colnames(xreg_hist)
+    
+    diff_fc <- forecast::forecast(arima_fit, h = horizon, xreg = xreg_future)
+  } else {
+    arima_fit <- forecast::auto.arima(diff_vector, seasonal = FALSE)
+    diff_fc   <- forecast::forecast(arima_fit, h = horizon)
+  }
+  future_diff_rates <- as.numeric(diff_fc$mean)
+  
+  # Create the future timeline
+  last_hist_date <- max(prep_df$date)
+  last_hist_inf  <- tail(prep_df$inflation, 1)
+  future_dates   <- seq(last_hist_date + 1/4, length.out = horizon, by = 1/4)
+  
+  # Reconstruct the forward quarterly levels: inf_{t+h} = inf_{t+h-1} + \Delta inf_{t+h}
+  future_inf_levels <- cumsum(future_diff_rates) + last_hist_inf
+  
+  # Compile continuous vector array
+  full_inf_path <- c(prep_df$inflation, future_inf_levels)
+  full_timeline <- c(prep_df$date, future_dates)
+  
+  # Reconstruct YoY Inflation via a rolling 4-quarter moving accumulation window
+  # For quarter-on-quarter tracking metrics, YoY is computed as the trailing average
+  yoy_inflation_vector <- vector("numeric", length = length(full_inf_path))
+  for (k in 1:length(full_inf_path)) {
+    if (k < 4) {
+      # Fallback anchor for edge samples below trailing timeline boundaries
+      yoy_inflation_vector[k] <- full_inf_path[k]
+    } else {
+      yoy_inflation_vector[k] <- mean(full_inf_path[(k-3):k])
+    }
+  }
+  
+  combined_df <- tibble(
+    quarter       = full_timeline,
+    yoy_inflation = yoy_inflation_vector,
+    type          = c(rep("History", nrow(prep_df)), rep("Forecast", horizon))
+  )
+  
+  # PRINT ARIMA SUMMARY DETAILS TO THE CONSOLE
+  cat("\n", rep("=", 50), "\n", sep = "")
+  cat(sprintf("INFLATION ARIMA VINTAGE SPECIFICATION FOR ORIGIN: %s\n", as.character(last_hist_date)))
+  if (use_covid_xreg) {
+    cat(sprintf("STATUS: Active COVID XREG (Columns Used: %s)\n", paste(colnames(xreg_hist), collapse=", ")))
+  } else {
+    cat("STATUS: Baseline ARIMA Standard Setup\n")
+  }
+  cat(rep("-", 50), "\n", sep = "")
+  print(arima_fit)
+  cat(rep("=", 50), "\n\n", sep = "")
+  
+  return(combined_df)
+}
+
+
+
+#' Generate a Real-Time Rolling Matrix of Inflation Forecasts
+#'
+#' @description Loops through a sequence of historical quarters (vintages) to simulate
+#' pseudo-real-time forecasting. At each origin date, it strips away future data, 
+#' fits an ARIMA model on changes in inflation, and projects YoY inflation out-of-sample.
+#'
+#' @param fcast_start String or yearqtr. The starting vintage date for the rolling loop.
+#' @param fcast_end String or yearqtr. The ending vintage date. Defaults to the maximum date in data.
+#' @param data A data frame or tibble containing the full historical time series.
+#' @param date_col Character. The name of the column containing the quarter index.
+#' @param inf_col Character. The name of the column containing the quarterly inflation values.
+#' @param horizon Integer. The number of quarters ahead to forecast (default is 8).
+#'
+#' @return A data frame in a triangle forecast layout where the first column is \code{date}, 
+#' and subsequent columns represent the forecast origins.
+#' @export
+inflation_forecast_wrapper <- function(fcast_start,
+                                       fcast_end = NULL,
+                                       data,
+                                       date_col,
+                                       inf_col,
+                                       horizon = 8) {
+  
+  # Ensure parsing into clean zoo yearqtr types
+  start_date <- zoo::as.yearqtr(fcast_start)
+  all_dates  <- zoo::as.yearqtr(data[[date_col]])
+  
+  if (is.null(fcast_end)) {
+    end_date <- max(all_dates)
+  } else {
+    end_date <- zoo::as.yearqtr(fcast_end)
+  }
+  
+  # Isolate the list of origin dates (vintages) to loop through
+  all_fcast_dates <- all_dates[all_dates >= start_date & all_dates <= end_date]
+  all_fcast_dates <- sort(unique(all_fcast_dates))
+  
+  # Determine total chronological span needed for rows (Target Dates)
+  min_row_date <- min(all_fcast_dates)
+  max_row_date <- max(all_fcast_dates) + (horizon / 4)
+  all_row_dates <- seq(min_row_date, max_row_date, by = 1/4)
+  
+  # Create a clean matrix structure filled with NAs
+  mat <- matrix(NA_real_, 
+                nrow = length(all_row_dates), 
+                ncol = length(all_fcast_dates))
+  
+  rownames(mat) <- format(all_row_dates, format = "%YQ%q")
+  colnames(mat) <- format(all_fcast_dates, format = "%YQ%q")
+  
+  # Run the Rolling Forecast Loop
+  for (i in seq_along(all_fcast_dates)) {
+    origin_date <- all_fcast_dates[i]
+    origin_str  <- format(origin_date, format = "%YQ%q")
+    
+    # Strip out any data ahead of the current origin date 
+    historical_subset <- data %>% 
+      filter(zoo::as.yearqtr(.data[[date_col]]) <= origin_date)
+    
+    # Run the numeric ARIMA inflation function
+    inf_forecast <- forecast_inflation(data     = historical_subset,
+                                       date_col = date_col,
+                                       inf_col  = inf_col,
+                                       horizon  = horizon)
+    
+    # Extract the last history point (origin value) and subsequent forecasts
+    fcasts_t <- inf_forecast %>%
+      filter(type == "Forecast" | quarter == origin_date) %>%
+      arrange(quarter)
+    
+    # Map predictions back into the matrix matching text keys
+    for (j in 1:nrow(fcasts_t)) {
+      target_str <- format(fcasts_t$quarter[j], format = "%YQ%q")
+      if (target_str %in% rownames(mat)) {
+        mat[target_str, origin_str] <- fcasts_t$yoy_inflation[j]
+      }
+    }
+  }
+  
+  # Convert to final Tibble layout
+  fcast_df <- as.data.frame(mat)
+  colnames(fcast_df) <- format(all_fcast_dates, format = "%YQ%q")
+  
+  # Build and inject the tracking date column to the far left
+  fcast_df <- fcast_df %>%
+    mutate(
+      date = format(zoo::as.yearqtr(rownames(mat), format = "%YQ%q"), format = "%YQ%q")
+    ) %>%
+    relocate(date, .before = everything())
+  
+  rownames(fcast_df) <- NULL
+  return(fcast_df)
+}
+
+
+
+# ==============================================================================
+# Function for merging two fcst DFs
+# ==============================================================================
+
+
+#' Merge State-Space Inflation Forecasts into ARIMA Forecast DataFrame
+#'
+#' @description Aligns and overlays an advanced state-space forecast matrix onto 
+#' a baseline ARIMA forecast triangle. Splicing matches exact historical target dates 
+#' (rows) and vintage origin points (columns).
+#'
+#' @param arima_df Data Frame. The triangle forecast output generated by \code{inflation_forecast_wrapper}.
+#' @param ssm_df Data Frame. The State-Space forecast triangle frame (\code{fcst_df_inf}) starting in 2010.
+#'
+#' @return A consolidated data frame matching the original ARIMA dimensions, updated with 
+#' State-Space forecasts where overlapping cells exist.
+#' @export
+merge_inflation_forecast_vintages <- function(arima_df, ssm_df) {
+  
+  message("=== STARTING CROSS-VINTAGE FORECAST CONSOLIDATION ===")
+  
+  # 1. Standardize tracking structures to prevent formatting drops
+  arima_df$date <- format(zoo::as.yearqtr(arima_df$date), format = "%Y Q%q")
+  ssm_df$date   <- format(zoo::as.yearqtr(ssm_df$date), format = "%Y Q%q")
+  
+  # 2. Extract shared operational coordinates
+  # We find the intersection of vintage points (columns) present in both datasets
+  shared_vintages <- intersect(colnames(arima_df), colnames(ssm_df))
+  shared_vintages <- shared_vintages[shared_vintages != "date"]
+  
+  if (length(shared_vintages) == 0) {
+    stop("CRITICAL ERROR: No overlapping vintage columns found between ARIMA and SSM data frames.")
+  }
+  
+  message(sprintf("Found %d overlapping real-time vintage columns (from %s to %s).", 
+                  length(shared_vintages), min(shared_vintages), max(shared_vintages)))
+  
+  # 3. Create a deep mutable copy of the baseline ARIMA layout
+  consolidated_df <- arima_df
+  
+  # Convert target dates to explicit row keys for matrix address operations
+  rownames(consolidated_df) <- consolidated_df$date
+  rownames(ssm_df)           <- ssm_df$date
+  
+  # Count modified entries for diagnostic verification logging
+  update_counter <- 0
+  
+  # 4. Execute the Asymmetric Cell Overwrite Loop
+  for (v_col in shared_vintages) {
+    
+    # Identify target dates populated within the State-Space vintage column
+    # We filter out NAs to make sure we only copy real, generated model projections
+    valid_ssm_rows <- ssm_df$date[!is.na(ssm_df[[v_col]])]
+    
+    for (t_row in valid_ssm_rows) {
+      if (t_row %in% rownames(consolidated_df)) {
+        
+        # Extract the advanced state-space forecast point value
+        ssm_value <- ssm_df[t_row, v_col]
+        
+        # Splice the point value directly into the corresponding coordinates
+        consolidated_df[t_row, v_col] <- ssm_value
+        update_counter <- update_counter + 1
+      }
+    }
+  }
+  
+  # 5. Clean up row indices to return standard tibble layouts
+  rownames(consolidated_df) <- NULL
+  
+  message(sprintf("SUCCESS: Consolidation complete. Spliced %d point values into the target matrix.", update_counter))
+  cat(rep("=", 50), "\n\n")
+  
+  return(consolidated_df)
+}
+

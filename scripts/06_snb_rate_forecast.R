@@ -39,7 +39,7 @@ Y_data_taylor <- master_taylor %>%
 # Set inf_gap to hp_inf_gap if you want to estimate with the HP inf gap
 X_data_taylor <- master_taylor %>%
   select(all_of(c("gdp_gap", "inf_gap")))
-  
+
 
 # ==============================================================================
 # Run the Full Rolling Forecast
@@ -50,7 +50,7 @@ X_data_taylor <- master_taylor %>%
 if(run_estimation){
   
   taylor_param_est <- rolling_est_taylor_ssm(data = master_taylor,
-                                             forecast_start = as.yearqtr(forecast_starting_date))
+                                             forecast_start = forecast_starting_date)
   
   taylor_params <- extract_params_df(taylor_param_est, extract_fitted_obs = TRUE)
   
@@ -67,6 +67,21 @@ rolling_natural_rate_taylor <- taylor_params %>%
   mutate(quarter = as.yearqtr(quarter))
 
 
+
+#===============================================================================
+# Fuse the two Inflation forecast Dfs
+# ==============================================================================
+
+
+final_inflation_vintages <- merge_inflation_forecast_vintages(
+  arima_df = inf_arima_fcst_df, # Your baseline output
+  ssm_df   = fcst_df_inf        # Your state space data starting in 2010
+)
+
+
+
+
+
 # Run the Forecast
 # ------------------------------------------------------------------------------
 
@@ -75,9 +90,9 @@ taylor_forecast_df <- forecast_taylor_ssm(params_df = taylor_params,
                                           master_df = master_taylor,
                                           forecast_h = 8,
                                           exogenous_gdp_forecast_data = gdp_forecasts_arima,
-                                          exogenous_inf_forecast_data = fcst_df_inf,
+                                          exogenous_inf_forecast_data = final_inflation_vintages,
                                           hp_inf_gap = FALSE,
-                                          inf_target = 2)
+                                          inf_target = 1)
 
 
 # Save the Forecast df (and reload)
@@ -108,7 +123,7 @@ dim(taylor_eval_square)
 # --- Initialize SSM
 ssm_taylor <- initialize_taylor_ssm(Y_data = Y_data_taylor,
                                     X_data = X_data_taylor,
-                                    parameter_guesses =snb_rate_parameter_guess)
+                                    parameter_guesses = snb_rate_parameter_guess)
 
 
 if(run_estimation) {
@@ -131,8 +146,8 @@ if(run_estimation) {
     G = ssm_taylor$builders$G(output_estim$params),
     M = ssm_taylor$builders$M(output_estim$params),
     ar_matrix = ssm_taylor$builders$ar_mat(output_estim$params, ssm_taylor$data$Y),
-    Sigma_0 = diag(0.1, 3), # Or your specific Sigma_0
-    rho_0 = matrix(ssm_taylor$rho_guess, ncol=1)
+    Sigma_0 = diag(ssm_taylor$sigma_guess, 3, 3), # Or your specific Sigma_0
+    rho_0 = matrix(ssm_taylor$rho_guess, nrow = 3, ncol = 1)
   )
   
   # --- Extract the values for the plot ---

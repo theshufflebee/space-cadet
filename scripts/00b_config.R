@@ -4,7 +4,7 @@
 #
 ################################################################################
 
-
+set.seed(42)
 # ==============================================================================
 # Load functions
 # ==============================================================================
@@ -192,13 +192,13 @@ ts_names <- c(
 ################################################################################
 
 # ---  General Settings ---
-forecast_starting_date <- as.yearqtr("2025 Q2")
+forecast_starting_date <- as.yearqtr("2000 Q1")
 
 # FOr Indexing
 indexing_date <- "2020-12-01"
 
 
-run_estimation <- TRUE
+run_estimation <- FALSE
 
 h <- 8
 
@@ -344,5 +344,35 @@ output_save_paths <- list(
     eval_auto_arma_okun = here(output_base, "tables/okun_eval_auto_arma_table.tex"),
     eval_auto_arma_philips = here(output_base, "tables/philips_eval_auto_arma_table.tex"),
     eval_auto_arma_taylor = here(output_base, "tables/taylor_eval_auto_arma_table.tex")
+  )
+)
+
+
+
+# --- ESTIMATION CONFIGURATION ---
+
+# Not yet implemented
+estimation_settings <- list(
+  
+  # Okun's Law Model Configuration
+  okun = list(
+    methods    = c("Nelder-Mead", "bobyqa", "BFGS"),
+    iters      = 2,
+    warm_start = FALSE
+  ),
+  
+  # Phillips Curve Model Configuration
+  phillips = list(
+    methods    = c("Nelder-Mead", "bobyqa", "BFGS"),
+    iters      = 2,
+    warm_start = FALSE
+  ),
+  
+  # Taylor / Shadow Rate Model Configuration
+  # Note: BFGS removed to prevent crashes, running 3 iters instead
+  shadow = list(
+    methods    = c("Nelder-Mead", "bobyqa"), 
+    iters      = 3,
+    warm_start = FALSE
   )
 )

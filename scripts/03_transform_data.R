@@ -267,6 +267,11 @@ write.csv(master_taylor, data_save_paths$processed$taylor_master_csv)
 
 message("BUILT ALL MASTER DATA FRAMES")
 
+################################################################################
+#
+# Forecast Helpers
+#
+################################################################################
 
 # --- Start buildung the GDP forecasts
 # Later maybe turn into rolling window
@@ -295,6 +300,16 @@ if (run_estimation || !file.exists(output_save_paths$forecasts$forecast_df_gdp_a
     rename_with(~ format(zoo::as.yearqtr(.x, format = "%Y Q%q")), .cols = -date)
 }
 
+
+
+# === INFLATION FORECASTS ===
+
+inf_arima_fcst_df <- inflation_forecast_wrapper(forecast_starting_date,
+                                       fcast_end = NULL,
+                                       master_quarterly,
+                                       date_col = "quarter",
+                                       inf_col = "log_inflation_diff",
+                                       horizon = 8)
 
 
 

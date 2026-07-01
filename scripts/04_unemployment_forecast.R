@@ -36,7 +36,6 @@ if (!exists(required_dataset)) {
 # ==============================================================================
 
 
-
 # ------------------------------------------------------------------------------
 Y_data_okun <- master_okun %>%
   select(unemp_rate, spf_5y_unemp)
@@ -113,12 +112,9 @@ dim(okun_eval_square)
 Y_data_okun <- master_okun %>%
   select(unemp_rate, spf_5y_unemp)
 
-
-# X Df for full FIt Estimation
-# ------------------------------------------------------------------------------
+# Subset X Data and slice off the last 2 rows
 X_data_okun <- master_okun %>%
   select(gdp_gap, gdp_gap_lag_1, gdp_gap_lag_2)
-
 
 
 # ==============================================================================

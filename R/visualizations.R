@@ -8,12 +8,12 @@
 
 
 
-#' Plot and Save Model Parameter Evolution
+#' Plot and Save Model Parameter Evolution (Grid Optimization)
 #'
 #' @description
 #' Visualizes the evolution of model parameters over the rolling estimation range.
-#' Each parameter is displayed in its own facet with independent y-axes to accommodate
-#' varying magnitudes (e.g., coefficients vs. variances).
+#' Parameters are arranged in grids maximizing at 3 rows vertically, appending 
+#' new column stacks to the right with independent y-axes.
 #'
 #' @param df A dataframe containing a \code{quarter} column and parameter estimate columns.
 #' @param save_path Character. The file path (including filename and extension) 
@@ -53,11 +53,9 @@ plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter
     geom_hline(yintercept = 0.00, color = "grey75", linewidth = 0.5, linetype = "dotted") +
     # Line for tracking
     geom_line(color = "#34495e", linewidth = 1.0) +
-    # show points to see exact date -> when less dates more visible
-    geom_point(color = "#34495e", size = 1.2, alpha = 0.6) +
-    
-    # stack plots for all parameters
-    facet_wrap(~parameter, ncol = 1, scales = "free_y") +
+
+    # FIXED HERE: Constrain to maximum 3 rows vertically, wrap columns to the right
+    facet_wrap(~parameter, nrow = 3, scales = "free_y") +
     
     # Labeling payload
     labs(
@@ -70,15 +68,15 @@ plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter
     # Native Time Mapping
     scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
     
-    #Clean Academic Theme Styling
+    # Clean Academic Theme Styling
     # ----------------------------------------------------------------------------
   theme_minimal(base_size = 11) +
     theme(
       # them specs for title and axis names
-      plot.title     = element_text(face = "bold", size = 13, color = "#2c3e50"),
-      plot.subtitle  = element_text(color = "grey40", size = 10, margin = margin(b = 12)),
-      axis.title.x   = element_text(size = 10, color = "grey30", margin = margin(t = 10)),
-      axis.title.y   = element_text(size = 10, color = "grey30", margin = margin(r = 10)),
+      plot.title      = element_text(face = "bold", size = 13, color = "#2c3e50"),
+      plot.subtitle   = element_text(color = "grey40", size = 10, margin = margin(b = 12)),
+      axis.title.x    = element_text(size = 10, color = "grey30", margin = margin(t = 10)),
+      axis.title.y    = element_text(size = 10, color = "grey30", margin = margin(r = 10)),
       
       # Clean up design
       strip.background = element_blank(),
@@ -90,7 +88,7 @@ plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter
       panel.spacing    = unit(1.5, "lines") # Give panels breathing room
     )
   
-  # Esport and saving Logic
+  # Export and saving Logic
   # ----------------------------------------------------------------------------
   if (!is.null(save_path)) {
     dir_name <- dirname(save_path)
@@ -100,18 +98,26 @@ plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter
     
     num_params <- length(unique(plot_data$parameter))
     
-    # Dynamically scales height according to amount of parameters
+    # FIXED HERE: Dynamically calculate dimensions for horizontal grid wrapping
+    # Max rows is fixed at 3. Calculate necessary columns:
+    num_cols <- ceiling(num_params / 3)
+    num_rows <- min(num_params, 3)
+    
+    # Scale width per column stack, and height per row panel
+    export_width  <- max(8.5, 4.25 * num_cols)
+    export_height <- max(4, 2.5 * num_rows)
+    
     ggplot2::ggsave(
       filename = save_path, 
       plot     = p, 
-      width    = 8.5, 
-      height   = max(4, 2.2 * num_params), 
+      width    = export_width, 
+      height   = export_height, 
       units    = "in",
       dpi      = 300
     )
-    message(paste(title, "Plott successfully saved to disk:", save_path))
+    message(paste(title, "Plot successfully saved to disk:", save_path))
   } else {
-    message("Proceeding without saving", title, " Plot")
+    message("Proceeding without saving ", title, " Plot")
   }
   
   return(p)
