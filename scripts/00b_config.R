@@ -341,7 +341,10 @@ output_save_paths <- list(
     forecast_df_okun    = here(output_base, "forecasts/unemployment_forecasts.csv"),
     forecast_df_philips = here(output_base, "forecasts/inflation_forecasts.csv"),
     forecast_df_taylor = here(output_base, "forecasts/policy_rate_forecasts.csv"),
-    forecast_df_gdp_arima = here(output_base, "forecasts/gdp_arima_forecasts.csv")
+    forecast_df_gdp_arima = here(output_base, "forecasts/gdp_arima_forecasts.csv"),
+    forecast_df_inf_arima = here(output_base, "forecasts/inf_arima_forecasts.csv")
+    
+    
   ),
   
   tables = list(

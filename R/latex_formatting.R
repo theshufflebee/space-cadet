@@ -6,9 +6,14 @@
 
 
 
-#' Clean Simulation and Test Statistic Strings for LaTeX
+#' Clean Strings for LaTeX
 #' @description Fixes truncated p-values (e.g., "(0)" -> "(0.00)", "(1)" -> "(1.00)") 
 #' to ensure proper alignment in academic tables.
+#' 
+#' @param x A character string of numbers or float.
+#' 
+#' @return The cleaned string 
+#' 
 clean_stat_string <- function(x) {
   x <- as.character(x)
   # Fix zero p-values: "(0)" or "(.0)" -> "(0.00)"
@@ -18,8 +23,20 @@ clean_stat_string <- function(x) {
   return(x)
 }
 
+
+
+
+#'Export Evaluation Table to Latex
+#'
+#'@description Transforms the outputs of the creaFcstEval Package into a latex table
+#'
+#'@param eval_df The creaFcstEval Df
+#'@param output_path where to save the table. If NULL prints output instead
+#'
+#'@return Either saves a Latex table or prints it out
 export_eval_to_latex <- function(eval_df, output_path = NULL) {
-  #Eextract metadata from the first row of the data frame (these are repeated over all lines)
+  #Extract metadata from the data frame
+  # (these are repeated and are the same over all lines)
   model_name  <- as.character(eval_df$Model[1])
   benchmark   <- as.character(eval_df$Benchmark[1])
   est_start   <- as.character(eval_df$Estimation_start[1])
@@ -47,7 +64,7 @@ export_eval_to_latex <- function(eval_df, output_path = NULL) {
     msfe_rat  <- sprintf("%.2f", as.numeric(eval_df$MSFE_ratio[i]))
     mafe_rat  <- sprintf("%.2f", as.numeric(eval_df$MAFE_ratio[i]))
     
-    # Referencing the standalone global helper function
+    # clean strings with helper
     dm_msfe   <- clean_stat_string(eval_df$DM_MSFE[i])
     dm_mafe   <- clean_stat_string(eval_df$DM_MAFE[i])
     mz_test   <- clean_stat_string(eval_df$MZ[i])
@@ -60,7 +77,7 @@ export_eval_to_latex <- function(eval_df, output_path = NULL) {
     latex_lines <- c(latex_lines, row_line)
   }
   
-  # 5. Dynamically construct the academic footnote using your required dates
+  # Construct the academic footnote inserting the needed information
   footnote <- sprintf(
     paste0(
       "\\hline\\hline\n",
@@ -84,10 +101,10 @@ export_eval_to_latex <- function(eval_df, output_path = NULL) {
   
   latex_lines <- c(latex_lines, footnote, "\\end{table}")
   
-  # 6. Combine the character vectors into a single cleanly spaced string block
+  # Combine the character vectors into a single string block
   final_latex <- paste(latex_lines, collapse = "\n")
   
-  # 7. Output handler: Write to file or dump straight to the R console
+  # Output handling: Write to file or print out for Rmd
   if (!is.null(output_path)) {
     writeLines(final_latex, output_path)
     message(paste("Successfully saved LaTeX table to:", output_path))
