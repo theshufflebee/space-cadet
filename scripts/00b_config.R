@@ -22,6 +22,7 @@ source(here("R", "latex_formatting.R"))
 # ------------------------------------------------------------------------------
 
 # General Kalman Filter Functions
+source(here("R", "kalman_base.R"))
 source(here("R", "build_model_matrices.R"))
 source(here("R", "kalman_okun_specs.R"))
 source(here("R", "kalman_phillips_specs.R"))

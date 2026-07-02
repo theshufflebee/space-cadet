@@ -745,217 +745,6 @@ loglik_ssm_shadow <- function(theta,
 
 
 
-# ==============================================================================
-
-#' Multi-Step State-Space Model Optimizer Wrapper
-#'
-#' @description
-#' An optimization wrapper that cycles through multiple numerical 
-#' optimization methods to find the global maximum of the state-space model 
-#' likelihood. It supports "warm starts" for rolling estimations and implements 
-#' early stopping if the likelihood improvement plateaus.
-#'
-#' @param ssm The fully initialized SSM blueprint object containing data, 
-#'   manifest definitions, and builder functions.
-#' @param methods A character vector of optimization algorithms available in 
-#'   \code{optimx} (e.g., \code{"Nelder-Mead"}, \code{"bobyqa"}, \code{"BFGS"}).
-#' @param iters Number of times to cycle through the entire list of \code{methods}. 
-#'   Defaults to 2.
-#' @param start_par Optional; a numeric vector of unconstrained parameters 
-#'   (\code{theta}) from a previous estimation to be used as a warm start.
-#' @param set_silent Logical; if \code{TRUE} (default), suppresses detailed 
-#'   initialization debug messages in the console.
-#'
-#' @details
-#' The wrapper performs the following sequence:
-#' \enumerate{
-#'   \item \bold{Parameter Preparation:} If no \code{start_par} is provided, it 
-#'         extracts defaults from the \code{ssm$manifest} and transforms them 
-#'         to unconstrained space.
-#'   \item \bold{Sequential Optimization:} Iteratively calls \code{optimx} for 
-#'         each method. It uses \code{follow.on = TRUE} so each algorithm 
-#'         begins where the previous one finished.
-#'   \item \bold{Convergence Monitoring:} Calculates the absolute difference 
-#'         between the current and previous best log-likelihood. If the 
-#'         improvement is less than \code{0.0001}, it triggers an early stop.
-#'   \item \bold{Validation:} Checks for \code{NA} or \code{Inf} values in 
-#'         the results to identify numerical divergence.
-#'   \item \bold{Transformation:} Maps the final unconstrained parameters back 
-#'         to economic space for reporting and forecasting.
-#' }
-#'
-#' @return A list containing:
-#' \itemize{
-#'   \item \bold{params}: Named list of optimized parameters in economic space.
-#'   \item \bold{theta}: Numeric vector of optimized parameters in unconstrained space.
-#'   \item \bold{fit_summary}: The raw summary object from the last \code{optimx} call.
-#'   \item \bold{ssm}: The original SSM object for traceability.
-#' }
-#'
-#' @import optimx
-#' 
-#' @seealso 
-#' \code{\link{loglik_ssm_shadow}} for the objective function being minimized, 
-#' \code{\link{model2param_gen}} for the unconstraining transformation logic.
-#'
-#' @export
-ssm_optimizer_wrapper_shadow <- function(ssm, 
-                                         methods = estimation_settings$taylor$methods, 
-                                         iters = estimation_settings$taylor$iters, 
-                                         start_par = NULL,
-                                         set_silent = FALSE) {
-  
-  # Prepare Initial Parameters
-  if (is.null(start_par)) {
-    # If no warm start, use manifest defaults
-    # sapply here simplifies the nested list -> selects val from each element in the list
-    init_theta_econ <- sapply(ssm$manifest, function(x) x$val) 
-    
-    current_par_opt <- model2param_gen(init_theta_econ, ssm)
-    
-    if(!set_silent){
-      
-      param_string <- paste(names(init_theta_econ), "=", round(init_theta_econ, 4), collapse = ", ")
-      message("Debug: Economic Params (Initial): ", param_string)
-      
-      opt_string <- paste(names(current_par_opt), "=", round(current_par_opt, 4), collapse = ", ")
-      message("Debug: Optimizer Params (Theta): ", opt_string)
-    }
-    
-  } else {
-    init_theta_econ <- sapply(ssm$manifest, function(x) x$val) 
-    #  CURRENTLY RUNNING WITH ALWAYS INITIAL GUESS (Aligned with Phillips Blueprint)
-    current_par_opt <- model2param_gen(init_theta_econ, ssm)
-    # current_par_opt <- start_par
-    
-    if(!set_silent){
-      message("\n--- Transformed Optimizer Space (Theta) ---")
-      formatted_list <- paste0(names(current_par_opt), ": ", round(current_par_opt, 4), collapse = "\n")
-      message(formatted_list)
-    }
-  }
-  
-  n_par <- length(current_par_opt)
-  
-  message("DEBUG FOR CURRENT PAR OPT")
-  print(current_par_opt)
-  
-  # Run Optimization Loop
-  # ----------------------------------------------------------------------------
-  # Cycles through each method for the specified number of iterations
-  
-  # Sets up a break of the method partloglik loop if repeated estimation doesn't lead to improvement 
-  for (i in 1:iters) {
-    for (m in methods) {
-      fit <- optimx::optimx(
-        par     = current_par_opt,
-        fn      = loglik_ssm_shadow,
-        ssm     = ssm,
-        method  = m,
-        control = list(
-          all.methods = FALSE, # Run them in order
-          follow.on = TRUE,    # Method 2 starts where Method 1 ends
-          dowarn = FALSE, 
-          maximize = FALSE,
-          itnmax = 1000,  # For bobyqa/optimx
-          maxit = 1000,
-          reltol = 1e-4,  # Stop if relative improvement is less than this
-          abstol = 1e-4  # Stop if absolute improvement is less than this
-        )
-      )
-      
-      # Extract the new likelihood and parameters
-      current_par_opt <- as.numeric(fit[1, 1:n_par])
-      message("DEBUG FOR CURRENT PAR OPT AFTER")
-      print(current_par_opt)
-      
-      if(any(is.na(current_par_opt))) {
-        message("OPTIMIZER RETURNED NA PARAMETERS. REENITIALIZING...")
-        browser()
-        current_par_opt <- model2param_gen(init_theta_econ, ssm)
-      }
-      
-      
-
-    }
-    
-    # Update current_par_opt for the next step in the loop
-    proposed_par <- as.numeric(fit[1, 1:n_par])
-    
-    
-    # COnsole output message result
-    formatted_theta_opt <- paste0(
-      sprintf("  %-20s : %.4f", names(proposed_par), proposed_par), 
-      collapse = "\n")
-    
-    #Message for Debugging of parameters
-    cat("\n", rep("=", 45), "\n", sep = "")
-    cat("ESTIMATED OPTIMIZER PARAMETERS (Economic Space)\n")
-    cat(rep("-", 45), "\n", sep = "")
-    cat(formatted_theta_opt, "\n")
-    cat(rep("-", 45), "\n")
-    
-    #VValidating results if there are no inf or NaN
-    if (any(is.na(proposed_par)) || any(is.infinite(proposed_par))) {
-      
-      cat("\n!!! WARNING: Optimizer failed to converge (NA/Inf detected) !!!\n")
-      formatted_theta <- paste0(
-        sprintf("  %-20s : %.4f", names(proposed_par), proposed_par), 
-        collapse = "\n"
-      )
-      cat(formatted_theta, "\n")
-      cat(rep("-", 45), "\n")
-      
-    } else {
-      
-      # if the check doesnt throw alarms, update current_par_opt for the next vintage
-      current_par_opt <- proposed_par
-      
-      formatted_theta <- paste0(
-        sprintf("  %-20s : %.4f", names(current_par_opt), current_par_opt), 
-        collapse = "\n"
-      )
-      cat(formatted_theta, "\n")
-      cat(rep("-", 45), "\n")
-    }
-  }
-  
-  
-  
-  # Extract and transform Results
-  # Map back to Economic Space
-  final_params_econ <- param2model_gen(current_par_opt, ssm)
-  
-  # Format the parameter names and values into a clean list
-  # This is so the console message looks good
-  formatted_params <- paste0(
-    sprintf("  %-20s : %.6f", names(final_params_econ), final_params_econ), 
-    collapse = "\n"
-  )
-  
-  # Construct the full console output message
-  cat("\n", rep("=", 45), "\n", sep = "")
-  cat("ESTIMATED ECONOMETRIC PARAMETERS (Economic Space)\n")
-  cat(rep("-", 45), "\n", sep = "")
-  cat(formatted_params, "\n")
-  cat(rep("=", 45), "\n", sep = "")
-  message("Optimization loop finished. Results stored.")
-  
-  # format return
-  return(list(
-    params = final_params_econ, # Economic scale (Named List)
-    theta  = current_par_opt,   # Unconstrained scale (Vector for next warm start)
-    fit_summary = fit,          # The last optimx result object
-    ssm = ssm
-  ))
-}
-
-
-
-
-
-
-
 rolling_est_taylor_ssm <- function(data,
                                    forecast_start,
                                    forecast_end = NULL,
@@ -1070,8 +859,11 @@ rolling_est_taylor_ssm <- function(data,
     # Optimization: Multiple estimations with Warm Start
     # We use Nelder-Mead and BFGS that are very different for robustnes
     # each previous result becomes guess for the next
-    opt_results <- ssm_optimizer_wrapper_shadow(
-      ssm = my_ssm_model
+    opt_results <- ssm_optimizer_wrapper_core(
+      methods = estimation_settings$taylor$methods,
+      iters =  estimation_settings$taylor$iters,
+      ssm = my_ssm_model,
+      start_par = current_theta
     )
     
     # Update current_theta for the next vantage point (Warm Start)
@@ -1084,7 +876,9 @@ rolling_est_taylor_ssm <- function(data,
     
     
     # 8. Final Extraction of States
-    final_states <- loglik_ssm_shadow(current_theta, my_ssm_model, return_full_res = TRUE)
+    final_states <- loglik_ssm_core(current_theta,
+                                    my_ssm_model,
+                                    return_full_res = TRUE)
     
     # Store results
     comp[[as.character(target_date)]] <- list(

@@ -273,7 +273,7 @@ initialize_my_okun_ssm <- function(Y_data, X_data, parameter_guesses) {
       N    = build_N,
       ar_mat = build_ar_matrix_okun
     ),
-    name = "OKUN",
+    name = "okun",
     rho_guess = c(2),
     sigma_guess = c(10)
     
@@ -623,7 +623,7 @@ initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
       N    = build_N_philips,
       ar_mat = build_AR_matrix_philips
     ),
-    name = "PHILIPS",
+    name = "philips",
     rho_guess = parameter_guesses$state_init,
     sigma_guess = parameter_guesses$sigma_init
     
@@ -835,7 +835,7 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
       N    = build_N_taylor,
       ar_mat = build_AR_matrix
     ),
-    name = "TAYLOR",
+    name = "taylor",
     rho_guess = parameter_guesses$state_init,
     sigma_guess = parameter_guesses$sigma_init
   )
