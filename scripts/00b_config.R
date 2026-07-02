@@ -198,7 +198,7 @@ forecast_starting_date <- as.yearqtr("2000 Q1")
 indexing_date <- "2020-12-01"
 
 
-run_estimation <- FALSE
+run_estimation <- TRUE
 
 h <- 8
 
@@ -318,7 +318,23 @@ output_save_paths <- list(
     params_taylor  = here(output_base, "plots/params_taylor_model.png"),
     spaghetti_okun      = here(output_base, "plots/spaghetti_okun.png"),
     spaghetti_philips      = here(output_base, "plots/spaghetti_philips.png"),
-    spaghetti_taylor      = here(output_base, "plots/spaghetti_taylor.png")
+    spaghetti_taylor      = here(output_base, "plots/spaghetti_taylor.png"),
+    
+    benchmark = list(
+      okun_rw = here(output_base, "plots/benchmark_spaghetti_okun_rw.png"),
+      okun_ar1 = here(output_base, "plots/benchmark_spaghetti_okun_ar1.png"),
+      okun_auto_arma = here(output_base, "plots/benchmark_spaghetti_okun_auto_arma.png"),
+      
+      philips_rw = here(output_base, "plots/benchmark_spaghetti_philips_rw.png"),
+      philips_ar1 = here(output_base, "plots/benchmark_spaghetti_philips_ar1.png"),
+      philips_auto_arma = here(output_base, "plots/benchmark_spaghetti_philips_auto_arma.png"),
+      
+      taylor_rw = here(output_base, "plots/benchmark_spaghetti_taylor_rw.png"),
+      taylor_ar1 = here(output_base, "plots/benchmark_spaghetti_taylor_ar1.png"),
+      taylor_auto_arma = here(output_base, "plots/benchmark_spaghetti_taylor_auto_arma.png")
+      
+
+    )
     
   ),
   forecasts = list(
@@ -370,7 +386,7 @@ estimation_settings <- list(
   
   # Taylor / Shadow Rate Model Configuration
   # Note: BFGS removed to prevent crashes, running 3 iters instead
-  shadow = list(
+  taylor = list(
     methods    = c("Nelder-Mead", "bobyqa"), 
     iters      = 3,
     warm_start = FALSE

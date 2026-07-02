@@ -799,8 +799,8 @@ loglik_ssm_philips <- function(theta,
 #'
 #' @export
 ssm_optimizer_wrapper_philips <- function(ssm, 
-                                          methods = c("Nelder-Mead", "bobyqa", "BFGS"), 
-                                          iters = 3, 
+                                          methods = estimation_settings$phillips$methods, 
+                                          iters = estimation_settings$phillips$iters, 
                                           start_par = NULL,
                                           set_silent = TRUE
 ) {
@@ -1023,8 +1023,6 @@ rolling_est_philips_ssm <- function(data,
     
     opt_results <- ssm_optimizer_wrapper_philips(
       ssm       = my_ssm_model, 
-      methods   = c("Nelder-Mead", "BFGS"), 
-      iters     = 3, 
       start_par = current_theta
     )
     

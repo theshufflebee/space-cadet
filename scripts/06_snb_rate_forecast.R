@@ -34,12 +34,17 @@ if (!exists(required_dataset)) {
 
 # From The Full dataset select the Data needed for the Rolling estimation of the FUll timeline
 Y_data_taylor <- master_taylor %>%
-  select(all_of(c("saron_libor_splice", "forward_rate")))
+  select(all_of(c("saron_libor_splice", "forward_rate")))%>%
+  slice(4:n())
 
 # Set inf_gap to hp_inf_gap if you want to estimate with the HP inf gap
 X_data_taylor <- master_taylor %>%
-  select(all_of(c("gdp_gap", "inf_gap")))
+  select(all_of(c("gdp_gap", "inf_gap")))%>%
+  slice(4:n())
 
+dates_df_taylor <- master_taylor %>%
+  select(all_of(c("quarter")))%>%
+  slice(4:n())
 
 # ==============================================================================
 # Run the Full Rolling Forecast
@@ -54,7 +59,7 @@ if(run_estimation){
   
   taylor_params <- extract_params_df(taylor_param_est, extract_fitted_obs = TRUE)
   
-  write.csv(taylor_params, output_save_paths$params$rolling_param_est_taylor)
+  write_csv(taylor_params, output_save_paths$params$rolling_param_est_taylor)
   
 }else{
   
@@ -128,35 +133,26 @@ ssm_taylor <- initialize_taylor_ssm(Y_data = Y_data_taylor,
 
 if(run_estimation) {
   
+  last_params_list_taylor <- taylor_params %>% 
+    tail(1) %>% 
+    select(-quarter, -natural_rate) %>% # Drop tracking columns
+    as.list() %>% 
+    lapply(unlist)
   
-  # --- Estimate the full Model ---
-  
-  # Currently not working??
-  output_estim <- ssm_optimizer_wrapper_shadow(ssm = ssm_taylor)
+  param_last_fit_taylor <- model2param_gen(last_params_list_taylor, ssm_taylor)
   
   
-  
-  # --- Run the filter with the final parameters ---
-  final_res <- kalman_filter_taylor(
-    Y_t = ssm_taylor$data$Y,
-    nu_t = matrix(0, nrow(ssm_taylor$data$Y), 3), # Adjust nr if needed
-    H = ssm_taylor$builders$H(output_estim$params),
-    N = ssm_taylor$builders$N(output_estim$params),
-    mu_t = ssm_taylor$builders$mu_t(output_estim$params, ssm_taylor$data$X),
-    G = ssm_taylor$builders$G(output_estim$params),
-    M = ssm_taylor$builders$M(output_estim$params),
-    ar_matrix = ssm_taylor$builders$ar_mat(output_estim$params, ssm_taylor$data$Y),
-    Sigma_0 = diag(ssm_taylor$sigma_guess, 3, 3), # Or your specific Sigma_0
-    rho_0 = matrix(ssm_taylor$rho_guess, nrow = 3, ncol = 1)
+  final_res_taylor <- loglik_ssm_shadow(ssm =ssm_taylor,
+                                          theta = param_last_fit_taylor,
+                                          return_full_res = TRUE
   )
-  
   # --- Extract the values for the plot ---
-  shadow_rate <- final_res$fitted_obs[, 1]
-  natural_rate_est <- final_res$r[, 1] # State 1
-  tp_trend <- final_res$r[, 2]
-  tp_cycle <- final_res$r[, 3]
-  fit_rate <- final_res$fitted_obs_t_t[, 1]
-  dates <- master_taylor$quarter # Assuming you have a date vector
+  shadow_rate <- final_res_taylor$fitted_obs[, 1]
+  natural_rate_est <- final_res_taylor$r[, 1] # State 1
+  tp_trend <- final_res_taylor$r[, 2]
+  tp_cycle <- final_res_taylor$r[, 3]
+  fit_rate <- final_res_taylor$fitted_obs_t_t[, 1]
+  dates <- dates_df_taylor$quarter# Assuming you have a date vector
   snb_rate <-Y_data_taylor$saron_libor_splice
   fw_rate <- Y_data_taylor$forward_rate
   inflation_gap <- X_data_taylor$inf_gap

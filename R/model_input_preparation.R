@@ -353,75 +353,34 @@ extract_lop_gap <- function(spliced_df, hp_freq = 1600) {
 
 
 
-#' Extract HP Filter Gap at a specific Vantage Point
-#' 
-#' @description
-#' This function calculates the Hodrick-Prescott (HP) cyclical component (gap) by 
-#' splicing historical observed data untilt valtage point T with forecasted extensions.
-#' This approach mitigates the "end-point bias" of the HP filter in pseudo out-of-sample 
-#' forecasting contexts, and also allows to forecast the Output gap
-#' 
-#' @details
-#' The function constructs an augmented time series \eqn{Y^*} by combining 
-#' observed data up to the vantage point \eqn{T} and forecasted values up to 
-#' \eqn{T+h}:
-#' 
-#' The HP filter is then applied to the entire augmented series to extract the 
-#' cycle Component representing the Output gap. if \code{return_forecasts = FALSE}
-#' it returns the oputput gap until the vantage point, where the forecasts serve
-#' as a stabilizer to mitigate endpoint bias, while if its is set to \code{TRUE}
-#' then it returns both historical and the full forecasts of the Output gap up
-#' to horizon \code{T+h}.
-#' 
-#' @param data A dataframe containing historical observed data.
-#' @param gdp_forecast_data A dataframe containing forecasted values for the series extension.
-#' @param vantage_q The forecast origin date (as a \code{yearqtr} or character string). 
-#' Represents "today" in the pseudo out-of-sample context.
-#' @param h Integer. The number of forecast quarters to append as an extension. Default is 8.
-#' @param gdp_col Character. The name of the column containing the series to be filtered (e.g., "log_gdp").
-#' @param date_col Character. The name of the column containing dates. Default is "quarter".
-#' @param return_forecasts Logical. If \code{FALSE} (default), returns the historical 
-#' gaps up to \eqn{T}. If \code{TRUE}, returns the filtered gaps for the forecast 
-#' horizon \eqn{T+1} to \eqn{T+h}.
-#' 
-#' @return A tibble containing the date column and the calculated \code{gap}. 
-#' Returns \code{NULL} if the fused series contains fewer than 12 observations.
-#' 
-#' @import dplyr
-#' @importFrom zoo as.yearqtr
-#' @importFrom mFilter hpfilter
-#' @importFrom tibble as_tibble
-#' 
-#' @seealso [title()]
-#' 
-#' @export
 get_hp_gap <- function(data,
                        gdp_forecast_data,
                        vantage_q,
-                       h = h,
+                       h = 8,
                        gdp_col = "log_gdp",
                        date_col = "quarter",
-                       return_forecasts = FALSE) {
+                       return_type = c("history", "forecast", "full")) {
   
-  vantage_q <- as.yearqtr(vantage_q)
-  vantage_name <- as.character(vantage_q)
-  vantage_str <- format(vantage_q, format = "%Y Q%q") # Matches your triangle col format
+  # Standardize string choice argument
+  return_type <- match.arg(return_type)
   
-  # from observed data select up until the vantage point
-  # that you have observed at that time
+  vantage_q   <- zoo::as.yearqtr(vantage_q)
+  vantage_str <- format(vantage_q, format = "%Y Q%q")
+  
+  # 1. Gather historical observed vector context
   obs_data <- data %>%
     mutate(across(all_of(date_col), zoo::as.yearqtr)) %>%
     arrange(.data[[date_col]]) %>%
     filter(.data[[date_col]] <= vantage_q) %>%
     select(all_of(c(date_col, gdp_col)))
- 
-  # Select the forecast data as t+h extension
+  
+  # 2. Extract out-of-sample real-time forecast extension
   forecast_data_clean <- gdp_forecast_data[, c("date", vantage_str)] %>%
     stats::setNames(c("quarter", "log_gdp")) %>%
     mutate(quarter = zoo::as.yearqtr(quarter)) %>%
     drop_na()
   
-  
+  # 3. Anchor Discrepancy Gate
   obs_val   <- obs_data$log_gdp[obs_data$quarter == vantage_q]
   fcast_val <- forecast_data_clean$log_gdp[forecast_data_clean$quarter == vantage_q]
   
@@ -429,43 +388,32 @@ get_hp_gap <- function(data,
     warning(sprintf("[DISCREPANCY] At %s: Obs = %.5f, Fcast = %.5f", vantage_str, obs_val, fcast_val))
   }
   
-  # obs data last row forecast data first row should be the same date and value
-  
-  # Fuse and check for enough data
+  # 4. Fuse seamlessly while dropping the overlapping duplicate row
   extended_df <- bind_rows(
     obs_data, 
     filter(forecast_data_clean, quarter > vantage_q)
-  )  
-  # Safety check for minimum data points
-  if (nrow(extended_df) < 12) {
-    message("Not enough Data for HP Filter")
-    return(NULL)
+  )
+  
+  if (nrow(extended_df) < 20) {
+    stop("Insufficient rows to compute stable Hodrick-Prescott trend extraction matrix.")
   }
   
-  # Apply HP Filter
-  y <- extended_df[[gdp_col]]
-  hp_obj <- hpfilter(y, freq = 1600)
+  # 5. Extract Trend via Hodrick-Prescott Filter
+  # Lambda 1600 is standard for quarterly tracking frequencies
+  hp_res <- mFilter::hpfilter(extended_df[[gdp_col]], freq = 1600, type = "lambda")
+  extended_df$gap <- as.numeric(hp_res$cycle)
   
-  # Build Result Dataframe
-  result_df <- extended_df %>%
-    mutate(gap = as.numeric(hp_obj$cycle))
+  # ----------------------------------------------------------------------------
+  # 6. Structured Output Selection Routing
+  # ----------------------------------------------------------------------------
+  out_df <- switch(
+    return_type,
+    "history"  = filter(extended_df, quarter <= vantage_q),
+    "forecast" = filter(extended_df, quarter > vantage_q) %>% head(h),
+    "full"     = extended_df
+  )
   
-  # return logic either for estimation ->return until vantage point t
-  if (!return_forecasts) {
-    # Standard historical gap return
-    return(result_df %>% 
-             
-             filter(.data[[date_col]] <= vantage_q) %>% 
-             select(all_of(date_col), gap)
-           )
-  } else {
-    # return for forecasting just forecasted gdp gap
-    return(result_df %>%
-             filter(.data[[date_col]] > vantage_q) %>%
-             slice_head(n = h) %>%
-             select(all_of(date_col), gap)
-    )
-  }
+  return(out_df)
 }
 
 

@@ -256,7 +256,7 @@ master_taylor <- master_quarterly %>%
   mutate(
     across(c("saron_libor_splice", "true_snb_rate",
              "forward_rate", "log_cpi", "lag_rate",
-             "12m_interest_forecast", "hp_inf_gap", "gdp_gap"), ~ .x * 100) 
+             "12m_interest_forecast"), ~ .x * 100) 
   ) %>%
   mutate(
     inf_gap = yoy_inf -1,

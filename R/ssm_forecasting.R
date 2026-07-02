@@ -269,7 +269,7 @@ forecast_philips_ssm <- function(params_df,
       pull(log_inflation_diff)
     
     if(use_true_data) {
-      future_gdp <- exogenous_gdp_forecast_data
+      message("TRUE DATA USE DEPRECIATED")
     }else{
       
       vintage_col_str <- format(forecast_origin, format = "%Y Q%q")
@@ -300,7 +300,7 @@ forecast_philips_ssm <- function(params_df,
                                 h = forecast_h,
                                 data = master_df,
                                 gdp_forecast_data = exogenous_gdp_forecast_data,
-                                return_forecasts = TRUE)
+                                return_type = "forecast")
     
     
     # Extract sSpliced LOP series (returns raw decimal 'lop_gap')
@@ -447,7 +447,7 @@ forecast_taylor_ssm <- function(params_df,
                                 h = forecast_h,
                                 data = master_df,
                                 gdp_forecast_data = exogenous_gdp_forecast_data,
-                                return_forecasts = TRUE)
+                                return_type = "forecast")
     
     gdp_forecasts <- gdp_forecasts %>%
       mutate(quarter = as.yearqtr(quarter))
@@ -665,7 +665,7 @@ forecast_taylor_ssm <- function(params_df,
                                 h = forecast_h,
                                 data = master_df,
                                 gdp_forecast_data = exogenous_gdp_forecast_data,
-                                return_forecasts = TRUE) %>%
+                                return_type = "forecast") %>%
       mutate(quarter = zoo::as.yearqtr(quarter))
     
     # ------------------------------------------------------------------------

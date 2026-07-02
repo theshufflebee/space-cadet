@@ -36,17 +36,6 @@ if (!exists(required_dataset)) {
 # ==============================================================================
 
 
-# ------------------------------------------------------------------------------
-Y_data_okun <- master_okun %>%
-  select(unemp_rate, spf_5y_unemp)
-
-
-# X Df for full FIt Estimation
-# ------------------------------------------------------------------------------
-X_data_okun <- master_okun %>%
-  select(gdp_gap, gdp_gap_lag_1, gdp_gap_lag_2)
-
-
 # ----------------------------------------------
 if(run_estimation){
   message("Starting Estimation of Model 1: Unemployment...")
@@ -70,8 +59,6 @@ if(run_estimation){
 rolling_natural_rate_okun <- params_okun_df %>%
   select(all_of(c("quarter", "natural_rate"))) %>%
   mutate(quarter = as.yearqtr(quarter))
-
-
 
 
 # ==============================================================================
@@ -131,29 +118,25 @@ ssm_okun <- initialize_my_okun_ssm( # Update function name if it matches your in
 # Run the global optimization loop to finalize corporate parameters (beta_y, coefficients, variances)
 if(run_estimation){
   
-  output_estim_okun <- ssm_optimizer_wrapper_okun(ssm = ssm_okun)
+
+  last_params_list_okun <- params_okun_df %>% 
+    tail(1) %>% 
+    select(-quarter, -natural_rate) %>% # Drop tracking columns
+    as.list() %>% 
+    lapply(unlist)
+  
+  
+  param_last_fit_okun <- model2param_gen(last_params_list_okun, ssm_okun)
+  
+  final_res_okun <- loglik_ssm_okun(ssm =ssm_okun,
+                                   theta = param_last_fit_okun,
+                                   return_full_res = TRUE
+                                   )
   
   
   # Filter Execution & Latent State Extraction
   #-------------------------------------------------------------------------------
-  
-  # Determine the exact latent dimension from your prior guesses vector (Length 1 for u_bar)
-  num_latent_states_okun <- length(ssm_okun$rho_guess)
-  
-  # Run the fixed structural Kalman filter function with optimized inputs
-  final_res_okun <- kalman_filter_okun(
-    Y_t       = ssm_okun$data$Y,
-    nu_t      = matrix(0, nrow(ssm_okun$data$Y), num_latent_states_okun), 
-    H         = ssm_okun$builders$H(output_estim_okun$params),
-    N         = ssm_okun$builders$N(output_estim_okun$params),
-    mu_t      = ssm_okun$builders$mu_t(output_estim_okun$params, ssm_okun$data$X),
-    G         = ssm_okun$builders$G(),
-    M         = ssm_okun$builders$M(output_estim_okun$params),
-    ar_matrix = ssm_okun$builders$ar_mat(output_estim_okun$params, ssm_okun$data$Y),
-    Sigma_0   = matrix(ssm_okun$sigma_guess, nrow = num_latent_states_okun, ncol = num_latent_states_okun),
-    rho_0     = matrix(ssm_okun$rho_guess, ncol = 1)
-  )
-  
+
   # Extract specific quantitative rows and tracks for the plotting array
   dates_okun            <- master_okun$quarter
   observed_unemp        <- Y_data_okun$unemp_rate
@@ -165,8 +148,6 @@ if(run_estimation){
   
   # Cyclical inputs for lower covariate tracking
   output_gap_track      <- X_data_okun$gdp_gap
-  
-  
   
   
   # Create Data Tibble and Visualization specs for Fit-Plot
@@ -184,7 +165,10 @@ if(run_estimation){
   okun_plot_data <- okun_plot_data %>%
     left_join(rolling_natural_rate_okun, by = c("date" = "quarter"))
   
-  # Set up column-to-legend text property maps
+  # ============================================================================
+  # Plot Setting and Plotting
+  # ============================================================================
+  
   okun_top_metrics <- c(
     "obs_unemp"    = "Unemployment",
     "fitted_unemp" = "Fitted Unemployment",
@@ -226,10 +210,7 @@ if(run_estimation){
     save_path      = output_save_paths$plots$fit_okun
   )
   
-  # Print the resulting plot directly to the RStudio workspace graphics engine
   print(okun_dashboard)
   
-  
 }
-
 

@@ -800,8 +800,8 @@ loglik_ssm_shadow <- function(theta,
 #'
 #' @export
 ssm_optimizer_wrapper_shadow <- function(ssm, 
-                                         methods = c("Nelder-Mead", "bobyqa"), 
-                                         iters = 2, 
+                                         methods = estimation_settings$taylor$methods, 
+                                         iters = estimation_settings$taylor$iters, 
                                          start_par = NULL,
                                          set_silent = FALSE) {
   

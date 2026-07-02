@@ -110,7 +110,7 @@ fcst_df_inf$date <- format(as.yearqtr(fcst_df_inf$date), "%YQ%q")
 
 # Prepare Data
 # ------------------------------------------------------------------------------
-X_matrix_full <- build_data_matrix_philips(
+phillips_data_matrix_full <- build_data_matrix_philips(
   T_0             = "2005-01-01",  # Or your full sample start preference
   vantage_quarter = "2025 Q4",     # Up to latest realized history block
   data            = master_philips
@@ -118,11 +118,11 @@ X_matrix_full <- build_data_matrix_philips(
 
 # Extract Measurement vector Y (Inflation and SPF 5Y Expectation survey)
 # Note: rows between 2005-2015 for 5y_cpi_forecast are allowed to be NA
-Y_data_philips <- X_matrix_full %>%
+Y_data_philips <- phillips_data_matrix_full %>%
   select(all_of(c("log_inflation_diff", "5y_cpi_forecast")))
 
 # Extract Structural Determinants vector X (Gaps and Lags)
-X_data_philips <- X_matrix_full %>%
+X_data_philips <- phillips_data_matrix_full %>%
   select(all_of(c("gdp_gap", "lop_gap")))
 
 
@@ -138,37 +138,28 @@ ssm_philips <- initialize_my_philips_ssm(
 
 if(run_estimation) {
   
-  # Run the global optimizer routine across the economic parameter bounds
-  output_estim_philips <- ssm_optimizer_wrapper_philips(ssm = ssm_philips)
-  
-  rho_init <- matrix(ssm_philips$rho_guess, nrow = length(ssm_philips$rho_guess), ncol = 1)
-  nr <- nrow(rho_init)
-  
-  T_len <- nrow(ssm_philips$data$Y)
   
   
+  last_params_list_phillips <- params_philips_df %>% 
+    tail(1) %>% 
+    select(-quarter, -natural_rate) %>% # Drop tracking columns
+    as.list() %>% 
+    lapply(unlist)
   
-  final_res_philips <- kalman_filter_philips(
-    Y_t       = ssm_philips$data$Y,
-    # Dynamically scales the tracking matrix to match your 1-state setup
-    nu_t      = matrix(0, T_len, nr), 
-    H         = ssm_philips$builders$H(output_estim_philips$params),
-    N         = ssm_philips$builders$N(output_estim_philips$params),
-    mu_t      = ssm_philips$builders$mu_t(output_estim_philips$params, ssm_philips$data$X),
-    G         = ssm_philips$builders$G(),
-    M         = ssm_philips$builders$M(output_estim_philips$params),
-    ar_matrix = ssm_philips$builders$ar_mat(output_estim_philips$params, ssm_philips$data$Y),
-    
-    # Uses your exact initial variance guess from your ssm initialization object
-    Sigma_0   = matrix(ssm_philips$sigma_guess),
-    
-    # Uses your exact initial state vector guess (1.00 = 1%)
-    rho_0     = matrix(ssm_philips$rho_guess, ncol = 1)
+  param_last_fit_phillips <- model2param_gen(last_params_list_phillips, ssm_philips)
+  
+  
+  final_res_philips <- loglik_ssm_philips(ssm =ssm_philips,
+                                    theta = param_last_fit_phillips,
+                                    return_full_res = TRUE
   )
+  
+  # Run the global optimizer routine across the economic parameter bounds
+  
   
   # Extract specific quantitative tracks for plotting variables
   # Adjust state array indexes [ , x] to exactly match your kalman_implementation_philips.R vector indices
-  dates_philips       <- X_matrix_full$quarter
+  dates_philips       <- phillips_data_matrix_full$quarter
   observed_cpi_inf    <- Y_data_philips$log_inflation_diff
   spf_expectations    <- Y_data_philips$`5y_cpi_forecast`
   

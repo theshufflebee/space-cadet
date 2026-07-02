@@ -603,7 +603,6 @@ calculate_kalman_gain <- function(sigma, G, R){
 loglik_ssm_okun <- function(theta,
                             ssm,
                             return_full_res = FALSE,
-                            rho_guess = c(6, 2, 1),
                             set_silent = TRUE) {
   
   # Initial State Vector (rho_0)
@@ -767,8 +766,8 @@ loglik_ssm_okun <- function(theta,
 #'
 #' @export
 ssm_optimizer_wrapper_okun <- function(ssm, 
-                                       methods = c("Nelder-Mead", "bobyqa", "BFGS"), 
-                                       iters = 2, 
+                                       methods = estimation_settings$okun$methods, 
+                                       iters = estimation_settings$okun$iters, 
                                        start_par = NULL,
                                        set_silent = TRUE
 ) {
@@ -982,36 +981,34 @@ rolling_est_okun_ssm <- function(data,
     # Slice Data available "Today"
     data_t <- data[data[[date_col]] <= target_date, ]
     
+    Y_matrix <- data_t %>%
+      select(all_of(c("quarter", "unemp_rate", "spf_5y_unemp")))
+    
     # Process Exogenous Data
     # HP Filter is estimated inclduing the burn in period before the start of the information set
     
     # Error if there ar not enough valid gdp obs 
     valid_gdp_indices <- which(!is.na(data_t$log_gdp))
-    if (length(valid_gdp_indices) < 5) {
-      message("Skipping ", target_date, ": Not enough GDP data points.")
-      next
-    }
     
     # select GDP series
     first_obs_idx <- valid_gdp_indices[1]
-    gdp_series    <- data_t$log_gdp[first_obs_idx:nrow(data_t)]
     
-    # Run filter
-    hp_res    <- mFilter::hpfilter(gdp_series, freq = 1600)
-    gdp_cycle <- as.numeric(hp_res$cycle) * 100
     
-    # Align cycle back to the time-series and create lags
-    processed_data <- data_t
-    processed_data$gap_l0 <- NA_real_
-    processed_data$gap_l0[first_obs_idx:nrow(data_t)] <- gdp_cycle
+    processed_data <- get_hp_gap(data = data_t, 
+                                 gdp_forecast_data = gdp_forecasts_arima,
+                                 vantage_q         = target_date,
+                                 return_type = "history")
     
     processed_data <- processed_data %>%
+      rename(gap_l0 = gap) %>% # Map output back to your expected lag-base handle cleanly
       mutate(
+        gap_l0 = gap_l0 * 100,
         gap_l1 = dplyr::lag(gap_l0, 1),
         gap_l2 = dplyr::lag(gap_l0, 2)
       ) %>%
-      # Filter for Estimation Window
       filter(quarter >= val_T1) %>%
+      left_join(Y_matrix, by = "quarter") %>%
+      # Ensure unemp_rate checks against the real column name inside complete.cases
       filter(complete.cases(unemp_rate, gap_l0, gap_l1, gap_l2))
     
     if (nrow(processed_data) < 5) {
@@ -1036,8 +1033,6 @@ rolling_est_okun_ssm <- function(data,
     # each previous result becomes guess for the next
     opt_results <- ssm_optimizer_wrapper_okun(
       ssm       = my_ssm_model, 
-      methods   = c("Nelder-Mead", "BFGS"), 
-      iters     = 2, 
       start_par = current_theta
     )
     

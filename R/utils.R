@@ -530,3 +530,19 @@ model2param_gen <- function(model_list, ssm) {
 }
 
 
+standardize_yq_seq <- function(df, start_date = "2000-01-01") {
+  # 1. Convert the row date labels inside the first column safely
+  df[[1]] <- format(zoo::as.yearqtr(df[[1]]), format = "%YQ%q")
+  
+  # 2. Build a continuous calendar sequence based on the number of vintage columns
+  # (ncol(df) - 1) calculates exactly how many vintage columns need headers
+  start_qtr <- zoo::as.yearqtr(as.Date(start_date))
+  col_seq   <- start_qtr + (0:(ncol(df) - 2)) / 4
+  
+  # 3. Combine the blank first column name with your newly generated calendar sequence
+  colnames(df) <- c(colnames(df)[1], format(col_seq, format = "%YQ%q"))
+  
+  return(df)
+}
+
+

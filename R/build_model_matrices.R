@@ -336,7 +336,7 @@ build_data_matrix_philips <- function(T_0 = "2005-01-01",
                                       vantage_quarter = "2023 Q1",
                                       data = master_philips,
                                       h = 8,
-                                      set_silent = FALSE,
+                                      set_silent = TRUE,
                                       quarterly = TRUE) {
   
   T_0 <- as.yearqtr(T_0)
@@ -353,9 +353,6 @@ build_data_matrix_philips <- function(T_0 = "2005-01-01",
       log_inflation_diff = (log(cpi) - dplyr::lag(log(cpi), inf_lag)) * 100 * (4/inf_lag),
       lag_log_inflation_diff = dplyr::lag(log_inflation_diff, 1)
     )
-  
-  print("DEBUG FOR INFLATION 1 MEANS QUARTERLY DIFF")
-  print(inf_lag)
   
   # Add burn in cutoff
   raw_data <- raw_data %>%
