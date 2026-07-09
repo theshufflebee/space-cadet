@@ -36,7 +36,7 @@ master_df <- master_df %>%
     
     # Calculate REER_CREA
     # Formula: St * (PCH / PEUR)
-    # Using 'ex_eom' as St (ensure it is EUR per 1 CHF)
+    # Using 'ex_eom' as St
     REER_CREA = ex_eom * (ppi_ch_idx / ppi_eur_idx)
   ) %>%
   mutate(
@@ -105,16 +105,13 @@ master_quarterly <- master_quarterly %>%
 
 
 # CPI Transformations
-
 master_quarterly <- master_quarterly %>%
   mutate(
     cpi = as.numeric(cpi),
     log_cpi = log(cpi),
     log_inflation_diff = (log_cpi - dplyr::lag(log(cpi), 1)) * 100 * 4,
     yoy_inf = (log_cpi - dplyr::lag(log(cpi), 4)) * 100,
-    lag_log_inflation_diff = dplyr::lag(log_inflation_diff, 1),
-    # if we use quarterly we multiply log inf by 4 to have yearly values for interpretation
-    # SPF is already yearly
+    lag_log_inflation_diff = dplyr::lag(log_inflation_diff, 1)
     )
 
 

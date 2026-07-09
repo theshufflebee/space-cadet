@@ -5,7 +5,7 @@
 ################################################################################
 
 # This Script Loads the data used in this Project from their respective file paths.
-# It does not download the Data. 
+# It does not download the Data, which happens in script 01
 
 
 
@@ -73,15 +73,12 @@ ex_eom_ts  <- format_time_series_df(ex_eom_raw, "Date", "Value",  "ex_eom", "%Y-
 
 # Load SNB REER DATA
 
-# reer_raw <- read.table(data_save_paths$raw$reer_ppi_eu_csv, skip=3, header = TRUE, sep=";")
-
-
 # Use Excel download
 reer_raw <- read_excel(here("data/raw/reer_snb.xlsx"), sheet = 1, skip = 15) 
 
 
-# Select the Good REER Data, sort it and make it year month
-reer_ym <- reer_raw %>%
+# Select the wanted REER Data, sort it and make it year month
+reer_eu_ym <- reer_raw %>%
   rename(
     Date  = "...1",
     Value = "Index Euroraum PPI-basiert"
@@ -98,7 +95,7 @@ reer_ym <- reer_raw %>%
   )
 
 # Format SNB REER Data
-reer_eu_ppi_ts <- format_time_series_df(reer_ym, "date_ym", "last_value", "reer_eu_ppi", "%b %Y")
+reer_eu_ppi_ts <- format_time_series_df(reer_eu_ym, "date_ym", "last_value", "reer_eu_ppi", "%b %Y")
 
 
 # --- Load Associated SNB API METADATA ---
@@ -123,13 +120,14 @@ reer_meta_data <- fromJSON(paste(readLines(data_save_paths$raw$reer_ppi_eu_json,
 # --- Format BFS Data ---
 # ==============================================================================
 
+
 # --- CPI ---
 cpi_raw <- read_excel(data_save_paths$raw$cpi_series_xlsx, sheet = 1, skip = 3) 
 
 cpi_ts <- format_time_series_df(cpi_raw, "Datum / Date", "38687", "cpi", "%Y-%m-%d", seasonal_adj = TRUE)
 
-# --- PPI ---
 
+# --- PPI ---
 # Process PPI by indexing in 2020 and formating date correlcty
 ppi_ch_raw <- read_excel(data_save_paths$raw$ppi_csv, skip = 6, sheet = 1) 
 
@@ -142,11 +140,10 @@ ppi_ch_clean <- ppi_ch_raw %>%
     date = as.Date(as.numeric(raw_date), origin = "1899-12-30")
   )
 
-
 ppi_ch_ts <- format_time_series_df(ppi_ch_clean, "date", "values", "ppi_ch", "%Y-%m-%d" )
 
-# --- Unemployment ---
 
+# --- Unemployment ---
 unemployment_raw <- read_csv(
   file = data_save_paths$raw$unemployment_csv,
   trim_ws = TRUE,        # Cleans up whitespace automatically
@@ -158,34 +155,28 @@ unemployment <- unemployment_raw %>%
 
 unemployment_ts <- format_time_series_df(unemployment, "PERIOD", "VALUE", "unemployment", "%Y-%m", seasonal_adj = TRUE)
 
-# --- Employment ---
 
-emp_raw <- read.csv(data_save_paths$raw$employment_csv)
+# --- Employment ---
+emp_raw <- read_csv(data_save_paths$raw$employment_csv)
 
 employment <- emp_raw %>%
   # Filter out unnecessary data
-  filter(Division.économique == "5-96 Total",
-         Taux.d.occupation == "Equivalents plein temps, désaisonnalisé",
+  filter("Division économique" == "5-96 Total",
+         "Taux d'occupation" == "Equivalents plein temps, désaisonnalisé",
          Sexe == "Sexe - total") %>%
   
   # Transform quarterly into monthly with last month of quarter
   mutate(date_clean = zoo::as.yearmon(zoo::as.yearqtr(Trimestre, format = "%YQ%q"), fraction = 1))
 
 # Format as ts
-
 employment_ts <- format_time_series_df(employment,
                                            "date_clean",
                                            "Emplois.selon.la.division.économique..le.taux.d.occupation.et.le.sexe",
                                            "employment",
-                                           "%b %Y",
-                                           seasonal_adj = FALSE)
+                                           "%b %Y")
 
 
-# ==============================================================================
-# GDP Data 
-# ==============================================================================
-
-# Read Data
+# --- GDP DATA ---
 data_gdp_raw <- read_csv(data_save_paths$raw$gdp_seco_csv)                   
 
 # Select the data that has the correct type, adjustments and structure
@@ -249,13 +240,16 @@ eu_ppi_ts <- format_time_series_df(eu_ppi_raw, "date", "ppi_eur", "ppi_eur", "%Y
 
 
 ################################################################################
+#
 # Build Master df
+#
 ################################################################################
 
 
 master_df <- ts_names %>%
   
-  # mget looks for objects in the environment matching the strings and loads as list of lists
+  # mget looks for objects in the environment matching the strings in ts_names
+  # and loads as list of lists -> have all the data in the df directly
   mget(envir = .GlobalEnv) %>%
   
   # transform into a dataframe

@@ -1,18 +1,19 @@
 ################################################################################
 # 
-# All variables that are choses, selected, defined are here
+# CONFIG.R Set the estimation Settings
 #
 ################################################################################
 
+# Set the seed for all things random
 set.seed(42)
+
 # ==============================================================================
 # Load functions
 # ==============================================================================
 
 
-# Loading Data Handling / FOrmatting Functions
-source(here("R", "load_snb_data.R")) # Data loading SNB
-source(here("R", "load_kof_data.R")) # Data loading KOF
+# Loading Data Handling / Formatting Functions
+source(here("R", "data_download.R")) # Data loading SNB
 source(here("R", "utils.R")) # Diverse Utility functions
 source(here("R", "model_input_preparation.R")) # Functions to prepare model Data Inputs
 source(here("R", "latex_formatting.R"))
@@ -23,13 +24,16 @@ source(here("R", "latex_formatting.R"))
 
 # General Kalman Filter Functions
 source(here("R", "kalman_base.R"))
-source(here("R", "build_model_matrices.R"))
-source(here("R", "kalman_okun_specs.R"))
-source(here("R", "kalman_phillips_specs.R"))
-source(here("R", "kalman_taylor_specs.R"))
+
+source(here("R", "01_matrix_ssm_construction", "build_okun_matrices.R"))
+source(here( "R", "01_matrix_ssm_construction", "build_phillips_matrices.R"))
+source(here( "R", "01_matrix_ssm_construction", "build_taylor_matrices.R"))
+
+source(here("R", "kalman_filter_taylor.R"))
+
 
 #Forecasting Functions
-source(here("R", "ssm_forecasting.R"))
+source(here("R", "forecasting_functions.R"))
 
 # Visualizations
 source(here("R", "visualizations.R"))
@@ -39,35 +43,42 @@ source(here("R", "visualizations.R"))
 # Downloading and Data Prep Settings
 # ==============================================================================
 
+# --- DATA DOWNLOAD SETTINGS ---
+# ------------------------------------------------------------------------------
+do_api_call <- FALSE
+# -> If there is no data, API gets called even if set to false
+
+
+if (do_api_call) {
+  message("do_api_call set to TRUE. Redownloading all files")
+}
+
 # This section handles all paths with here. All paths are relative to the repo
 # root. Further we handle external id's or link to download data from external
 # sources. Finally we handle the date range for downloads and if we want to
 # force a re-download of all data
 
 # --- Set Paths / create folders ---
+# ------------------------------------------------------------------------------
 
-
-# Base Data  Path
-#master_df_path <- here("data")
+# Where transformed Data is saved
 data_base_path <- here("data")
 
-#data_base_path <- if(store_temp) output_temp else output_persistent
-
-
-# Set Base Raw Data Paths and create the dir if needed
+# Storage of RAW Data
 raw_data_path  <- here("data", "raw")
 if (!dir.exists(raw_data_path)) dir.create(raw_data_path, recursive = TRUE)
 
 
 # Data Keys for Downloads / API Calls
 # ------------------------------------------------------------------------------
-### KOF Data
 
-### BFS Data
-cpi_asset_id <- "36483229" # ID for CPI Download
-emp_asset_id <- "px-x-0602000000_101" # ID From Package
-unemp_asset_id <- "36453929" # Id from package Catalogue
-ppi_asset_id <- "36532319"
+# Deletable -> check it
+
+### BFS Data   
+# cpi_asset_id <- "36483229" # ID for CPI Download
+# emp_asset_id <- "px-x-0602000000_101" # ID From Package
+# unemp_asset_id <- "36453929" # Id from package Catalogue
+# ppi_asset_id <- "36532319"
 
 # --- External Metadata and IDs ---
 # IDs for programmatic downloads via BFS/KOF wrappers
@@ -81,25 +92,12 @@ data_external_ids <- list(
   unemp_asset_id = "36453929", # Id from package Catalog
   ppi_asset_id =  "36532319",
   kof_data_key = "kof_consensus_forecast_mean"
-  
   )
 
-
-# --- Define Parameters ---
 
 # Define start and end dates for SNB Data
 from_date <- "1972-01"
 to_date <- format(Sys.Date(), "%Y-%m")
-
-# Set True if you want to re-download Data
-# If there is no data, API gets called automatically
-do_api_call <- FALSE
-
-if (do_api_call) {
-  message("do_api_call set to TRUE. Redownloading all files")
-  
-}
-
 
 # Data Save Paths
 # ------------------------------------------------------------------------------
@@ -153,10 +151,10 @@ data_save_paths <- list(
 )
 
 
-# --- Names of Data to keep ---
+# --- DATA NAMING ---
+# ------------------------------------------------------------------------------
 
 # KOF data series we need for this project
-
 kof_mapping <- list(
   "5y_unemp_forecast"    = list(old_col = "ch.kof.consensus.q_qn_unemp_5y.mean",      seasonal_adj = TRUE),
   "5y_cpi_forecast"      = list(old_col = "ch.kof.consensus.q_qn_prices_5y.mean",     seasonal_adj = FALSE),
@@ -166,7 +164,6 @@ kof_mapping <- list(
 
 
 # names of all time series needed for the project
-
 ts_names <- c(
   "saron_ts",
   "libor_ts",
@@ -188,43 +185,42 @@ ts_names <- c(
   "snb_policy_rate_ts")
 
 
-################################################################################
-#Forecasting Settings
-################################################################################
+# ==============================================================================
+# Forecasting Settings
+# ==============================================================================
 
 # ---  General Settings ---
+# ------------------------------------------------------------------------------
 forecast_starting_date <- as.yearqtr("2000 Q1")
 
-# FOr Indexing
+# For Indexing
 indexing_date <- "2020-12-01"
 
+# Set to false if you want to load estimation from Disk
+run_estimation <- FALSE
 
-run_estimation <- TRUE
-
+# Set Forecasting Horizon
 h <- 8
-
-# Inflation Lag is wether we use quarterly or yearly inf differentia
-inf_diff_q <- 4
-
   
 # --- Okun Model Configuration settings ---
 
 # We run the HP filter to estimate the gap. this determines the first observation
 # of the GDP Variable
-hp_filter_burn_in <- "1990-01-01"
+# hp_filter_burn_in <- "1990-01-01"
 
 # --- Initial guesses for Okun ---
-# Initial parameters guess for okun model
+
 okun_parameter_guess <- list(
   beta1 = -0.1,
   beta2 = -0.1,
   beta3 = -0.1,
   phi = 0.6,
-  sigma_unemp_rate = 0.5,
-  sigma_spf_5y_unemp = 0.5,
-  xi_n = 0.1,
-  state_init = c(1.3),
-  sigma_init = c(10)
+  sigma_unemp = 0.3,
+  sigma_spf_5y_unemp = 0.3,
+  xi_trend = 0.02,
+  xi_cycle = 0.11,
+  state_init = c(1, 0),
+  sigma_init = c(1, 0, 0, 1)
 )
 
 
@@ -235,21 +231,22 @@ philips_parameter_guess <- list(
   # Parameters on exogenous variables
   beta_y = 0.1,
   psi_lop = -0.1,
-  phi = 0.8,
+  phi = 0.6,
   
   # sd on measurement variables
-  sigma_cpi = 0.2,
   sigma_spf = 0.2,
+  sigma_cpi = 1, #currently non existant in matrices
   
   # state innovation
-  xi_n = 0.1,
-  
-  state_init = c(1.3),
-  sigma_init = c(10)
+  xi_trend = 0.02,
+  xi_cycle = 0.5,
+
+  state_init = c(1.3, 0),
+  sigma_init = c(10, 0, 0, 10)
 )
 
 # --- Initial guesses for Taylor Rule / SNB Policy Rate ---
-# Initial parameters guess for the Taylor Rule State-Space Model
+
 snb_rate_parameter_guess <- list(
   # Taylor Rule Parameters (Unconstrained)
   gamma_pi            = 0.9,    # Inflation gap coefficient
@@ -261,7 +258,7 @@ snb_rate_parameter_guess <- list(
   
   # Measurement Noise Standard Deviations (Rule 1: Exponential > 0)
   sigma_policy        = 0.1,   # Error in the shadow policy rate equation
-  # sigma_fwd           = 0.2,   # Error in the 5y-5y forward rate identification
+  sigma_fwd           = 0.2,   # Error in the 5y-5y forward rate identification
 
   # State Innovation Standard Deviations (Rule 1: Exponential > 0)
   xi_i                = 0.1,  # Shock to the nominal natural rate (random walk)
@@ -275,13 +272,17 @@ snb_rate_parameter_guess <- list(
 # FOr model 2 the SNB data is released with a year delay -> more like 3q due to late release of all other data
 SNB_REER_DELAY <- 3
 
-# change this as to just take the firs non NA obs of the reer bns
-model_philips_burn_in <- "2000 Q4"
+# can build this into the the functions building the Phillips data matrix, as they
+# just need to filter for NA values. 
+model_philips_burn_in <- "2000 Q1"
 
 
 
-# --- Output Save paths ---
+# ==============================================================================
+# --- Output Save Path Settings ---
+# ==============================================================================
 
+# Select either the temp or the persisten folder
 store_temp <- TRUE
 
 # Only concerns the output folder
@@ -363,16 +364,29 @@ output_save_paths <- list(
     # Auto Arma Benchmark
     eval_auto_arma_okun = here(output_base, "tables/okun_eval_auto_arma_table.tex"),
     eval_auto_arma_philips = here(output_base, "tables/philips_eval_auto_arma_table.tex"),
-    eval_auto_arma_taylor = here(output_base, "tables/taylor_eval_auto_arma_table.tex")
+    eval_auto_arma_taylor = here(output_base, "tables/taylor_eval_auto_arma_table.tex"),
+    
+    # Initial Params & Constraints Tables
+    okun_param_table = here(output_base, "tables/okun_param_table.tex"),
+    philips_param_table = here(output_base, "tables/philips_param_table.tex"),
+    taylor_param_table = here(output_base, "tables/taylor_param_table.tex")
+    
   )
 )
 
 
-
+# ==============================================================================
 # --- ESTIMATION CONFIGURATION ---
+# ==============================================================================
 
 # Not yet implemented
 estimation_settings <- list(
+  
+  # Nelder-Mead -> doesn't use gradient or slopes but is slow
+  # uses approximation -> converges fast but can get stuck with bad surfaces
+  # BFGS very precise (quasi Newtow gradient method), but highly sensitive to initial params
+  
+  # Warm Start currently depreciated
   
   # Okun's Law Model Configuration
   okun = list(
@@ -394,5 +408,10 @@ estimation_settings <- list(
     methods    = c("Nelder-Mead", "bobyqa"), 
     iters      = 3,
     warm_start = FALSE
+  ),
+  
+  general_settings = list(
+    show_warnings = FALSE,
+    max_runs = 2000   # amount of times it calculates the log likelihood per iteration (iters)
   )
 )

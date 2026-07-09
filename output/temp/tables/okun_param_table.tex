@@ -1,0 +1,23 @@
+\begin{table}[htbp]
+\centering
+\caption{Okun Modell: Parameter Guesses and Constraints}
+\label{tab:okun_model_ssm_specs}
+\begin{tabular}{llcl}
+\hline\hline
+\textbf{Parameter Type} & \textbf{Name} & \textbf{Initial Value} & \textbf{Restriction} \\ \hline
+\textit{Structural Coefficients} &&& \\
+    & \texttt{beta1} & -0.10 & Unconstrained \\
+    & \texttt{beta2} & -0.10 & Unconstrained \\
+    & \texttt{beta3} & -0.10 & Unconstrained \\
+    & \texttt{phi} & 0.60 & Bounded: $[0.200, 0.750]$ \\
+\hline
+\textit{State Innovation} &&& \\
+    & \texttt{xi\_trend} & 0.02 & Bounded: $[0.005, 0.025]$ \\
+    & \texttt{xi\_cycle} & 0.11 & Exponential ($>0$) \\
+\hline
+\textit{Measurement Innovation} &&& \\
+    & \texttt{sigma\_spf\_5y\_unemp} & 0.30 & Bounded: $[0.100, 1.000]$ \\
+    & \texttt{sigma\_unemp} & 0.30 & Bounded: $[0.200, 5.000]$ \\
+\hline\hline
+\end{tabular}
+\end{table}

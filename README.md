@@ -1,10 +1,14 @@
 # space-cadet
 
-This repo contains all the code related to my Masters Thesis at CREA at HEC Lausanne. The Thesis' main goal is to forecast important macroeconomic variables of the Swiss Economy with State space models.
+This repo contains all the code related to my Masters Thesis at CREA at HEC Lausanne. The Thesis' main goal is to forecast important macroeconomic variables of the Swiss Economy with State Space Models.
 
 ## How to run
 
-This is currently a work in Progress. The working parts of the project can be run through the main.R script in the repo root. As of the Last Update (see at the bottom) it runs only until script 06 and it isn't complete yet. Open the .rproj file with R Studio and run the main script via source("main.R")
+This is currently a work in Progress. The working parts of the project can be run through the main.R script in the repo root. As of the Last Update (see at the bottom) it runs the main.R file. Bugs may occure. Open the .rproj file with R Studio and run the main script via source("main.R")
+
+Further there is the para_main.R in the para_functions folder which runs a parallel estimation of the parameters. It may require running a non estimation run of the main.R first. For that set the run_estimation = false in scripts/00b_config.R.
+
+The argparse.R file in the working directory doesn't work anymore. Will be updated or deleted later.
 
 ## Libraries
 
@@ -38,6 +42,7 @@ R version 4.3.3
 - **optimx**: A unified interface for numerical optimization algorithms used to estimate State-Space Model parameters.
 - **MASS**: Supports complex matrix operations and inversions required within the Kalman Filter.
 - **creaFcstEval**: An internal package specifically designed for forecast evaluation, including DM tests and error ratios.
+- **future.apply**: Package to run parallel estimation in R
 
 ### Visualization
 
@@ -55,55 +60,179 @@ R version 4.3.3
 Tree created via fs::dir_tree()
 
 ``` text
-space-cadet/
-├── data/                                # Project datasets
-│   ├── master.csv                       # Formatted master dataset
-│   └── raw/                             # Untransformed source files
-│       ├── cpi_series.xlsx              # Swiss CPI Data
-│       ├── employment_data.csv          # Swiss Employment Data
-│       ├── eu_ppi_raw.csv               # Euro Area PPI
-│       ├── ex_eur_av.csv                # CHF/EUR Average Exchange Rates
-│       ├── ex_eur_eom.csv               # CHF/EUR End-of-Month Exchange Rates
-│       ├── gdp.csv                      # Swiss GDP Data
-│       ├── kof_consensus_master.csv     # KOF Consensus Forecasts
-│       ├── ppi_ch.csv                   # Swiss PPI Data
-│       ├── reer_ppi_eu.csv              # REER CHF/EU Data
-│       └── ...                          # Associated metadata (.json)
-├── data.md                              # Documentation for data sources
-├── DESCRIPTION                          # Project metadata and dependencies
-├── docs/                                # pkgdown-generated html documentation
-├── generate_doc.r                       # Script to generate project documentation
-├── main.R                               # Primary execution script
-├── man/                                 # R documentation files (.Rd) from Roxygen
-├── NAMESPACE                            # R package namespace exports
-├── output/                              # Model results and exports
-│   ├── forecasts/                       # Forecasted series (Inflation/Unemployment)
-│   └── parameter_estimation/            # Rolling estimation CSVs (Okun/Phillips)
-├── R/                                   # Project function library
-│   ├── build_model_matrices.R           # SSM Matrix factory functions (H, G, M, N)
-│   ├── kalman_estimation_engine.R       # Optimizer wrappers and likelihood logic
-│   ├── kalman_implementation.R          # Base Kalman Filter and Gain calculations
-│   ├── load_kof_data.R                  # KOF API implementation
-│   ├── load_snb_data.R                  # SNB API implementation
-│   ├── model_input_preparation.R        # REER splicing and LOP/HP gap extraction
-│   ├── ssm_forecasting.R                # Rolling forecast and prediction logic
-│   ├── utils.R                          # General utility functions
-│   └── visualizations.R                 # Functions for spaghetti and error plots
-├── ram/                                 # Experimental space and scratchpad
+├── argparse.R # Depreciated
+├── data
+│   ├── master.csv
+│   ├── okun_master.csv
+│   ├── philips_master.csv
+│   ├── raw
+│   │   ├── cpi_series.xlsx
+│   │   ├── employment_data.csv
+│   │   ├── eu_ppi_raw.csv
+│   │   ├── ex_eur_av.csv
+│   │   ├── ex_eur_av_metadata.json
+│   │   ├── ex_eur_eom.csv
+│   │   ├── ex_eur_eom_metadata.json
+│   │   ├── gdp.csv
+│   │   ├── gov_bonds.csv
+│   │   ├── gov_bonds_metadata.json
+│   │   ├── kof_consensus_master.csv
+│   │   ├── money_market.csv
+│   │   ├── money_market_metadata.json
+│   │   ├── ppi_ch.csv
+│   │   ├── ppi_ch.xlsx
+│   │   ├── reer_ppi_eu.csv
+│   │   ├── reer_ppi_eu_metadata.json
+│   │   ├── reer_snb.xlsx
+│   │   ├── snb-chart-data-devwkieffirech-en-all-20260605_0900.xlsx
+│   │   ├── snb_policy_rate.csv
+│   │   ├── snb_policy_rate_metadata.json
+│   │   └── unemployment_canton.csv
+│   └── taylor_master.csv
+├── data.md
+├── DESCRIPTION
+├── docs
+│   └── ... # Package Documentation
+├── generate_doc.r
+├── main_cluster.R # To Run estimation on Cluster
+├── main_para_local.R # Run Parallel Estimation on local machine
+├── main.R # Run full Project non parallel on local Laptop
+├── man
+│   └── ... # .Rd files of documentation
+├── NAMESPACE
+├── output
+│   ├── para
+│   │   ├── example_folder_1 # Contains folders with different estimation runs
+│   │   ├── example_folder_2 # Each folder contains multiple RDS files
+│   │   └── example_folder_3 # One Rds File Per vintage
+│   ├── persistent
+│   │   ├── forecasts # Contains Forecasts dfs fr models and aux forecasts
+│   │   │   ├── gdp_arima_forecasts.csv
+│   │   │   ├── inflation_forecasts.csv
+│   │   │   ├── inf_arima_forecasts.csv
+│   │   │   ├── policy_rate_forecasts.csv
+│   │   │   └── unemployment_forecasts.csv
+│   │   ├── parameter_estimation
+│   │   │   ├── okun_params.csv
+│   │   │   ├── philips_params.csv
+│   │   │   └── taylor_params.csv
+│   │   ├── plots
+│   │   │   ├── benchmark_spaghetti_okun_auto_arma.png
+│   │   │   ├── benchmark_spaghetti_okun_rw.png
+│   │   │   ├── benchmark_spaghetti_philips_ar1.png
+│   │   │   ├── benchmark_spaghetti_philips_auto_arma.png
+│   │   │   ├── benchmark_spaghetti_philips_rw.png
+│   │   │   ├── benchmark_spaghetti_taylor_ar1.png
+│   │   │   ├── benchmark_spaghetti_taylor_auto_arma.png
+│   │   │   ├── benchmark_spaghetti_taylor_rw.png
+│   │   │   ├── fit_okun_model.png
+│   │   │   ├── fit_philips_model.png
+│   │   │   ├── fit_taylor_model.png
+│   │   │   ├── params_okun_model.png
+│   │   │   ├── params_philips_model.png
+│   │   │   ├── params_taylor_model.png
+│   │   │   ├── spaghetti_okun.png
+│   │   │   ├── spaghetti_philips.png
+│   │   │   └── spaghetti_taylor.png
+│   │   └── tables
+│   │       ├── okun_eval_ar1_table.tex
+│   │       ├── okun_eval_auto_arma_table.tex
+│   │       ├── okun_eval_rw_table.tex
+│   │       ├── philips_eval_ar1_table.tex
+│   │       ├── philips_eval_auto_arma_table.tex
+│   │       ├── philips_eval_rw_table.tex
+│   │       ├── taylor_eval_ar1_table.tex
+│   │       ├── taylor_eval_auto_arma_table.tex
+│   │       └── taylor_eval_rw_table.tex
+│   ├── temp
+│   │   ├── forecasts
+│   │   │   ├── gdp_arima_forecasts.csv
+│   │   │   ├── inflation_forecasts.csv
+│   │   │   ├── inf_arima_forecasts.csv
+│   │   │   ├── policy_rate_forecasts.csv
+│   │   │   ├── unemployment_forecasts.csv
+│   │   │   └── unemployment_forecasts_copy_for_debugging.csv
+│   │   ├── parameter_estimation
+│   │   │   ├── okun_params.csv
+│   │   │   ├── okun_params_long.csv
+│   │   │   ├── okun_params_no_constraint_new_filter.csv
+│   │   │   ├── philips_params.csv
+│   │   │   └── taylor_params.csv
+│   │   ├── plots
+│   │   │   ├── benchmark_spaghetti_okun_ar1.png
+│   │   │   ├── benchmark_spaghetti_okun_auto_arma.png
+│   │   │   ├── benchmark_spaghetti_okun_rw.png
+│   │   │   ├── benchmark_spaghetti_philips_ar1.png
+│   │   │   ├── benchmark_spaghetti_philips_auto_arma.png
+│   │   │   ├── benchmark_spaghetti_philips_rw.png
+│   │   │   ├── benchmark_spaghetti_taylor_ar1.png
+│   │   │   ├── benchmark_spaghetti_taylor_auto_arma.png
+│   │   │   ├── benchmark_spaghetti_taylor_rw.png
+│   │   │   ├── fit_okun_model.png
+│   │   │   ├── fit_philips_model.png
+│   │   │   ├── fit_taylor_model.png
+│   │   │   ├── params_okun_model.png
+│   │   │   ├── params_philips_model.png
+│   │   │   ├── params_taylor_model.png
+│   │   │   ├── spaghetti_okun.png
+│   │   │   ├── spaghetti_philips.png
+│   │   │   └── spaghetti_taylor.png
+│   │   └── tables
+│   │       ├── okun_eval_ar1_table.tex
+│   │       ├── okun_eval_auto_arma_table.tex
+│   │       ├── okun_eval_rw_table.tex
+│   │       ├── okun_param_table.tex
+│   │       ├── philips_eval_ar1_table.tex
+│   │       ├── philips_eval_auto_arma_table.tex
+│   │       ├── philips_eval_rw_table.tex
+│   │       ├── philips_param_table.tex
+│   │       ├── taylor_eval_ar1_table.tex
+│   │       ├── taylor_eval_auto_arma_table.tex
+│   │       ├── taylor_eval_rw_table.tex
+│   │       └── taylor_param_table.tex
+├── R
+│   ├── 01_matrix_ssm_construction
+│   │   ├── build_okun_matrices.R
+│   │   ├── build_phillips_matrices.R
+│   │   └── build_taylor_matrices.R
+│   ├── 02_parallel
+│   │   └── est_ssm_para.R  # functions for parallel estimation
+│   ├── data_download.R
+│   ├── forecasting_functions.R
+│   ├── kalman_base.R
+│   ├── kalman_filter_taylor.R
+│   ├── latex_formatting.R
+│   ├── model_input_preparation.R
+│   ├── rolling_estimation.R
+│   ├── utils.R
+│   ├── visualizations.R
+│   └── z99_archive
+│       ├── 04_unemployment_forecast.R
+│       ├── 05_inflation_forecast.R
+│       ├── 06_snb_rate_forecast.R
+│       ├── build_model_matrices.R
+│       ├── kalman_estimation_engine.R
+│       ├── kalman_implementation_base.R
+│       ├── kalman_implementation_okun.R
+│       ├── kalman_implementation_philips.R
+│       ├── kalman_implementation_taylor.R
+│       ├── kalman_okun_specs.R
+│       ├── kalman_phillips_specs.R
+│       ├── kalman_taylor_specs.R
+│       └── security_copy_kalman_base.R
 ├── README.md
-├── scripts/                             # Ordered project pipeline
-│   ├── 00a_install_dependencies.R       # Environment setup
-│   ├── 00b_config.R                     # Global variables and burn-in settings
-│   ├── 01_load_data.R                   # Data acquisition (API & Local)
-│   ├── 02_format_data.R                 # Cleaning and joining
-│   ├── 03_transform_data.R              # Manipulation and structural prep
-│   ├── 04_unemployment_forecast.R       # Okun Model execution
-│   ├── 05_inflation_forecast.R          # Phillips Model execution
-│   ├── 06_snb_rate_forecast.R           # Interest rate projections
-│   ├── 07_forecast_evaluation.R         # DM tests and MSFE/MAFE ratios
-│   └── 08_visualizations.R              # Final plot generation
-├── space-cadet.Rproj                    # RStudio project file
-└── SSM_Documentation.Rmd                # Technical breakdown of the SSM logic
+├── scripts
+│   ├── 00a_install_dependencies.R
+│   ├── 00b_config.R
+│   ├── 01_load_data.R
+│   ├── 02_format_data.R
+│   ├── 03_transform_data.R
+│   ├── 04_rolling_estimation.R
+│   ├── 05_generate_forecasts.R
+│   ├── 06_forecast_evaluation.R
+│   └── 07_visualizations.R
+├── space-cadet.Rproj
+└── SSM_Documentation.Rmd
 ```
 
 ## Contributing
@@ -151,4 +280,4 @@ It can also be done in RStudio using `source("generate_doc.R")`.
 Jonas Bruno\
 jonas.bruno\@unil.ch
 
-Last Update 05.05.2026
+Last Update 09.07.2026

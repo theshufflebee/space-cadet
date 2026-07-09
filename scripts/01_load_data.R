@@ -49,7 +49,7 @@ get_snb_data_wrapper(data_save_paths$raw$reer_ppi_eu_csv,
                      D2 ="I")
 
 
-# --- Exchange Rate ---
+# --- EXCHNAGE RATES ---
 
 # Average Exchange rates
 get_snb_data_wrapper(data_save_paths$raw$ex_eur_av_csv, do_api_call, "devkum", "ex_eur_av",  
@@ -122,15 +122,10 @@ download_kof_data_wrapper(file = data_save_paths$raw$kof_master_csv,
                           do_api_call = do_api_call)
 
 
-
-
-
 # ==============================================================================
 # EUROSTAT Data
 # ==============================================================================
 
-# Install if you haven't already
-# install.packages("eurostat")
 
 # Download the PPI dataset
 # 'sts_inppd_m' = Producer prices in industry, monthly

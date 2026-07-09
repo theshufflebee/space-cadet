@@ -114,3 +114,106 @@ export_eval_to_latex <- function(eval_df, output_path = NULL) {
   
   return(invisible(final_latex))
 }
+
+
+generate_param_latex_table <- function(manifest_source, model_name, save_path = NULL) {
+  
+  # 1. Initialize LaTeX Table Header Architecture
+  tex_lines <- c(
+    "\\begin{table}[htbp]",
+    "\\centering",
+    sprintf("\\caption{%sl: Parameter Guesses and Constraints}", model_name),
+    sprintf("\\label{tab:%s_ssm_specs}", tolower(gsub(" ", "_", model_name))),
+    "\\begin{tabular}{llcl}",
+    "\\hline\\hline",
+    "\\textbf{Parameter Type} & \\textbf{Name} & \\textbf{Initial Value} & \\textbf{Restriction} \\\\ \\hline"
+  )
+  
+  # DYNAMIC CATEGORY AND NAME INJECTION 
+  for (param_name in names(manifest_source)) {
+    if (is.null(manifest_source[[param_name]]$category)) {
+      if (grepl("^gamma|^phi|^beta", param_name)) {
+        manifest_source[[param_name]]$category <- "Structural Coefficients"
+      } else if (grepl("^sigma|^rho", param_name)) {
+        # FIX: Escape ampersands here inside the string text for LaTeX safety
+        manifest_source[[param_name]]$category <- "Measurement Innovation"
+      } else if (grepl("^xi", param_name)) {
+        manifest_source[[param_name]]$category <- "State Innovation"
+      } else {
+        manifest_source[[param_name]]$category <- "Other Parameters"
+      }
+    }
+    manifest_source[[param_name]]$name <- param_name
+  }
+  
+  # 2. Group the components by their category attribute
+  categories <- unique(sapply(manifest_source, function(x) x$category))
+  
+  for (cat in categories) {
+    # Add category sub-header row line
+    tex_lines <- c(tex_lines, sprintf("\\textit{%s} &&& \\\\", cat))
+    
+    # Filter variables belonging strictly to this group
+    cat_items <- manifest_source[sapply(manifest_source, function(x) x$category == cat)]
+    
+    for (item in cat_items) {
+      # Decode optimization rules into human-readable text strings
+      restriction_text <- switch(as.character(item$rule),
+                                 "-1" = "Fixed",
+                                 "0"  = "Unconstrained",
+                                 "1"  = "Exponential ($>0$)",
+                                 "2"  = "Logit ($[0, 1]$)",
+                                 "3"  = sprintf("Bounded: $[%s, %s]$", 
+                                                format(item$low, nsmall = 3), format(item$high, nsmall = 3)),
+                                 "Unknown Mapping Setup"
+      )
+      
+      # SAFE PARSING: If item$val is a vector, collapse it cleanly
+      if (length(item$val) > 1) {
+        val_string <- paste0("[", paste(format(item$val, nsmall = 1), collapse = ", "), "]")
+      } else {
+        val_string <- format(item$val, nsmall = 2)
+      }
+      
+      # Format individual row strings escaping the underscores safely for LaTeX compiler
+      escaped_name <- gsub("_", "\\_", item$name, fixed = TRUE)
+      
+      row_string <- sprintf("    & \\texttt{%s} & %s & %s \\\\", 
+                            escaped_name, 
+                            val_string, 
+                            restriction_text)
+      
+      tex_lines <- c(tex_lines, row_string)
+    }
+    # Add a horizontal line at the end of each block
+    tex_lines <- c(tex_lines, "\\hline")
+  }
+  
+  # 3. FIXED FOOTER CLOSURE: Remove duplicate hlines, leaving one clean double-line
+  # Since the final category loop already appends a single '\\hline', 
+  # we overwrite that last entry or simply append a single line here to create '\\hline\\hline'
+  if (tex_lines[length(tex_lines)] == "\\hline") {
+    tex_lines[length(tex_lines)] <- "\\hline\\hline"
+  } else {
+    tex_lines <- c(tex_lines, "\\hline\\hline")
+  }
+  
+  tex_lines <- c(
+    tex_lines, 
+    "\\end{tabular}",
+    "\\end{table}"
+  )
+  
+  full_tex_code <- paste(tex_lines, collapse = "\n")
+  
+  # 4. Handle Disk Export Saving Operations
+  if (!is.null(save_path)) {
+    dir_target <- dirname(save_path)
+    if (!dir.exists(dir_target)) dir.create(dir_target, recursive = TRUE)
+    
+    writeLines(full_tex_code, con = save_path)
+    message(sprintf("[SUCCESS] Exported %s parameter LaTeX matrix file to: %s", model_name, save_path))
+  }
+  
+  return(full_tex_code)
+}

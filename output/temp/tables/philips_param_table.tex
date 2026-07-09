@@ -1,0 +1,24 @@
+\begin{table}[htbp]
+\centering
+\caption{Phillips Modell: Parameter Guesses and Constraints}
+\label{tab:phillips_model_ssm_specs}
+\begin{tabular}{llcl}
+\hline\hline
+\textbf{Parameter Type} & \textbf{Name} & \textbf{Initial Value} & \textbf{Restriction} \\ \hline
+\textit{Structural Coefficients} &&& \\
+    & \texttt{beta\_y} & 0.10 & Logit ($[0, 1]$) \\
+    & \texttt{phi} & 0.60 & Bounded: $[0.100, 0.700]$ \\
+\hline
+\textit{Other Parameters} &&& \\
+    & \texttt{psi\_lop} & -0.10 & Unconstrained \\
+\hline
+\textit{State Innovation} &&& \\
+    & \texttt{xi\_trend} & 0.02 & Bounded: $[0.001, 0.025]$ \\
+    & \texttt{xi\_cycle} & 0.50 & Exponential ($>0$) \\
+\hline
+\textit{Measurement Innovation} &&& \\
+    & \texttt{sigma\_spf} & 0.20 & Exponential ($>0$) \\
+    & \texttt{sigma\_cpi} & 1.00 & Bounded: $[0.800, 4.000]$ \\
+\hline\hline
+\end{tabular}
+\end{table}

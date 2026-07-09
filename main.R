@@ -58,30 +58,25 @@ source(here("scripts", "03_transform_data.R"))
 
 
 #------------------------------------------------------------------------------
-# 4. Run Okun Model
+# 4. Run Rolling estimaton
 #------------------------------------------------------------------------------
-source(here("scripts", "04_unemployment_forecast.R"))
+source(here("scripts", "04_rolling_estimation.R"))
 
 
 #------------------------------------------------------------------------------
-# 5. Run Phillips Model
+# 5. Run Forecasts
 #------------------------------------------------------------------------------
-source(here("scripts", "05_inflation_forecast.R"))
+source(here("scripts", "05_generate_forecasts.R"))
 
 #------------------------------------------------------------------------------
-# 6. Run Taylor Model
+# 6.  Run Forecast Evaluation
 #------------------------------------------------------------------------------
-source(here("scripts", "06_snb_rate_forecast.R"))
+source(here("scripts", "06_forecast_evaluation.R"))
 
 #------------------------------------------------------------------------------
-# 7.  Run Forecast Evaluation
+# z. Create Visualizations
 #------------------------------------------------------------------------------
-source(here("scripts", "07_forecast_evaluation.R"))
-
-#------------------------------------------------------------------------------
-# 8. Create Visualizations
-#------------------------------------------------------------------------------
-source(here("scripts", "08_visualizations.R"))
+source(here("scripts", "07_visualizations.R"))
 
 message("FULL SCRIPT FINISHED")
 

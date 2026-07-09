@@ -1,0 +1,23 @@
+\begin{table}[htbp]
+\centering
+\caption{Taylor Modell: Parameter Guesses and Constraints}
+\label{tab:taylor_model_ssm_specs}
+\begin{tabular}{llcl}
+\hline\hline
+\textbf{Parameter Type} & \textbf{Name} & \textbf{Initial Value} & \textbf{Restriction} \\ \hline
+\textit{Structural Coefficients} &&& \\
+    & \texttt{gamma\_pi} & 0.90 & Exponential ($>0$) \\
+    & \texttt{gamma\_y} & 0.50 & Exponential ($>0$) \\
+    & \texttt{phi} & 0.50 & Logit ($[0, 1]$) \\
+\hline
+\textit{Measurement Innovation} &&& \\
+    & \texttt{rho\_tp} & 0.60 & Bounded: $[0.010, 0.990]$ \\
+    & \texttt{sigma\_policy} & 0.10 & Exponential ($>0$) \\
+\hline
+\textit{State Innovation} &&& \\
+    & \texttt{xi\_i} & 0.10 & Exponential ($>0$) \\
+    & \texttt{xi\_tp\_bar} & 0.05 & Exponential ($>0$) \\
+    & \texttt{xi\_tp\_cycl} & 0.05 & Exponential ($>0$) \\
+\hline\hline
+\end{tabular}
+\end{table}

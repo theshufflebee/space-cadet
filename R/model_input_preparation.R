@@ -35,24 +35,33 @@
 #' @importFrom forecast auto.arima forecast
 #'
 #' @export
-get_arma_forecast <- function(current_T, T_0 = "2001 Q1", h = 8, data, data_col, date_col = "quarter") {
+get_arma_forecast <- function(current_T, T_0 = "2000 Q1", h = 8, data, data_col, date_col = "quarter") {
   
-  # Ensure current_T is a yearqtr object
-  current_T <- as.yearqtr(current_T)
+  current_T <- zoo::as.yearqtr(current_T)
   
-  # Filter data from start (T_0) until current T / vantage point
-  # The .data allows to access date_col
-  raw_series <- data %>%
+ # Filter until the Vantage point
+  vint_series <- data %>%
     filter(.data[[date_col]] <= current_T) %>%
-    filter(.data[[date_col]] >= as.yearqtr(T_0)) %>%
-    arrange(.data[[date_col]]) %>%
+    arrange(.data[[date_col]])
+  
+  # gets all non NA then selects first obs and from it the date
+  first_valid_row <- which(!is.na(vint_series[[data_col]]))[1] 
+  
+  # Safeguard if all NA
+  if (is.na(first_valid_row)) {
+    stop(sprintf("Error: No valid history found for column '%s' up to %s", data_col, as.character(current_T)))
+  }
+  
+  # Slice accordingly
+  raw_series <- vint_series %>%
+    slice(first_valid_row:n()) %>%
     pull(.data[[data_col]])
   
   log_raw_series <- log(raw_series)
   
-  # Check for enough data (24 quarters = 6 years)
+  # Check for enough data (16 quarters = 4 years)
   n_obs <- length(na.omit(log_raw_series))
-  if (n_obs < 24) {
+  if (n_obs < 16) {
     warning(paste("Insufficient data for", data_col, ": only", n_obs, "obs found."))
     return(NULL)
   }
@@ -143,9 +152,6 @@ forecast_reer_components <- function(current_T, h = 8, data) {
   
   raw_data <- data
 
-  # Forecast PPI Switzerland (using your existing function)
-  # Inside arma function happens: log, and then in the auto arima
-  # there is a automatic detection of need of differentiation
   fc_ppi_ch <- get_arma_forecast(current_T = current_T,
                                  h = h,
                                  data = raw_data,
@@ -186,7 +192,7 @@ forecast_reer_components <- function(current_T, h = 8, data) {
 splice_snb_series <- function(vantage_quarter = "2023 Q2",
                               snb_reer_delay = 3,
                               data = master_philips,
-                              burn_in = "2001 Q1") {
+                              burn_in = "1990 Q1") {
   
   # Define the vantage point and the 'Knowledge Cutoff'
   vantage_q <- zoo::as.yearqtr(vantage_quarter)
@@ -210,6 +216,9 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
   val_snb_T  <- anchor_data$reer_eu_ppi
   val_crea_T <- anchor_data$REER_CREA
   
+  if(is.na(val_crea_T)) {
+    message("WARNING: CREA REER IS NA. CALLED FROM splice_snb_series()")
+  }
   
   
   # Step-by-Step Construction of the Spliced Series
@@ -484,7 +493,7 @@ gdp_forecast_wrapper <- function(fcast_start,
     origin_date <- all_fcast_dates[i]
     origin_str  <- format(origin_date, format = "%Y Q%q")
     
-    # CRITICAL: Strip out any data ahead of the current origin date 
+    # Strip out any data ahead of the current origin date 
     historical_subset <- data %>% 
       filter(zoo::as.yearqtr(.data[[date_col]]) <= origin_date)
     
@@ -889,6 +898,11 @@ merge_inflation_forecast_vintages <- function(arima_df, ssm_df) {
   # 1. Standardize tracking structures to prevent formatting drops
   arima_df$date <- format(zoo::as.yearqtr(arima_df$date), format = "%Y Q%q")
   ssm_df$date   <- format(zoo::as.yearqtr(ssm_df$date), format = "%Y Q%q")
+  
+  colnames(arima_df)[colnames(arima_df) != "date"] <- format(zoo::as.yearqtr(colnames(arima_df)[colnames(arima_df) != "date"]), format = "%Y Q%q")
+  
+  colnames(ssm_df)[colnames(ssm_df) != "date"] <- format(zoo::as.yearqtr(colnames(ssm_df)[colnames(ssm_df) != "date"]), format = "%Y Q%q")
+                               
   
   # 2. Extract shared operational coordinates
   # We find the intersection of vintage points (columns) present in both datasets

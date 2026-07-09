@@ -1,3 +1,131 @@
+kalman_filter_core <- function(Y_t, nu_t, H, N, mu_t, G, M, Sigma_0, rho_0,
+                          indic_pos = 0,
+                          Rfunction = Rf, Qfunction = Qf,
+                          reconciliationf = function(x, opt) { x }) {
+  ny <- NCOL(Y_t) 
+  nr <- NCOL(G)   
+  T  <- NROW(Y_t)
+  
+  loglik.vector <- NULL
+  
+  rho_tt      <- matrix(0, T, nr)
+  rho_tp1_t   <- matrix(0, T, nr)
+  y_tp1_t     <- matrix(0, T, ny)
+  
+  Sigma_tt    <- matrix(0, T, nr*nr)
+  Sigma_tp1_t <- matrix(0, T, nr*nr)
+  Omega_tt    <- matrix(0, T, ny*ny)
+  Omega_tp1_t <- matrix(0, T, ny*ny)
+  
+  # Initial logl constant 
+  logl <- -ny * T / 2 * log(2 * pi)
+  
+  for (t in 1:T) {
+    
+    # ==========================================================================
+    # Forecasting step (between t-1 and t):
+    # ==========================================================================
+    if (t == 1) {
+      rho_tp1_t[1, ] <- nu_t[1, ] + t(H %*% rho_0)
+      R              <- Rfunction(M, rho_0) 
+      Q              <- Qfunction(N, rho_0) 
+      aux_Sigma_tp1_t <- Q + H %*% Sigma_0 %*% t(H)
+    } else {
+      rho_tp1_t[t, ] <- nu_t[t, ] + t(H %*% rho_tt[t-1, ])
+      R              <- Rfunction(M, rho_tt[t-1, ], t)
+      Q              <- Qfunction(N, rho_tt[t-1, ], t)
+      aux_Sigma_tp1_t <- Q + H %*% matrix(Sigma_tt[t-1, ], nr, nr) %*% t(H)
+    }
+    
+    if (sum(indic_pos == 1) > 0) {
+      rho_tp1_t[t, indic_pos == 1] <- pmax(rho_tp1_t[t, indic_pos == 1], 0)
+    }
+    
+    # Restored mu_t adding step here (adding 0 retains structural logic)
+    y_tp1_t[t, ]     <- mu_t[t, ] + t(G %*% matrix(rho_tp1_t[t, ], ncol = 1))
+    Sigma_tp1_t[t, ] <- matrix(aux_Sigma_tp1_t, 1, nr*nr)
+    
+    omega           <- R + G %*% aux_Sigma_tp1_t %*% t(G)
+    Omega_tp1_t[t, ] <- matrix(omega, 1, ny*ny)
+    
+    # ==========================================================================
+    # Updating step
+    # ==========================================================================
+    vec.obs.indices <- which(!is.na(Y_t[t, ]))
+    ny.aux          <- length(c(vec.obs.indices))
+    
+    if (ny.aux > 0) {
+      G.aux <- matrix(G[vec.obs.indices, ], nrow = ny.aux)
+      R.aux <- R[vec.obs.indices, vec.obs.indices, drop = FALSE]
+      omega.aux <- omega[vec.obs.indices, vec.obs.indices, drop = FALSE]
+      
+      K <- aux_Sigma_tp1_t %*% t(G.aux) %*% MASS::ginv(R.aux + G.aux %*% aux_Sigma_tp1_t %*% t(G.aux))
+      
+      lambda_t       <- Y_t[t, ] - y_tp1_t[t, ]
+      lambda_t       <- matrix(lambda_t[vec.obs.indices], ncol = 1)
+      rho_tt[t, ]    <- t(rho_tp1_t[t, ] + K %*% lambda_t)
+      
+      if (sum(indic_pos == 1) > 0) {
+        rho_tt[t, indic_pos == 1] <- pmax(rho_tt[t, indic_pos == 1], 0)
+      }
+      
+      Id             <- diag(1, nrow = nr, ncol = nr)
+      Sigma_tt[t, ]  <- matrix((Id - K %*% G.aux) %*% aux_Sigma_tp1_t, 1, nr*nr)
+      
+      if (length(c(omega.aux)) == 1) {
+        det.omega <- omega.aux
+      } else {
+        det.omega <- det(omega.aux)
+      }
+      
+      y2Bfitted  <- matrix(Y_t[t, ], ncol = 1)
+      constant   <- matrix(mu_t[t, ], ncol = 1) # Restored mu_t constant linkage
+      Rho_tt_1   <- rho_tp1_t[t, ]
+      opt        <- list(y2Bfitted, constant, G, M, Rho_tt_1, Q)
+      rho_tt[t, ] <- reconciliationf(rho_tt[t, ], opt)
+      
+      loglik.step <- -ny.aux / 2 * log(2 * pi) - 1 / 2 * (log(det.omega) + 
+                                                            t(lambda_t) %*% MASS::ginv(omega.aux) %*% lambda_t)
+      
+      loglik.vector <- rbind(loglik.vector, loglik.step)
+      logl          <- logl + loglik.step
+      
+    } else {
+      rho_tt[t, ]     <- t(rho_tp1_t[t, ])
+      Sigma_tt[t, ]   <- matrix(aux_Sigma_tp1_t, 1, nr*nr)
+      loglik.vector  <- rbind(loglik.vector, 0)
+    }
+  }
+  
+  # Final fitted observables calculation incorporates mu_t
+  fitted.obs <- mu_t + rho_tt %*% t(G)
+  
+  output <- list(r = rho_tt, Sigma_tt = Sigma_tt, loglik = logl, y_tp1_t = y_tp1_t,
+                 S_tp1_t = Sigma_tp1_t, r_tp1_t = rho_tp1_t,
+                 loglik.vector = loglik.vector, Omega_tp1_t = Omega_tp1_t, M = M,
+                 fitted.obs = fitted.obs)
+  return(output)
+}
+Rf <- function(M,RHO,t=0){
+  return(M %*% t(M))
+}
+Qf <- function(N,RHO,t=0){
+  return(N %*% t(N))
+}
+
+
+
+
+
+
+
+
+
+################################################################################################
+
+
+
+
 #' Unified Log-Likelihood Evaluator for State-Space Models
 #'
 #' @param theta Vector of unconstrained optimizer parameters.
@@ -17,7 +145,7 @@ loglik_ssm_core <- function(theta,
   # 1. Coordinate initial state spatial boundaries
   rho_init <- matrix(ssm$rho_guess, nrow = length(ssm$rho_guess), ncol = 1)
   nr       <- nrow(rho_init)  
-  sig_init <- diag(as.numeric(ssm$sigma_guess), nr)
+  sig_init <- matrix(as.numeric(ssm$sigma_guess), nrow = nr, ncol = nr)
   
   # 2. Map Parameters (Optimizer Space -> Economic Space)
   model_params <- param2model_gen(theta, ssm)
@@ -30,10 +158,10 @@ loglik_ssm_core <- function(theta,
   # 3. Construct System Matrices via Component Builders
   mu_t   <- ssm$builders$mu_t(model_params, ssm$data$X)
   H      <- ssm$builders$H(model_params)
-  M      <- ssm$builders$M(model_params)
+  M      <- ssm$builders$M(model_params, ssm$data$Y)
   N      <- ssm$builders$N(model_params) 
-  ar_mat <- ssm$builders$ar_mat(model_params, ssm$data$Y)
-  
+  nu_t   <- ssm$builders$nu_t(model_params, ssm$data$X)
+
   # Clean, standardized dynamic evaluation of G matrix properties
   if ("model_params" %in% names(formals(ssm$builders$G))) {
     G <- ssm$builders$G(model_params)
@@ -41,31 +169,42 @@ loglik_ssm_core <- function(theta,
     G <- ssm$builders$G()
   }
   
-  # 4. Initialize Intercept Matrix Context
-  nu_t <- matrix(0, nrow(ssm$data$Y), nr)
-  
   # ============================================================================
   # 5. DYNAMIC FILTER ENGINE ROUTING
   # ============================================================================
-  filter_engine <- switch(
-    model_type,
-    "okun"    = kalman_filter_okun,
-    "philips" = kalman_filter_philips,
-    "taylor"  = kalman_filter_taylor
-  )
   
-  res <- filter_engine(
-    Y_t       = ssm$data$Y, 
-    nu_t      = nu_t, 
-    H         = H, 
-    N         = N, 
-    mu_t      = mu_t, 
-    G         = G, 
-    M         = M,
-    ar_matrix = ar_mat,
-    Sigma_0   = sig_init, 
-    rho_0     = rho_init
-  )
+  if (ssm$name == "taylor") {
+    
+    # Run the specialized policy filter variant that accounts for ELB missing data segments
+    res <- kalman_filter_taylor(
+      Y_t       = ssm$data$Y, 
+      nu_t      = nu_t, 
+      H         = H, 
+      N         = N, 
+      mu_t      = mu_t, 
+      G         = G, 
+      M         = M,
+      ar_mat = ssm$builders$ar_mat(model_params, ssm$data$Y),
+      Sigma_0   = sig_init, 
+      rho_0     = rho_init
+      )
+    
+  } else {
+    
+    # Standard linear multi-observable filter for Okun and Phillips blocks
+    res <- kalman_filter_core(
+      Y_t       = ssm$data$Y, 
+      nu_t      = nu_t, 
+      H         = H, 
+      N         = N, 
+      mu_t      = mu_t, 
+      G         = G, 
+      M         = M,
+      Sigma_0   = sig_init, 
+      rho_0     = rho_init
+    )
+    
+  }
   
   # ============================================================================
   # 6. STANDARD SAFEGUARD MATRIX VALIDATION
@@ -146,6 +285,7 @@ ssm_optimizer_wrapper_core <- function(ssm,
   
   n_par <- length(current_par_opt)
   message("BEGIN OPTIMIZATION (ENGINE SWITCH: ", toupper(model_id), ")")
+  print(current_par_opt)
   
   # 3. INTERACTIVE REPETITIVE OPTIMIZATION PIPELINE
   # ============================================================================
@@ -156,14 +296,14 @@ ssm_optimizer_wrapper_core <- function(ssm,
       ssm     = ssm,
       method  = methods,
       control = list(
-        all.methods = FALSE, 
+        all.methods = FALSE, # We select our methods so FALSE
         follow.on   = TRUE, # Sequential parameter chaining
-        dowarn      = FALSE, 
+        dowarn      = estimation_settings$general_settings$show_warnings, 
         maximize    = FALSE,
-        itnmax      = 3000,  
-        maxit       = 3000,
-        reltol      = 1e-6,  
-        abstol      = 1e-6  
+        itnmax      = estimation_settings$general_settings$max_runs,  
+        maxit       = estimation_settings$general_settings$max_runs,
+        reltol      = 1e-5,  
+        abstol      = 1e-5  
       )
     )
     
