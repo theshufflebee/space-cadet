@@ -955,3 +955,281 @@ merge_inflation_forecast_vintages <- function(arima_df, ssm_df) {
   return(consolidated_df)
 }
 
+################################################################################
+#
+# BUILD MODEL DATA MATRICES
+#
+################################################################################
+
+
+# ==============================================================================
+# Phillips Model Data Matrix
+# ==============================================================================
+
+
+#' Build the X Data Matrix for the Phillips Curve State-Space Model
+#'
+#' @description
+#' Prepares all observed variables (y) and exogenous variables (mu_t) and collects
+#' them in a matrix for the Phillips curve estimation at a specific 
+#' vantage point. The function first transforms the time-series data (logs and lags), 
+#' integrates separately constructed components like the Law of One Price (LOP) gap and 
+#' GDP gap, and ensures alignment between observed inflation and expectations.
+#'
+#' @export
+build_data_matrix_philips <- function(T_0 = "1990-01-01",
+                                      vantage_quarter,
+                                      data = master_philips,
+                                      gdp_forecasts = gdp_forecasts_arima,
+                                      h = h,
+                                      set_silent = TRUE,
+                                      quarterly = TRUE) {
+  
+  T_0 <- as.yearqtr(T_0)
+  
+  if(quarterly) {inf_lag <- 1} else {inf_lag <- 4}
+  
+  vantage_quarter <- as.yearqtr(vantage_quarter)
+  
+  # Lag CPI before burn cutoff
+  raw_data <- data %>%
+    arrange(quarter) %>%
+    mutate(
+      cpi = as.numeric(cpi),
+      log_inflation_diff = (log(cpi) - dplyr::lag(log(cpi), inf_lag)) * 100 * (4/inf_lag),
+      lag_log_inflation_diff = dplyr::lag(log_inflation_diff, 1)
+    )
+  
+  # Add burn in cutoff
+  raw_data <- raw_data %>%
+    filter(quarter <= as.yearqtr(vantage_quarter)) %>%
+    arrange(quarter)
+  
+  if(!set_silent){
+    message("RAW DATA DEBUG")
+    print(raw_data)
+    
+  }
+  
+  
+  LOP_forecast <- splice_snb_series(vantage_quarter = vantage_quarter,
+                                    snb_reer_delay = SNB_REER_DELAY,
+                                    data = raw_data
+  )
+  
+  if(!set_silent){
+    message("LOP FORECAST")
+    print(tail(LOP_forecast))
+  }
+  
+  
+  HP_gap_data <- get_hp_gap(raw_data,
+                            gdp_forecast_data = gdp_forecasts, # forecast data
+                            vantage_q = vantage_quarter
+  )
+  
+  if(!set_silent) {
+    message("HP GAP DATA DONE")
+    print(HP_gap_data)
+  }
+  
+  
+  X_matrix <- raw_data %>%
+    select(quarter, log_inflation_diff, lag_log_inflation_diff, log_gdp, `5y_cpi_forecast`) %>%
+    left_join(LOP_forecast %>% select(quarter, lop_gap), by = "quarter") %>%
+    left_join(HP_gap_data %>% select(quarter, gdp_gap = gap), by = "quarter") %>%
+    mutate(
+      # Force columns to be standard numeric vectors to strip hidden ts matrix attributes
+      lop_gap     = as.numeric(lop_gap) * 100,
+      lag_lop_gap = dplyr::lag(lop_gap, 1),
+      
+      gdp_gap     = as.numeric(gdp_gap) * 100,
+      lag_gdp_gap = dplyr::lag(gdp_gap, 1),
+      
+      # Clean expectations format
+      `5y_cpi_forecast` = as.numeric(`5y_cpi_forecast`)
+    ) %>%
+    # Filter to return the specific estimation sample
+    filter(quarter >= as.yearqtr(T_0)) %>%
+    arrange(quarter)
+  
+  
+  if(!set_silent) {
+    message("X_Matrix sucessfully built")
+    print(X_matrix)
+  }
+  
+  return(X_matrix)
+}
+
+
+
+# ==============================================================================
+# TAYLOR Model Data Matrix
+# ==============================================================================
+
+#' Builder for the Data Input matrices X and Y of the Taylor State space model
+#' 
+#' @description
+#' This function basically builds a data matrix that is then split into X and Y 
+#' By the corresponding ssm_estimation function. We can specify wether we want a forward or backward
+#' looking taylor rule and also how we want the inf gap to be constructed.
+#' 
+build_data_matrix_taylor <- function(T_0 = "1990-01-01",
+                                    vantage_quarter,
+                                    data = master_taylor,
+                                    gdp_forecasts = gdp_forecasts_arima,
+                                    h = h,
+                                    set_silent = TRUE,
+                                    quarterly = TRUE,
+                                    taylor_rule_spec = "backward",
+                                    if_gap_spec = "minus_1") {
+  
+  # Make sure it's yearquarter object
+  T_0 <- as.yearqtr(T_0)
+  
+  if(taylor_rule_spec == "backward") {
+    
+    if(inf_gap_spec == "minus_1") {
+      
+      # Slice Data available "Today"
+      data_t <- data[data[[quarter]] <= vantage_quarter, ]
+      
+      # Process Exogenous Data
+      # HP Filter is estimated inclduing the burn in period before the start of the information set
+      
+      # Error if there ar not enough valid gdp obs 
+      valid_inf_indices <- which(!is.na(data_t$log_cpi))
+      
+      # select GDP series
+      first_obs_idx <- valid_inf_indices[1]
+      inf_series    <- data_t$log_cpi[first_obs_idx:nrow(data_t)]
+      
+      gdp_gap_data <- get_hp_gap(data = data_t,
+                                 gdp_forecast_data = gdp_forecasts, # forecast data
+                                 vantage_q = target_date
+      )
+      gdp_gap_data$gap <- gdp_gap_data$gap * 100
+      
+      
+      inf_gap_data <- data_t %>%
+        select(all_of(c("quarter", "inf_gap")))
+      
+      
+      processed_data <- data_t %>%
+        select(quarter, saron_libor_splice, forward_rate, yoy_inf) %>%
+        left_join(gdp_gap_data %>% select(quarter, gdp_gap = gap), by = "quarter") %>%
+        left_join(inf_gap_data %>% select(quarter, inf_gap), by = "quarter") %>%
+        filter(quarter >= as.yearqtr(val_T1)) %>%
+        arrange(quarter) %>%
+        filter(complete.cases(gdp_gap, inf_gap))%>%
+        # Filter to return the specific estimation sample
+        filter(quarter >= as.yearqtr(T_0))
+      
+    } else if(if_gap_spec == "ssm_gap") {
+      
+      # Need to extract all states from each of the estimations then format them into a df and subtract from observed data
+      # then take the state at t minus observed value at t
+      # maybe use fitted obs instead
+      # also use long format for this
+      # quarter, vantage_quarter, variable, value should be all i need, then filter for specific set
+      
+    } else {
+      message("NO VALID INF GAP SPECIFICATION GIVEN. ABORTING...")
+      stop("STOPPING EXECUTION AT build_data_matrix_taylor()")
+    }
+    
+    
+    
+  } else if(taylor_rule_spec == "forward") {
+    
+    if(inf_gap_spec == "minus_1") {
+      
+      # use SPF CY or NY means minus 1
+      
+      # USE SPF forecasts minus 1
+      
+    } else if(if_gap_spec == "ssm_gap") {
+      
+      # USE SPF FORECASTS MINUS 1
+      
+    } else {
+      message("NO VALID INF GAP SPECIFICATION GIVEN. ABORTING...")
+      stop("STOPPING EXECUTION AT build_data_matrix_taylor()")
+    }
+    
+  } else {
+    message("NO VALID TAYLOR RULE SPECIFICATION GIVEN. ABORTING...")
+    stop("STOPPING EXECUTION AT build_data_matrix_taylor()")
+  }
+  
+  return(processed_data)
+  
+} 
+
+
+get_ssm_inf_gap <- function(ssm_folder) {
+  
+  
+  # find target dir
+  target_dir <- here::here("output", "para", ssm_folder)
+  if (!dir.exists(target_dir)) stop(sprintf("Directory does not exist: %s", target_dir))
+  
+  saved_files <- list.files(path = target_dir, pattern = "\\.rds$", full.names = TRUE)
+  if (length(saved_files) == 0) return(matrix(NA_real_, 0, 0))
+  
+  # get list of results
+  vintages_data <- lapply(saved_files, function(file_path) {
+    payload <- readRDS(file_path)
+    
+    # Extract vantage quarter string
+    vantage_str <- format(zoo::as.yearqtr(payload$target_date), format = "%Y Q%q")
+    
+    #get historical time series
+    start_date <- zoo::as.yearqtr("1990 Q1")
+    total_obs  <- nrow(payload$states$fitted.obs)
+    date_seq   <- format(seq(start_date, by = 0.25, length.out = total_obs), format = "%Y Q%q")
+    
+    # calculate inflation gap
+    # fitted inflation (column 1) - trend state (column 1) = implied inflation gap
+    fitted_inf <- payload$states$fitted.obs[, 1]
+    trend_state <- payload$states$r[, 1]
+    calculated_gap <- fitted_inf - trend_state
+    
+    return(list(
+      vantage    = vantage_str,
+      dates      = date_seq,
+      inf_gaps   = calculated_gap
+    ))
+  })
+  
+  # select unique vantage quarter first to last rolling est
+  all_vantages <- sort(unique(sapply(vintages_data, function(x) x$vantage)))
+  
+  # Select unique dates from T_0 to last vantage date
+  all_dates    <- sort(unique(unlist(lapply(vintages_data, function(x) x$dates))))
+  
+  # Build an empty evaluation matrix populated with NA values
+  inf_gap_matrix <- matrix(NA_real_, 
+                           nrow = length(all_vantages), 
+                           ncol = length(all_dates),
+                           dimnames = list(all_vantages, all_dates))
+  
+  # 4. Map the calculated elements into the grid spaces
+  for (v_data in vintages_data) {
+    v_row <- v_data$vantage
+    inf_gap_matrix[v_row, v_data$dates] <- v_data$inf_gaps
+  }
+  
+  # Convert matrix structure to a friendly dataframe presentation layout
+  inf_gap_df <- as.data.frame(inf_gap_matrix)
+  
+  return(inf_gap_df)
+  
+}
+
+get_ssm_forecasted_inf_gap <- function(inf_forecasts_df) {
+  
+  # select
+  
+}

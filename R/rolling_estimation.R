@@ -347,9 +347,6 @@ rolling_est_taylor_ssm <- function(data,
       select(all_of(c("quarter", "inf_gap")))
     
     
-    
-    
-    
     processed_data <- data_t %>%
       select(quarter, saron_libor_splice, forward_rate, yoy_inf) %>%
       left_join(gdp_gap_data %>% select(quarter, gdp_gap = gap), by = "quarter") %>%

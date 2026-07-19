@@ -12,7 +12,7 @@ message("Starting Visualizations")
 # ==============================================================================
 
 
-okun_param_plot <- plot_model_parameters(df = params_okun_df,
+okun_param_plot <- plot_model_parameters(df = okun_params_df,
                                          title = "Okun Rolling Parameter Estimation Plot",
                                          save_path = output_save_paths$plots$params_okun)
 
@@ -194,105 +194,104 @@ generate_param_latex_table(manifest_source = ssm_okun$manifest,
 # ==============================================================================
 # Run the loglik function to extract the fit
 
-if(run_estimation){
+
+
+
+last_params_list_okun <- okun_params_df %>% 
+  tail(1) %>% 
+  select(-quarter, -natural_rate) %>% 
+  as.list() %>% 
+  lapply(unlist)
+
+
+param_last_fit_okun <- model2param_gen(last_params_list_okun, ssm_okun)
+
+# --- Get OKUN RES OF FINAL PARAMS ---
+final_res_okun <- loglik_ssm_core(ssm =ssm_okun,
+                                  theta = param_last_fit_okun,
+                                  return_full_res = TRUE
+)
+
+# Extract specific rows for plotting
+dates_okun            <- master_okun$quarter # Dates for X axis
+observed_unemp        <- Y_data_okun$unemp_rate
+spf_unemp_expect      <- Y_data_okun$spf_5y_unemp
+fitted_unemp_t_t      <- final_res_okun$fitted.obs[, 1] # Fitted Y
+latent_nairu_trend    <- final_res_okun$r[, 1] # First state is NAIRU
+output_gap_track      <- X_data_okun$gdp_gap # Exogenous regressor -> Output gap
+
+
+# Create Data Tibble expected by function
+#-------------------------------------------------------------------------------
+okun_plot_data <- tibble(
+  date          = as.yearqtr(dates_okun),
+  obs_unemp     = as.numeric(observed_unemp),
+  spf_survey    = as.numeric(spf_unemp_expect),
+  fitted_unemp  = as.numeric(fitted_unemp_t_t),
+  latent_trend  = as.numeric(latent_nairu_trend),
+  gdp_gap       = as.numeric(output_gap_track)
+)
+
+# --- Add Natural Rate ---
+
+# Extract from param_df and join
+rolling_natural_rate_okun <- okun_params_df %>%
+  select(all_of(c("quarter", "natural_rate"))) %>%
+  mutate(quarter = as.yearqtr(quarter))
+
+okun_plot_data <- okun_plot_data %>%
+  left_join(rolling_natural_rate_okun, by = c("date" = "quarter"))
+
+# ============================================================================
+# Plot Setting and Plotting
+# ============================================================================
+
+okun_top_metrics <- c(
+  "fitted_unemp" = "Fitted Unemployment",
+  "obs_unemp"    = "Unemployment",
   
-  
-  
-  last_params_list_okun <- params_okun_df %>% 
-    tail(1) %>% 
-    select(-quarter, -natural_rate) %>% 
-    as.list() %>% 
-    lapply(unlist)
-  
-  
-  param_last_fit_okun <- model2param_gen(last_params_list_okun, ssm_okun)
-  
-  # --- Get OKUN RES OF FINAL PARAMS ---
-  final_res_okun <- loglik_ssm_core(ssm =ssm_okun,
-                                    theta = param_last_fit_okun,
-                                    return_full_res = TRUE
-  )
-  
-  # Extract specific rows for plotting
-  dates_okun            <- master_okun$quarter # Dates for X axis
-  observed_unemp        <- Y_data_okun$unemp_rate
-  spf_unemp_expect      <- Y_data_okun$spf_5y_unemp
-  fitted_unemp_t_t      <- final_res_okun$fitted.obs[, 1] # Fitted Y
-  latent_nairu_trend    <- final_res_okun$r[, 1] # First state is NAIRU
-  output_gap_track      <- X_data_okun$gdp_gap # Exogenous regressor -> Output gap
-  
-  
-  # Create Data Tibble expected by function
-  #-------------------------------------------------------------------------------
-  okun_plot_data <- tibble(
-    date          = as.yearqtr(dates_okun),
-    obs_unemp     = as.numeric(observed_unemp),
-    spf_survey    = as.numeric(spf_unemp_expect),
-    fitted_unemp  = as.numeric(fitted_unemp_t_t),
-    latent_trend  = as.numeric(latent_nairu_trend),
-    gdp_gap       = as.numeric(output_gap_track)
-  )
-  
-  # --- Add Natural Rate ---
-  
-  # Extract from param_df and join
-  rolling_natural_rate_okun <- params_okun_df %>%
-    select(all_of(c("quarter", "natural_rate"))) %>%
-    mutate(quarter = as.yearqtr(quarter))
-  
-  okun_plot_data <- okun_plot_data %>%
-    left_join(rolling_natural_rate_okun, by = c("date" = "quarter"))
-  
-  # ============================================================================
-  # Plot Setting and Plotting
-  # ============================================================================
-  
-  okun_top_metrics <- c(
-    "fitted_unemp" = "Fitted Unemployment",
-    "obs_unemp"    = "Unemployment",
-    
-    "latent_trend" = "Natural Rate",
-    "spf_survey"   = "SPF 5-Year Unemp Mean",
-    "natural_rate" = "Last State in Rolling Estimation"
-  )
-  
-  okun_bottom_metrics <- c(
-    "gdp_gap" = "Output Gap"
-  )
-  
-  # HEX Color Codes
-  okun_top_colors <- c(
-    "Unemployment"         = "#34495e", # Dark Slate
-    "Fitted Unemployment"     = "pink", # Deep Blue
-    "Natural Rate" = "#e74c3c", # Natural Rate Red
-    "SPF 5-Year Unemp Mean"  = "#f1c40f",  # Gold Yellow
-    "Last State in Rolling Estimation" = "green"
-  )
-  
-  okun_bottom_colors <- c(
-    "Output Gap" = "#16a085" # Teal
-  )
-  
-  # ============================================================================
-  # Generate Plot
-  # ============================================================================
-  okun_dashboard <- plot_state_space_fit(
-    plot_df        =  okun_plot_data,
-    title          = "Swiss Okun's Law State-Space Estimation",
-    subtitle       = "Okun Specification: Latent Natural Rate, Exogenous Lagged Output Gap and Long-Term SPF Anchors",
-    top_metrics    = okun_top_metrics,
-    bottom_metrics =  okun_bottom_metrics,
-    top_colors     = okun_top_colors,
-    bottom_colors  =  okun_bottom_colors,
-    zlb_bounds     = NULL, # Left NULL since this is unemployment
-    y_label_top    = "Unemployment Rate / Expectations (%)",
-    y_label_bottom = "Output Gap (%)",
-    save_path      = output_save_paths$plots$fit_okun
-  )
-  
-  print(okun_dashboard)
-  
-}
+  "latent_trend" = "Natural Rate",
+  "spf_survey"   = "SPF 5-Year Unemp Mean",
+  "natural_rate" = "Last State in Rolling Estimation"
+)
+
+okun_bottom_metrics <- c(
+  "gdp_gap" = "Output Gap"
+)
+
+# HEX Color Codes
+okun_top_colors <- c(
+  "Unemployment"         = "#34495e", # Dark Slate
+  "Fitted Unemployment"     = "pink", # Deep Blue
+  "Natural Rate" = "#e74c3c", # Natural Rate Red
+  "SPF 5-Year Unemp Mean"  = "#f1c40f",  # Gold Yellow
+  "Last State in Rolling Estimation" = "green"
+)
+
+okun_bottom_colors <- c(
+  "Output Gap" = "#16a085" # Teal
+)
+
+# ============================================================================
+# Generate Plot
+# ============================================================================
+okun_dashboard <- plot_state_space_fit(
+  plot_df        =  okun_plot_data,
+  title          = "Swiss Okun's Law State-Space Estimation",
+  subtitle       = "Okun Specification: Latent Natural Rate, Exogenous Lagged Output Gap and Long-Term SPF Anchors",
+  top_metrics    = okun_top_metrics,
+  bottom_metrics =  okun_bottom_metrics,
+  top_colors     = okun_top_colors,
+  bottom_colors  =  okun_bottom_colors,
+  zlb_bounds     = NULL, # Left NULL since this is unemployment
+  y_label_top    = "Unemployment Rate / Expectations (%)",
+  y_label_bottom = "Output Gap (%)",
+  save_path      = output_save_paths$plots$fit_okun
+)
+
+print(okun_dashboard)
+
+
 
 # ==============================================================================
 #  PHILLIPS FIT PLOT & PARAM TABLE
@@ -331,111 +330,110 @@ generate_param_latex_table(manifest_source = ssm_phillips$manifest,
                            save_path = output_save_paths$tables$philips_param_table)
 
 
-if(run_estimation) {
-  
-  last_params_list_phillips <- phillips_parmas_df %>% 
-    tail(1) %>% 
-    select(-quarter, -natural_rate) %>% # Drop tracking columns
-    as.list() %>% 
-    lapply(unlist)
-  
-  param_last_fit_phillips <- model2param_gen(last_params_list_phillips, ssm_phillips)
-  
-  
-  final_res_philips <- loglik_ssm_core(ssm =ssm_phillips,
-                                       theta = param_last_fit_phillips,
-                                       return_full_res = TRUE
-  )
-  
-  
-  rolling_natural_rate_philips <- phillips_parmas_df %>%
-    select(all_of(c("quarter", "natural_rate"))) %>%
-    mutate(quarter = as.yearqtr(quarter))
-  
-  
-  
-  # Run the global optimizer routine across the economic parameter bounds
-  
-  
-  # Extract specific quantitative tracks for plotting variables
-  # Adjust state array indexes [ , x] to exactly match your kalman_implementation_philips.R vector indices
-  dates_philips       <- phillips_data_matrix_full$quarter
-  observed_cpi_inf    <- Y_data_philips$log_inflation_diff
-  spf_expectations    <- Y_data_philips$`5y_cpi_forecast`
-  
-  # Extract unobserved states from the filtered state array matrix ($r$)
-  latent_inflation_trend <- final_res_philips$r[, 1] # Assumes your State 1 is pi_bar_t
-  fitted_inflation_t_t   <- final_res_philips$fitted.obs[, 1] # Model's overall inflation fit
-  
-  # Cycle Gaps from the exogenous data rows
-  gdp_gap_track <- X_data_philips$gdp_gap
-  lop_gap_track <- X_data_philips$lop_gap
-  
-  # ==============================================================================
-  # 4. Map Elements and Render via our Generalized Dashboard Container
-  # ==============================================================================
-  
-  # Construct the exact data payload table expected by our create_state_space_dashboard function
-  philips_plot_data <- tibble(
-    date          = dates_philips, # Handled natively inside the dashboard container
-    obs_cpi       = as.numeric(observed_cpi_inf),
-    spf_survey    = as.numeric(spf_expectations),
-    fitted_inf    = as.numeric(fitted_inflation_t_t),
-    latent_trend  = as.numeric(latent_inflation_trend),
-    gdp_gap       = as.numeric(gdp_gap_track),
-    lop_gap       = as.numeric(lop_gap_track)
-  )
-  
-  philips_plot_data <- philips_plot_data %>%
-    left_join(rolling_natural_rate_philips, by = c("date" = "quarter"))
-  
-  # Set up column-to-legend text properties arrays
-  philips_top_metrics <- c(
-    "obs_cpi"      = "Observed CPI Inflation",
-    "fitted_inf"   = "Model Fitted Inflation",
-    "latent_trend" = "Unobserved Core Trend (pi_bar)",
-    "spf_survey"   = "SPF 5-Year Expectation Survey",
-    "natural_rate" = "Rolling Est Natural Rate"
-  )
-  
-  philips_bottom_metrics <- c(
-    "gdp_gap" = "Swiss Output Gap (GDP)",
-    "lop_gap" = "Law of One Price (LOP) Gap"
-  )
-  
-  # Define exact high-contrast academic HEX color mappings
-  philips_top_colors <- c(
-    "Observed CPI Inflation"         = "#34495e", # Dark Slate
-    "Model Fitted Inflation"         = "#2980b9", # Deep Blue
-    "Unobserved Core Trend (pi_bar)" = "#e74c3c", # Core Trend Red
-    "SPF 5-Year Expectation Survey"  = "#f1c40f",  # Gold Yellow
-    "Rolling Est Natural Rate" = "green"
-  )
-  
-  philips_bottom_colors <- c(
-    "Swiss Output Gap (GDP)"         = "#16a085", # Teal
-    "Law of One Price (LOP) Gap"     = "#9b59b6"  # Amethyst Purple
-  )
-  
-  
-  philips_fit_plot <- plot_state_space_fit(
-    plot_df        = philips_plot_data,
-    title          = "Swiss Phillips Curve State-Space Estimation",
-    subtitle       = "Hybrid PC Specification: Latent Core Trend with Professional Survey Anchoring",
-    top_metrics    = philips_top_metrics,
-    bottom_metrics = philips_bottom_metrics,
-    top_colors     = philips_top_colors,
-    bottom_colors  = philips_bottom_colors,
-    zlb_bounds     = NULL, # Set to NULL because inflation parameters are unconstrained by a ZLB floor
-    y_label_top    = "Inflation Rate / Expectations (%)",
-    y_label_bottom = "Macroeconomic Cycle Gaps (%)",
-    save_path      = output_save_paths$plots$fit_philips
-  )
-  
-  # Print to your RStudio Plot viewer window
-  print(philips_fit_plot)
-  
-}
+
+last_params_list_phillips <- phillips_parmas_df %>% 
+  tail(1) %>% 
+  select(-quarter, -natural_rate) %>% # Drop tracking columns
+  as.list() %>% 
+  lapply(unlist)
+
+param_last_fit_phillips <- model2param_gen(last_params_list_phillips, ssm_phillips)
+
+
+final_res_philips <- loglik_ssm_core(ssm =ssm_phillips,
+                                     theta = param_last_fit_phillips,
+                                     return_full_res = TRUE
+)
+
+
+rolling_natural_rate_philips <- phillips_parmas_df %>%
+  select(all_of(c("quarter", "natural_rate"))) %>%
+  mutate(quarter = as.yearqtr(quarter))
+
+
+
+# Run the global optimizer routine across the economic parameter bounds
+
+
+# Extract specific quantitative tracks for plotting variables
+# Adjust state array indexes [ , x] to exactly match your kalman_implementation_philips.R vector indices
+dates_philips       <- phillips_data_matrix_full$quarter
+observed_cpi_inf    <- Y_data_philips$log_inflation_diff
+spf_expectations    <- Y_data_philips$`5y_cpi_forecast`
+
+# Extract unobserved states from the filtered state array matrix ($r$)
+latent_inflation_trend <- final_res_philips$r[, 1] # Assumes your State 1 is pi_bar_t
+fitted_inflation_t_t   <- final_res_philips$fitted.obs[, 1] # Model's overall inflation fit
+
+# Cycle Gaps from the exogenous data rows
+gdp_gap_track <- X_data_philips$gdp_gap
+lop_gap_track <- X_data_philips$lop_gap
+
+# ==============================================================================
+# 4. Map Elements and Render via our Generalized Dashboard Container
+# ==============================================================================
+
+# Construct the exact data payload table expected by our create_state_space_dashboard function
+philips_plot_data <- tibble(
+  date          = dates_philips, # Handled natively inside the dashboard container
+  obs_cpi       = as.numeric(observed_cpi_inf),
+  spf_survey    = as.numeric(spf_expectations),
+  fitted_inf    = as.numeric(fitted_inflation_t_t),
+  latent_trend  = as.numeric(latent_inflation_trend),
+  gdp_gap       = as.numeric(gdp_gap_track),
+  lop_gap       = as.numeric(lop_gap_track)
+)
+
+philips_plot_data <- philips_plot_data %>%
+  left_join(rolling_natural_rate_philips, by = c("date" = "quarter"))
+
+# Set up column-to-legend text properties arrays
+philips_top_metrics <- c(
+  "obs_cpi"      = "Observed CPI Inflation",
+  "fitted_inf"   = "Model Fitted Inflation",
+  "latent_trend" = "Unobserved Core Trend (pi_bar)",
+  "spf_survey"   = "SPF 5-Year Expectation Survey",
+  "natural_rate" = "Rolling Est Natural Rate"
+)
+
+philips_bottom_metrics <- c(
+  "gdp_gap" = "Swiss Output Gap (GDP)",
+  "lop_gap" = "Law of One Price (LOP) Gap"
+)
+
+# Define exact high-contrast academic HEX color mappings
+philips_top_colors <- c(
+  "Observed CPI Inflation"         = "#34495e", # Dark Slate
+  "Model Fitted Inflation"         = "#2980b9", # Deep Blue
+  "Unobserved Core Trend (pi_bar)" = "#e74c3c", # Core Trend Red
+  "SPF 5-Year Expectation Survey"  = "#f1c40f",  # Gold Yellow
+  "Rolling Est Natural Rate" = "green"
+)
+
+philips_bottom_colors <- c(
+  "Swiss Output Gap (GDP)"         = "#16a085", # Teal
+  "Law of One Price (LOP) Gap"     = "#9b59b6"  # Amethyst Purple
+)
+
+
+philips_fit_plot <- plot_state_space_fit(
+  plot_df        = philips_plot_data,
+  title          = "Swiss Phillips Curve State-Space Estimation",
+  subtitle       = "Hybrid PC Specification: Latent Core Trend with Professional Survey Anchoring",
+  top_metrics    = philips_top_metrics,
+  bottom_metrics = philips_bottom_metrics,
+  top_colors     = philips_top_colors,
+  bottom_colors  = philips_bottom_colors,
+  zlb_bounds     = NULL, # Set to NULL because inflation parameters are unconstrained by a ZLB floor
+  y_label_top    = "Inflation Rate / Expectations (%)",
+  y_label_bottom = "Macroeconomic Cycle Gaps (%)",
+  save_path      = output_save_paths$plots$fit_philips
+)
+
+# Print to your RStudio Plot viewer window
+print(philips_fit_plot)
+
+
 
 
 # ==============================================================================
@@ -483,88 +481,85 @@ generate_param_latex_table(manifest_source = ssm_taylor$manifest,
                            model_name = "Taylor Model",
                            save_path = output_save_paths$tables$taylor_param_table)
 
+last_params_list_taylor <- taylor_params_df %>% 
+  tail(1) %>% 
+  select(-quarter, -natural_rate) %>% # Drop tracking columns
+  as.list() %>% 
+  lapply(unlist)
 
-if(run_estimation) {
-  
-  last_params_list_taylor <- taylor_params_df %>% 
-    tail(1) %>% 
-    select(-quarter, -natural_rate) %>% # Drop tracking columns
-    as.list() %>% 
-    lapply(unlist)
-  
-  param_last_fit_taylor <- model2param_gen(last_params_list_taylor, ssm_taylor)
-  
-  
-  final_res_taylor <- loglik_ssm_core(ssm =ssm_taylor,
-                                      theta = param_last_fit_taylor,
-                                      return_full_res = TRUE
-  )
-  # --- Extract the values for the plot ---
-  shadow_rate <- final_res_taylor$fitted.obs[, 1]
-  natural_rate_est <- final_res_taylor$r[, 1] # State 1
-  tp_trend <- final_res_taylor$r[, 2]
-  tp_cycle <- final_res_taylor$r[, 3]
-  dates <- dates_df_taylor$quarter# Assuming you have a date vector
-  snb_rate <-Y_data_taylor$saron_libor_splice
-  fw_rate <- Y_data_taylor$forward_rate
-  inflation_gap <- X_data_taylor$inf_gap
-  gdp_gap <- X_data_taylor$gdp_gap
-  
-  
-  #Plot the Data
-  # ==============================================================================
-  taylor_plot_data <- tibble(
-    date          = as.yearqtr(dates), # Convert yearqtr to Date format for smooth ggplot axes
-    fitted_shadow = as.numeric(shadow_rate),
-    natural_interest_rate  = as.numeric(natural_rate_est),
-    tp_trend      = as.numeric(tp_trend),
-    tp_cycle      = as.numeric(tp_cycle),
-    observed_rate = as.numeric(snb_rate),
-    forward_rate  = as.numeric(fw_rate),
-    inflation_gap = as.numeric(inflation_gap),
-    gdp_gap       = as.numeric(gdp_gap)
-  )
-  
-  taylor_plot_data <- taylor_plot_data %>%
-    left_join(rolling_natural_rate_taylor, by = c("date" = "quarter"))
-  
-  # Define structure arrays
-  taylor_top_cols    <- c("observed_rate" = "Observed LIBOR / SARON",
-                          "fitted_shadow" = "Fitted (Shadow) Rate",
-                          "natural_interest_rate" = "Natural Rate (i*)",
-                          "natural_rate" = "Rolling Estimation Natural Rate"
-  )
-  
-  taylor_bottom_cols <- c("forward_rate" = "Forward Rate",
-                          "inflation_gap" = "Inflation Gap",
-                          "gdp_gap" = "GDP Gap",
-                          "tp_trend"      = "TP Trend",
-                          "tp_cycle"      = "TP Cycle")
-  
-  taylor_top_colors    <- c("Observed LIBOR / SARON" = "#2ecc71",
-                            "Fitted (Shadow) Rate" = "#2980b9",
-                            "Natural Rate (i*)" = "#e74c3c",
-                            "Rolling Estimation Natural Rate" = "orange"
-  )
-  
-  taylor_bottom_colors <- c("Forward Rate" = "#e67e22",
-                            "Inflation Gap" = "#9b59b6",
-                            "GDP Gap" = "#16a085",
-                            "TP Trend" = "pink",
-                            "TP Cycle" = "violet")
-  
-  # Generate
-  snb_chart <- plot_state_space_fit(
-    plot_df        = taylor_plot_data, # Tibble with all the Plotted Data
-    title          = "SNB Policy Rate Fit",
-    subtitle       = "Taylor Rule Specification: Constant Inflation Gap (Inflation -1)",
-    top_metrics    = taylor_top_cols,
-    bottom_metrics = taylor_bottom_cols,
-    top_colors     = taylor_top_colors,
-    bottom_colors  = taylor_bottom_colors,
-    zlb_bounds     = c(-0.75, 0.00),
-    save_path = output_save_paths$plots$fit_taylor
-  )
-  print(snb_chart)
-}
+param_last_fit_taylor <- model2param_gen(last_params_list_taylor, ssm_taylor)
+
+
+final_res_taylor <- loglik_ssm_core(ssm =ssm_taylor,
+                                    theta = param_last_fit_taylor,
+                                    return_full_res = TRUE
+)
+# --- Extract the values for the plot ---
+shadow_rate <- final_res_taylor$fitted.obs[, 1]
+natural_rate_est <- final_res_taylor$r[, 1] # State 1
+tp_trend <- final_res_taylor$r[, 2]
+tp_cycle <- final_res_taylor$r[, 3]
+dates <- dates_df_taylor$quarter# Assuming you have a date vector
+snb_rate <-Y_data_taylor$saron_libor_splice
+fw_rate <- Y_data_taylor$forward_rate
+inflation_gap <- X_data_taylor$inf_gap
+gdp_gap <- X_data_taylor$gdp_gap
+
+
+#Plot the Data
+# ==============================================================================
+taylor_plot_data <- tibble(
+  date          = as.yearqtr(dates), # Convert yearqtr to Date format for smooth ggplot axes
+  fitted_shadow = as.numeric(shadow_rate),
+  natural_interest_rate  = as.numeric(natural_rate_est),
+  tp_trend      = as.numeric(tp_trend),
+  tp_cycle      = as.numeric(tp_cycle),
+  observed_rate = as.numeric(snb_rate),
+  forward_rate  = as.numeric(fw_rate),
+  inflation_gap = as.numeric(inflation_gap),
+  gdp_gap       = as.numeric(gdp_gap)
+)
+
+taylor_plot_data <- taylor_plot_data %>%
+  left_join(rolling_natural_rate_taylor, by = c("date" = "quarter"))
+
+# Define structure arrays
+taylor_top_cols    <- c("observed_rate" = "Observed LIBOR / SARON",
+                        "fitted_shadow" = "Fitted (Shadow) Rate",
+                        "natural_interest_rate" = "Natural Rate (i*)",
+                        "natural_rate" = "Rolling Estimation Natural Rate"
+)
+
+taylor_bottom_cols <- c("forward_rate" = "Forward Rate",
+                        "inflation_gap" = "Inflation Gap",
+                        "gdp_gap" = "GDP Gap",
+                        "tp_trend"      = "TP Trend",
+                        "tp_cycle"      = "TP Cycle")
+
+taylor_top_colors    <- c("Observed LIBOR / SARON" = "#2ecc71",
+                          "Fitted (Shadow) Rate" = "#2980b9",
+                          "Natural Rate (i*)" = "#e74c3c",
+                          "Rolling Estimation Natural Rate" = "orange"
+)
+
+taylor_bottom_colors <- c("Forward Rate" = "#e67e22",
+                          "Inflation Gap" = "#9b59b6",
+                          "GDP Gap" = "#16a085",
+                          "TP Trend" = "pink",
+                          "TP Cycle" = "violet")
+
+# Generate
+snb_chart <- plot_state_space_fit(
+  plot_df        = taylor_plot_data, # Tibble with all the Plotted Data
+  title          = "SNB Policy Rate Fit",
+  subtitle       = "Taylor Rule Specification: Constant Inflation Gap (Inflation -1)",
+  top_metrics    = taylor_top_cols,
+  bottom_metrics = taylor_bottom_cols,
+  top_colors     = taylor_top_colors,
+  bottom_colors  = taylor_bottom_colors,
+  zlb_bounds     = c(-0.75, 0.00),
+  save_path = output_save_paths$plots$fit_taylor
+)
+print(snb_chart)
+
 

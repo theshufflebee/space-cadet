@@ -55,7 +55,7 @@ install_missing_packages(required_packages)
 # Loads all packages
 load_packages(required_packages)
 
-# remotes::install_local("C:/Users/jonas/Desktop/repos/creaFcstEval", force = TRUE)
+#remotes::install_local("C:/Users/jonas/Desktop/repos/creaFcstEval", force = TRUE)
 
 # Resolve conflicts
 conflict_prefer("filter", "dplyr")

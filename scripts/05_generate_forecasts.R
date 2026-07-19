@@ -12,7 +12,7 @@ Y_okun <- master_okun %>%
 X_okun <- master_okun %>%
   select(quarter, log_gdp)
 
-forecast_okun_df <- forecast_okun_ssm(params_df = params_okun_df,
+forecast_okun_df <- forecast_okun_ssm(params_df = okun_params_df,
                                       Y_data_df = Y_okun,
                                       X_data = X_okun,
                                       gdp_gap_forecasts_input = gdp_forecasts_arima

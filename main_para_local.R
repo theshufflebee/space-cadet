@@ -9,7 +9,7 @@ library(future.apply)
 
 
 source(here("scripts", "00a_install_dependencies.R"))
-source(here("scripts", "00b_config.R"))
+source(here("config.R"))
 
 source(here("R", "01_matrix_ssm_construction", "build_okun_matrices.R"))
 source(here( "R", "01_matrix_ssm_construction", "build_phillips_matrices.R"))
@@ -18,22 +18,21 @@ source(here( "R", "01_matrix_ssm_construction", "build_taylor_matrices.R"))
 source(here("R", "kalman_filter_taylor.R"))
 
 
-
-source(here("para_functions", "est_ssm_para.R"))
+source(here("R","02_parallel", "est_ssm_para.R"))
 
 set.seed(42) # Set a seed so the shuffle is reproducible
 
-DO_TRIAL_RUN <- TRUE
+DO_TRIAL_RUN <- FALSE
 
 # What Models you Run
-RUN_OKUN_MODEL <- TRUE
-RUN_PHILLIPS_MODEL <- TRUE
+RUN_OKUN_MODEL <- FALSE
+RUN_PHILLIPS_MODEL <- FALSE
 RUN_TAYLOR_MODEL <- TRUE
 
 # Save Folder
-TARGET_FOLDER_OKUN <- "baseline_v1_new_run" # Output destination folder: output/para/...
-TARGET_FOLDER_PHILLIPS <- "baseline_phillips_v1" # Output destination folder: output/para/...
-TARGET_FOLDER_TAYLOR <- "baseline_taylor_v1" # Output destination folder: output/para/...
+TARGET_FOLDER_OKUN <- "with_constraint_okun" # Output destination folder: output/para/...
+TARGET_FOLDER_PHILLIPS <- "with_constraint_phillips" # Output destination folder: output/para/...
+TARGET_FOLDER_TAYLOR <- "with_constraint_taylor" # Output destination folder: output/para/...
 
 
 # --- Estimation Range ---
@@ -64,7 +63,7 @@ if(RUN_OKUN_MODEL) {
   message("\n=== STARTING OKUN MODEL ESTIMATION ===")
   message("[CONFIG] Total Tasks Queued  : ", length(HIST_DATES_OKUN), " structural vintages.")
   
-  # Load global shared ARIMA GDP gaps projections
+  # Load global ARIMA GDP gaps projections
   gdp_forecasts_arima <- read_csv(output_save_paths$forecasts$forecast_df_gdp_arima, 
                                   show_col_types = FALSE) %>%
     mutate(date = format(zoo::as.yearqtr(date, format = "%Y Q%q"))) %>%
@@ -74,7 +73,7 @@ if(RUN_OKUN_MODEL) {
     message("\n=== STARTING OKUN MODEL TRIAL RUN ===")
     
     okun_trial_run_result <- run_est_para_okun(
-      target_date_str     = "2017 Q2", 
+      target_date_str     = "2000 Q1", 
       sub_folder          = TARGET_FOLDER_OKUN, 
       gdp_forecasts_arima = gdp_forecasts_arima
     )

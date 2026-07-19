@@ -17,20 +17,19 @@ source(here("R", "data_download.R")) # Data loading SNB
 source(here("R", "utils.R")) # Diverse Utility functions
 source(here("R", "model_input_preparation.R")) # Functions to prepare model Data Inputs
 source(here("R", "latex_formatting.R"))
+source(here("R", "02_parallel", "est_ssm_para.R"))
 
-
-# Kalman Implementation Functions
-# ------------------------------------------------------------------------------
 
 # General Kalman Filter Functions
 source(here("R", "kalman_base.R"))
 
+# Specific SSM Settings
 source(here("R", "01_matrix_ssm_construction", "build_okun_matrices.R"))
 source(here( "R", "01_matrix_ssm_construction", "build_phillips_matrices.R"))
 source(here( "R", "01_matrix_ssm_construction", "build_taylor_matrices.R"))
 
+# Specific Kalman filter for the taylor model
 source(here("R", "kalman_filter_taylor.R"))
-
 
 #Forecasting Functions
 source(here("R", "forecasting_functions.R"))
@@ -38,16 +37,23 @@ source(here("R", "forecasting_functions.R"))
 # Visualizations
 source(here("R", "visualizations.R"))
 
+# ==============================================================================
+# Parellel Estimation Folder settings
+# ==============================================================================
+
+LOAD_PARA_EST <- TRUE
+
+# To analyze the estimations from the parallel estimations load these folders
+TARGET_FOLDER_OKUN <- "with_constraint_okun" # Output destination folder: output/para/...
+TARGET_FOLDER_PHILLIPS <- "with_constraint_phillips" # Output destination folder: output/para/...
+TARGET_FOLDER_TAYLOR <- "with_constraint_taylor" # Output destination folder: output/para/...
 
 # ==============================================================================
 # Downloading and Data Prep Settings
 # ==============================================================================
 
-# --- DATA DOWNLOAD SETTINGS ---
-# ------------------------------------------------------------------------------
-do_api_call <- FALSE
 # -> If there is no data, API gets called even if set to false
-
+do_api_call <- FALSE
 
 if (do_api_call) {
   message("do_api_call set to TRUE. Redownloading all files")
@@ -70,18 +76,6 @@ if (!dir.exists(raw_data_path)) dir.create(raw_data_path, recursive = TRUE)
 
 
 # Data Keys for Downloads / API Calls
-# ------------------------------------------------------------------------------
-
-# Deletable -> check it
-
-### BFS Data   
-# cpi_asset_id <- "36483229" # ID for CPI Download
-# emp_asset_id <- "px-x-0602000000_101" # ID From Package
-# unemp_asset_id <- "36453929" # Id from package Catalogue
-# ppi_asset_id <- "36532319"
-
-# --- External Metadata and IDs ---
-# IDs for programmatic downloads via BFS/KOF wrappers
 data_external_ids <- list(
   bfs_cpi        = "36483229",
   bfs_employment = "px-x-0602000000_101",
@@ -162,7 +156,6 @@ kof_mapping <- list(
   "12m_interest_forecast" = list(old_col = "ch.kof.consensus.q_qn_3minterest_12m.mean", seasonal_adj = FALSE)
 )
 
-
 # names of all time series needed for the project
 ts_names <- c(
   "saron_ts",
@@ -186,30 +179,11 @@ ts_names <- c(
 
 
 # ==============================================================================
-# Forecasting Settings
+# Estimation Settings
 # ==============================================================================
 
-# ---  General Settings ---
-# ------------------------------------------------------------------------------
-forecast_starting_date <- as.yearqtr("2000 Q1")
-
-# For Indexing
-indexing_date <- "2020-12-01"
-
-# Set to false if you want to load estimation from Disk
-run_estimation <- FALSE
-
-# Set Forecasting Horizon
-h <- 8
   
-# --- Okun Model Configuration settings ---
-
-# We run the HP filter to estimate the gap. this determines the first observation
-# of the GDP Variable
-# hp_filter_burn_in <- "1990-01-01"
-
 # --- Initial guesses for Okun ---
-
 okun_parameter_guess <- list(
   beta1 = -0.1,
   beta2 = -0.1,
@@ -223,9 +197,7 @@ okun_parameter_guess <- list(
   sigma_init = c(1, 0, 0, 1)
 )
 
-
 # --- Initial Guesses for Philips Model ---
-
 philips_parameter_guess <- list(
   
   # Parameters on exogenous variables
@@ -246,14 +218,13 @@ philips_parameter_guess <- list(
 )
 
 # --- Initial guesses for Taylor Rule / SNB Policy Rate ---
-
 snb_rate_parameter_guess <- list(
   # Taylor Rule Parameters (Unconstrained)
   gamma_pi            = 0.9,    # Inflation gap coefficient
   gamma_y             = 0.5,    # Output gap coefficient
   
   # Persistence Parameters (Rule 2: Logit 0 to 1)
-  phi                 = 0.5,    # Interest rate smoothing (it = rho*i_t-1 + ...)
+  phi                 = 0.6,    # Interest rate smoothing (it = rho*i_t-1 + ...)
   rho_tp              = 0.6,    # Persistence of cyclical term premium component
   
   # Measurement Noise Standard Deviations (Rule 1: Exponential > 0)
@@ -274,7 +245,7 @@ SNB_REER_DELAY <- 3
 
 # can build this into the the functions building the Phillips data matrix, as they
 # just need to filter for NA values. 
-model_philips_burn_in <- "2000 Q1"
+# model_philips_burn_in <- "2000 Q1"
 
 
 
@@ -345,8 +316,6 @@ output_save_paths <- list(
     forecast_df_taylor = here(output_base, "forecasts/policy_rate_forecasts.csv"),
     forecast_df_gdp_arima = here(output_base, "forecasts/gdp_arima_forecasts.csv"),
     forecast_df_inf_arima = here(output_base, "forecasts/inf_arima_forecasts.csv")
-    
-    
   ),
   
   tables = list(
@@ -415,3 +384,15 @@ estimation_settings <- list(
     max_runs = 2000   # amount of times it calculates the log likelihood per iteration (iters)
   )
 )
+
+
+forecast_starting_date <- as.yearqtr("2000 Q1")
+
+# For Indexing
+indexing_date <- "2020-12-01"
+
+# Set to false if you want to load estimation from Disk or from parallel estimation
+run_rolling_estimation <- FALSE
+
+# Forecasting Horizon
+h <- 8

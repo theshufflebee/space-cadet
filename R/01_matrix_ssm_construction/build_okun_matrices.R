@@ -121,43 +121,43 @@ initialize_my_okun_ssm <- function(Y_data, X_data, parameter_guesses) {
   
   missing_idx <- !(required_params %in% names(parameter_guesses))
   if (any(missing_idx)) {
-    stop(paste("CRITICAL ERROR: The following required parameters are missing from your guess list:", 
+    stop(paste("SSM OKUN INIZIALIZATION ERROR: Missing parameters:", 
                paste(required_params[missing_idx], collapse = ", ")))
   }
   
   # 2. Build the parameter manifest mapping rules cleanly
+  # Rule 0: Unconstrained Linear
+  # Rule 1: exponential strictly positive
+  # rule 2: logit between 0 and 1
+  # rule 3: custom constraint
   manifest <- list(
     # Okun's Law Betas (Rule 0: Unconstrained Linear)
     beta1              = list(val = parameter_guesses$beta1, rule = 0),
     beta2              = list(val = parameter_guesses$beta2, rule = 0),
     beta3              = list(val = parameter_guesses$beta3, rule = 0),
     
-    # Cyclical Persistence Layer (Rule 2: Logit bounded between 0 and 1)
+    # Cyclical Persistence
     phi                = list(val = parameter_guesses$phi,
-                              rule = 3,       # Bounded Logistic rule
-                              low  = 0.2,   # Allow it to be very smooth if it wants
-                              high = 0.75     # STRICT CEILING: Prevents the trend from changing more than 0.15% per quarter
+                              rule = 3,       
+                              low  = 0.5,  
+                              high = 0.9 
     ),
     
     # Process Noise Standard Deviations (Rule 1: Exponentiated to stay > 0)
     xi_trend           = list(val = parameter_guesses$xi_trend, 
-                              rule = 3,       # Bounded Logistic rule
-                              low  = 0.005,   # Allow it to be very smooth if it wants
-                              high = 0.025     # STRICT CEILING: Prevents the trend from changing more than 0.15% per quarter
+                              rule = 3,       
+                              low  = 0.005,   
+                              high = 0.025    
     ),
-    xi_cycle           = list(val = parameter_guesses$xi_cycle, rule = 1),
+    xi_cycle           = list(val = parameter_guesses$xi_cycle, rule = 2),
     
     # Measurement Noise Standard Deviations (Rule 1: Exponentiated to stay > 0)
     sigma_spf_5y_unemp = list(val = parameter_guesses$sigma_spf_5y_unemp,
-                              rule = 3,       # Bounded Logistic rule
-                              low  = 0.1,   # Allow it to be very smooth if it wants
-                              high = 1     # STRICT CEILING: Prevents the trend from changing more than 0.15% per quarter
+                              rule = 1   
     ),
     sigma_unemp       = list(val = parameter_guesses$sigma_unemp,
-                             rule = 3,       # Bounded Logistic rule
-                             low  = 0.2,   # Allow it to be very smooth if it wants
-                             high = 5)
-  )
+                             rule = 1
+  ))
   
   # 3. Assemble structural blueprint bundle for the core filter
   ssm <- list(

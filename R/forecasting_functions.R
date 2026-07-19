@@ -768,8 +768,7 @@ forecast_philips_ssm <- function(params_df,
     # Extract Spliced LOP series (returns raw decimal 'lop_gap')
     lop_forecast <- splice_snb_series(vantage_quarter = forecast_origin,
                                       snb_reer_delay   = SNB_REER_DELAY,
-                                      data             = master_df,
-                                      burn_in          = model_philips_burn_in)
+                                      data             = master_df)
     
     # Join exogenous forecast data components together
     X_future <- gdp_forecasts %>%

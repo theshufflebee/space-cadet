@@ -6,8 +6,8 @@
 \hline\hline
 \textbf{Parameter Type} & \textbf{Name} & \textbf{Initial Value} & \textbf{Restriction} \\ \hline
 \textit{Structural Coefficients} &&& \\
-    & \texttt{beta\_y} & 0.10 & Logit ($[0, 1]$) \\
-    & \texttt{phi} & 0.60 & Bounded: $[0.100, 0.700]$ \\
+    & \texttt{beta\_y} & 0.10 & Unconstrained \\
+    & \texttt{phi} & 0.60 & Logit ($[0, 1]$) \\
 \hline
 \textit{Other Parameters} &&& \\
     & \texttt{psi\_lop} & -0.10 & Unconstrained \\
@@ -17,8 +17,8 @@
     & \texttt{xi\_cycle} & 0.50 & Exponential ($>0$) \\
 \hline
 \textit{Measurement Innovation} &&& \\
-    & \texttt{sigma\_spf} & 0.20 & Exponential ($>0$) \\
-    & \texttt{sigma\_cpi} & 1.00 & Bounded: $[0.800, 4.000]$ \\
+    & \texttt{sigma\_spf} & 0.20 & Bounded: $[0.001, 4.000]$ \\
+    & \texttt{sigma\_cpi} & 1.00 & Bounded: $[0.100, 4.000]$ \\
 \hline\hline
 \end{tabular}
 \end{table}

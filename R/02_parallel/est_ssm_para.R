@@ -3,7 +3,7 @@
 #' @param sub_folder Character. Destination directory sub-token.
 #' @param gdp_forecasts_arima Dataframe. Pre-loaded global ARIMA projections.
 #' @export
-run_est_para_okun <- function(target_date_str, sub_folder, gdp_forecasts_arima) {
+run_est_para_okun <- function(target_date_str, sub_folder = "default_okun", gdp_forecasts_arima) {
   
   target_date <- zoo::as.yearqtr(target_date_str)
   val_T1      <- zoo::as.yearqtr("1991-01-01")
@@ -85,7 +85,7 @@ run_est_para_okun <- function(target_date_str, sub_folder, gdp_forecasts_arima) 
 #' @param target_date_str Character. The vintage date (e.g., "2020 Q2").
 #' @param sub_folder Character. Destination directory sub-token.
 #' @export
-run_est_para_phillips <- function(target_date_str, sub_folder) {
+run_est_para_phillips <- function(target_date_str, sub_folder = "default_phillips") {
   
   # Parse dates using the standards established in the rolling framework
   target_date <- zoo::as.yearqtr(target_date_str)
@@ -170,12 +170,12 @@ run_est_para_phillips <- function(target_date_str, sub_folder) {
 #' @param sub_folder Character. Destination directory sub-token.
 #' @param gdp_forecasts_arima Dataframe. Pre-loaded global ARIMA projections.
 #' @export
-run_est_para_taylor <- function(target_date_str, sub_folder, gdp_forecasts_arima) {
+run_est_para_taylor <- function(target_date_str, sub_folder = "deault_taylor", gdp_forecasts_arima) {
   
   target_date <- zoo::as.yearqtr(target_date_str)
   val_T1      <- zoo::as.yearqtr("1991-01-01")
   
-  # 1. Load long/master dataset matching path specifications
+  # Load master dataset 
   master_path <- data_save_paths$processed$taylor_master_csv
   master_taylor <- readr::read_csv(master_path, show_col_types = FALSE)
   master_taylor$quarter <- zoo::as.yearqtr(master_taylor$quarter)
@@ -284,7 +284,7 @@ ingest_parallel_results <- function(target_folder) {
   
   message("\n=== LOADING ALL PARALLEL ESTIMATION RESULTS ===")
   
-  # 1. Resolve directory path dynamically
+  # get directory path
   target_dir  <- here::here("output", "para", target_folder)
   
   if (!dir.exists(target_dir)) {
@@ -300,10 +300,10 @@ ingest_parallel_results <- function(target_folder) {
     return(list())
   }
   
-  # 2. Sequential ingest into memory
+  # load all files via lapply
   master_vintages_list <- lapply(saved_files, readRDS)
   
-  # 3. Universal Name Cleansing Block
+  # Universal Name Cleansing Block
   file_names <- tools::file_path_sans_ext(basename(saved_files))
   
   # Grabs the last 7 characters (e.g., "2020_Q4" or "2005_Q1")

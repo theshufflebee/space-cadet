@@ -135,18 +135,20 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
                        "sigma_policy", "xi_i", "xi_tp_bar", "xi_tp_cycl")
   
   if (!all(required_params %in% names(parameter_guesses))) {
-    stop("Missing required parameters for Taylor SSM (Model 3)!")
+    stop("SSM TAYLOR INIZIALIZATION ERROR: Missing parameters:")
   }
   
   # 2. Build the Manifest
   # Rule 1 = Exponential (>0), Rule 3 = Bounded Logistic (low to high)
   manifest <- list(
-    gamma_pi     = list(val = parameter_guesses$gamma_pi, rule = 1),
-    gamma_y      = list(val = parameter_guesses$gamma_y,  rule = 1),
+    gamma_pi     = list(val = parameter_guesses$gamma_pi, rule = 0),
+    gamma_y      = list(val = parameter_guesses$gamma_y,  rule = 0),
     
     # Smoothing bounded strictly below 1 for dynamic stability
     phi          = list(val  = parameter_guesses$phi, 
-                        rule = 2
+                        rule = 3,
+                        low = 0.5,
+                        high = 0.99
     ),
     rho_tp       = list(val = parameter_guesses$rho_tp,  rule = 3, low = 0.01, high = 0.99),
     
@@ -154,9 +156,16 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
     sigma_policy = list(val = parameter_guesses$sigma_policy, rule = 1),
     
     # State Innovation Noise [cite: 146, 159]
-    xi_i         = list(val = parameter_guesses$xi_i,         rule = 1),
-    xi_tp_bar    = list(val = parameter_guesses$xi_tp_bar,    rule = 1),
-    xi_tp_cycl   = list(val = parameter_guesses$xi_tp_cycl,   rule = 1)
+    xi_i         = list(val = parameter_guesses$xi_i,         rule = 3,
+                        low = 0.01,
+                        high = 0.2),
+    xi_tp_bar    = list(val = parameter_guesses$xi_tp_bar,    rule = 3,
+                        low = 0.01,
+                        high = 0.5),
+    xi_tp_cycl   = list(val = parameter_guesses$xi_tp_cycl,   rule = 3,
+                        low = 0.001,
+                        high = 0.5
+                        )
   )
   
   # Handle Optional SPF Anchors [cite: 165]
