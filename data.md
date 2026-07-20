@@ -118,16 +118,29 @@ The data looks like this: <img src="man/figures/reer.png" alt="Data structure as
 
 As the Data is daily, we summarize by monthy by sleecting the last value of every month.
 
+Missing here are exchange rate for EUR and adn CHF
+
 ## EU PPI Data
 
-Downloaded via the `eurostat` package with the id `sts_inppd_m`. From the Dataset, we select geographical
-location EA20, refering to the Euro Area. NACE2 Specification is code B-D. FInally I21 referes to the indexing date being 2021
+Downloaded via the `eurostat` package with the id `sts_inppd_m`. From the Dataset, we select geographical location EA20, refering to the Euro Area. NACE2 Specification is code B-D. FInally I21 referes to the indexing date being 2021
 
 ## Models and Data used in them
 
 ### Okun Model
 
 This model uses GDP Data from the **Swiss State Secretariat for Economic Affairs** (SECO). The Unemployment Data comes from the **Swiss Federal Statistics Department** (BFS). The SPF Data comes from the ETH Zürichs **KOF Institute**.
+
+### Phillips Model
+
+This model uses GDP Data from the **Swiss State Secretariat for Economic Affairs** (SECO). The SPF Data comes from the ETH Zürichs **KOF Institute**. The CPI Data from the **Swiss Federal Statistics Department** (BFS).
+FOr the REER CREA we use the SNB REER PPI based exchange rate from the SNB, the CHF/EUR Exchange rate from the SNB, REAL PPI Indices for switzerland from the BFS and Real PPI Based INdices from EUROSTAT
+
+### Taylor Model
+The interest rates used are both from the SNB. It's a spliced series between the LIBOR and SARON. We also get the 5y and 10y government bond data from the SNB to calculate the forward rate.
+we get the GDP data from the SECO and the CPI data from the BFS.
+
+
+
 
 ```         
 R version 4.3.3

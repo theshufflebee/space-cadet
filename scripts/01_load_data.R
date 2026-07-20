@@ -40,15 +40,6 @@ get_snb_data_wrapper(data_save_paths$raw$reer_ppi_eu_csv,
                      D2 ="I")
 
 
-get_snb_data_wrapper(data_save_paths$raw$reer_ppi_eu_csv,
-                     do_api_call,
-                     "devwkieffid",
-                     "reer_ppi_eu",
-                     D0 = "P",
-                     D1 = "E",
-                     D2 ="I")
-
-
 # --- EXCHNAGE RATES ---
 
 # Average Exchange rates
