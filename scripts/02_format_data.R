@@ -190,7 +190,7 @@ gdp_data <- data_gdp_raw %>%
     
   )  
 
-gdp_ts <- format_time_series_df(gdp_data, "date", "value", "gdp", "%Y-%m-%d", seasonal_adj = TRUE)
+gdp_ts <- format_time_series_df(gdp_data, "date", "value", "gdp", "%Y-%m-%d", seasonal_adj = FALSE)
 
 
 # ==============================================================================

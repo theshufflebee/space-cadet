@@ -80,7 +80,8 @@ data_external_ids <- list(
   bfs_cpi        = "36483229",
   bfs_employment = "px-x-0602000000_101",
   bfs_unemployment = "36589267",
-  url_seco_gdp   = "https://www.seco.admin.ch/dam/seco/de/dokumente/Wirtschaft/Wirtschaftslage/BIP_Daten/ch_seco_gdp_csv.csv.download.csv/ch_seco_gdp.csv",
+  #url_seco_gdp   = "https://www.seco.admin.ch/dam/seco/de/dokumente/Wirtschaft/Wirtschaftslage/BIP_Daten/ch_seco_gdp_csv.csv.download.csv/ch_seco_gdp.csv",
+  url_seco_gdp  = "https://scheduler.swissdatas.ch/scheduled/ch-seco-gdp.csv",
   cpi_asset_id = "36483229", # ID for CPI Download
   emp_asset_id = "px-x-0602000000_101", # ID From Package
   unemp_asset_id = "36453929", # Id from package Catalog
@@ -224,12 +225,11 @@ snb_rate_parameter_guess <- list(
   gamma_y             = 0.5,    # Output gap coefficient
   
   # Persistence Parameters (Rule 2: Logit 0 to 1)
-  phi                 = 0.6,    # Interest rate smoothing (it = rho*i_t-1 + ...)
+  phi                 = 0.7,    # Interest rate smoothing (it = rho*i_t-1 + ...)
   rho_tp              = 0.6,    # Persistence of cyclical term premium component
   
   # Measurement Noise Standard Deviations (Rule 1: Exponential > 0)
   sigma_policy        = 0.1,   # Error in the shadow policy rate equation
-  sigma_fwd           = 0.2,   # Error in the 5y-5y forward rate identification
 
   # State Innovation Standard Deviations (Rule 1: Exponential > 0)
   xi_i                = 0.1,  # Shock to the nominal natural rate (random walk)

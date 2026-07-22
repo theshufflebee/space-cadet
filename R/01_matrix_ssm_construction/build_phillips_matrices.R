@@ -106,7 +106,9 @@ initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
     
     # State Persistence Over Time (Rule 2: Logit transformation bounded safely between 0 and 1)
     phi       = list(val = parameter_guesses$phi,
-                     rule = 2),
+                     rule = 3,       
+                     low  = 0.01,   
+                     high = 0.7),
     
     xi_trend           = list(val = parameter_guesses$xi_trend, 
                               rule = 3,       

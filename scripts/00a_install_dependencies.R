@@ -64,6 +64,7 @@ conflict_prefer("lag",    "stats")
 conflict_prefer("complete", "tidyr") 
 conflict_prefer("last", "dplyr")
 conflict_prefer("yearqtr", "zoo")
+conflict_prefer("index", "zoo")
 conflicts_prefer(lubridate::quarter)
 
 

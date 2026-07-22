@@ -119,9 +119,7 @@ download_kof_data_wrapper(file = data_save_paths$raw$kof_master_csv,
 
 
 # Download the PPI dataset
-# 'sts_inppd_m' = Producer prices in industry, monthly
-
-
+# 'sts_inppd_m' = Producer prices in industry, monthly  
 if (do_api_call || !file.exists(data_save_paths$raw$eu_ppi_csv)) {
   raw_ppi_eur <- get_eurostat("sts_inppd_m", time_format = "date")
   

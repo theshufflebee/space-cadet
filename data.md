@@ -122,7 +122,8 @@ Missing here are exchange rate for EUR and adn CHF
 
 ## EU PPI Data
 
-Downloaded via the `eurostat` package with the id `sts_inppd_m`. From the Dataset, we select geographical location EA20, refering to the Euro Area. NACE2 Specification is code B-D. FInally I21 referes to the indexing date being 2021
+Downloaded via the `eurostat` package with the id `sts_inppd_m`. From the Dataset, we select geographical location EA20, refering to the Euro Area. NACE2 Specification is code B-D. FInally I21 referes to the indexing date being 2021.
+Link is this: https://ec.europa.eu/eurostat/databrowser/view/sts_inppd_m/default/table here maybe look at derived tiime series for other possibilities?
 
 ## Models and Data used in them
 
