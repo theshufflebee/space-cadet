@@ -35,8 +35,8 @@ master_df <- master_df %>%
     ppi_eur_idx = (ppi_eur / ppi_eur[date == indexing_date]) * 100,
     
     # Calculate REER_CREA
-    # Formula: St * (PCH / PEUR)
-    # Using 'ex_eom' as St
+    # Formula: S_t * (PCH_t / PEUR_)
+    # Using 'ex_eom' as S_t
     REER_CREA = ex_eom * (ppi_ch_idx / ppi_eur_idx)
   ) %>%
   mutate(
@@ -123,20 +123,10 @@ master_quarterly <- master_quarterly %>%
 
 # Here we extract the specific data series that are needed for each model
 
-
 # ==============================================================================
-# MASTER OKUN + Auxiliary Data Frames
+# DF 1: MASTER OKUN
 # ==============================================================================
 
-# All necessary variables for the model
-
-# Note: As the GDP Gap depends on the horizon it needs to be recalculated for
-# each pseudo forecast. Therefore we only select log gdp
-
-
-# DF 1: MASTER OKUN Contains all values needed from the Data
-# ------------------------------------------------------------------------------
-# Extract directly from master_quarterly, used for the rolling estimation
 master_okun <- master_quarterly %>%
   select(
     quarter,
@@ -157,18 +147,11 @@ write_csv(master_okun, data_save_paths$processed$okun_master_csv)
 message("Okun Data Prep Succesful")
 
 
-
 # ==============================================================================
-# DF 1: MASTER PHILIPS
+# DF 2: MASTER PHILIPS
 # ==============================================================================
 
 # All necessary variables for the model
-
-# Note: As the GDP Gap depends on the horizon it needs to be recalculated for
-# each pseudo forecast. Therefore we only select log gdp
-
-
-
 master_philips <- master_quarterly %>%
   select(
     quarter,
@@ -186,13 +169,13 @@ master_philips <- master_quarterly %>%
     lag_log_inflation_diff
   )
 
-write.csv(master_philips, data_save_paths$processed$philips_master_csv)
+write_csv(master_philips, data_save_paths$processed$philips_master_csv)
+message("Phillips Data Prep Succesful")
 
 
-
-
-message("Philips Data Formatting Done")
-
+# ==============================================================================
+# DF 2: MASTER TAYLOR
+# ==============================================================================
 
 master_taylor <- master_quarterly %>%
   select(
@@ -260,15 +243,9 @@ master_taylor <- master_quarterly %>%
     
   )
 
-write.csv(master_taylor, data_save_paths$processed$taylor_master_csv)
+write_csv(master_taylor, data_save_paths$processed$taylor_master_csv)
+
+message("Taylor Data Prep Succesful")
 
 message("BUILT ALL MASTER DATA FRAMES")
 
-################################################################################
-#
-# Forecast Helpers
-#
-################################################################################
-
-# --- Start buildung the GDP forecasts
-# Later maybe turn into rolling window

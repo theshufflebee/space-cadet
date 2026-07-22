@@ -139,8 +139,7 @@ if (do_api_call || !file.exists(data_save_paths$raw$eu_ppi_csv)) {
   write_csv(ppi_eur_clean, data_save_paths$raw$eu_ppi_csv)
   message("Eurostat PPI data successfully donloaded and saved...")
 } else {
-  message("Eurostat PPI data exists. Loading from disk...")
-  ppi_eur_clean <- read_csv(data_save_paths$raw$eu_ppi_csv)
+  message("Eurostat PPI data exists. Skipping Download")
 }
 
 message("[SUCCESS] DATA LOADING DONE...")

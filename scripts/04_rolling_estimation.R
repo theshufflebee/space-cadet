@@ -3,7 +3,7 @@
 # RUN ROLLING ESTIMATIION
 #
 ################################################################################
-#stop("STOPPING BEFORE ESTIMATION")
+stop("STOPPING BEFORE ESTIMATION")
 library(here)
 source(here("scripts", "00a_install_dependencies.R"))
 source(here("config.R"))

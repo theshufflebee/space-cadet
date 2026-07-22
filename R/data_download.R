@@ -1,12 +1,3 @@
-
-
-
-
-
-
-## NEED TO CHANGE DATA PATH HANDLING HERE
-
-
 #' Function to Download Data from SNB API
 #' 
 #' This function transforms the R script on the SNB's website into a reusable function to download Data.
@@ -250,7 +241,7 @@ download_kof_data_wrapper <- function(file, kof_data_key = kof_data_key, do_api_
       warning("Error in downloading: ", file)
     }
   } else {
-    message("KOF Data already exists at: ", file)
+    message("File 'kof_data_master' already exists at ", file, ". Skipping download.")
   }
 }
 
@@ -284,12 +275,7 @@ download_kof_data_wrapper <- function(file, kof_data_key = kof_data_key, do_api_
 #' @export
 bfs_wrapper <- function(id, dest_file, do_api_call = FALSE, type = "data") {
   
-  # Initialize success as FALSE, Update if data is downloaded
-  # BFS FUnctions are marked wit BFS:: prefix
-  success <- FALSE
-  
   if (!file.exists(dest_file) | do_api_call) {
-    message("Fetching BFS ", type, " for ID: ", id)
     
     if (type == "data") {
       
@@ -298,32 +284,26 @@ bfs_wrapper <- function(id, dest_file, do_api_call = FALSE, type = "data") {
                               language = "fr")
       
       write_csv(df, dest_file)
-      
-      success <- TRUE
+      message("Successfully downloaded BFS ", type, " for ID: ", id)
       
     } else if (type == "asset") {
-      
       # bfs_download_asset downloads file directly to dest_file
       download_path <- BFS::bfs_download_asset(
         number_asset = id, 
         destfile = dest_file
       )
-      
       success <- !is.null(download_path)
-      
+      if(success) {
+        message("Successfully downloaded BFS ", type, " for ID: ", id)
+      } else {
+        message("BFS", type, " download for ID: ", id, "failed")
+      }
     } else {
       message("Error: type '", type, "' does not exist.")
-      
-      success <- FALSE
     }
-    
   } else {
-    message("Loading ", dest_file, " from Disk...")
-    
-    success <- TRUE
-  }
-  
-  return(message("Download successful == ", success))
+    message("BFS ID File: '", id, "' already exists at ", dest_file, ". Skipping download.")
+    }
 }
 
 
@@ -353,9 +333,7 @@ download_url_csv <- function(url, filepath) {
   
   tryCatch({
     data <- read_csv(url)
-    
-    write.csv(data, filepath)
-    
+    write_csv(data, filepath)
     return(TRUE)
     
   }, error = function(e) {

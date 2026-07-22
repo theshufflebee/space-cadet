@@ -18,7 +18,7 @@ library(here)
 
 # Load dependencies
 source(here("scripts", "00a_install_dependencies.R"))
-source(here("scripts", "00b_config.R"))
+source(here("config.R"))
 source(here("R", "01_matrix_ssm_construction", "build_okun_matrices.R"))
 source(here("R", "01_matrix_ssm_construction", "build_phillips_matrices.R"))
 source(here("R", "01_matrix_ssm_construction", "build_taylor_matrices.R"))
