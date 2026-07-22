@@ -44,9 +44,9 @@ source(here("R", "visualizations.R"))
 LOAD_PARA_EST <- TRUE
 
 # To analyze the estimations from the parallel estimations load these folders
-TARGET_FOLDER_OKUN <- "with_constraint_okun" # Output destination folder: output/para/...
-TARGET_FOLDER_PHILLIPS <- "with_constraint_phillips" # Output destination folder: output/para/...
-TARGET_FOLDER_TAYLOR <- "with_constraint_taylor" # Output destination folder: output/para/...
+TARGET_FOLDER_OKUN <- "no_BFGS_okun" # Output destination folder: output/para/...
+TARGET_FOLDER_PHILLIPS <- "no_BFGS_phillips" # Output destination folder: output/para/...
+TARGET_FOLDER_TAYLOR <- "no_BFGS_taylor" # Output destination folder: output/para/...
 
 # ==============================================================================
 # Downloading and Data Prep Settings
@@ -214,7 +214,7 @@ philips_parameter_guess <- list(
   xi_cycle = 0.5,
 
   state_init = c(1.3, 0),
-  sigma_init = c(10, 0, 0, 10)
+  sigma_init = c(1, 0, 0, 1)
 )
 
 # --- Initial guesses for Taylor Rule / SNB Policy Rate ---
@@ -237,7 +237,9 @@ snb_rate_parameter_guess <- list(
   xi_tp_cycl          = 0.05,    # Shock to the cyclical term premium (AR1)
   
   state_init = c(6, 1, 0.1),
-  sigma_init = c(10)
+  sigma_init = c(1, 0, 0, 
+                 0, 1, 0,
+                 0, 0, 11)
 )
 
 # FOr model 2 the SNB data is released with a year delay -> more like 3q due to late release of all other data
@@ -359,15 +361,15 @@ estimation_settings <- list(
   
   # Okun's Law Model Configuration
   okun = list(
-    methods    = c("Nelder-Mead", "bobyqa", "BFGS"),
-    iters      = 2,
+    methods    = c("Nelder-Mead", "bobyqa"), # , "BFGS"
+    iters      = 3,
     warm_start = FALSE
   ),
   
   # Phillips Curve Model Configuration
   phillips = list(
-    methods    = c("Nelder-Mead", "bobyqa", "BFGS"),
-    iters      = 2,
+    methods    = c("Nelder-Mead", "bobyqa"), # , "BFGS"
+    iters      = 3,
     warm_start = FALSE
   ),
   

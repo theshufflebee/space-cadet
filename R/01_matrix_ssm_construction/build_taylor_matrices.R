@@ -155,7 +155,7 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
     # Measurement Noise
     sigma_policy = list(val = parameter_guesses$sigma_policy, rule = 1),
     
-    # State Innovation Noise [cite: 146, 159]
+    # State Innovation Noise 
     xi_i         = list(val = parameter_guesses$xi_i,         rule = 3,
                         low = 0.01,
                         high = 0.2),

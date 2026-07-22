@@ -25,9 +25,9 @@ set.seed(42) # Set a seed so the shuffle is reproducible
 DO_TRIAL_RUN <- FALSE
 
 # What Models you Run
-RUN_OKUN_MODEL <- FALSE
+RUN_OKUN_MODEL <- TRUE
 RUN_PHILLIPS_MODEL <- FALSE
-RUN_TAYLOR_MODEL <- TRUE
+RUN_TAYLOR_MODEL <- FALSE
 
 # Save Folder
 TARGET_FOLDER_OKUN <- "with_constraint_okun" # Output destination folder: output/para/...
