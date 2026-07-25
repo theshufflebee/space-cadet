@@ -21,11 +21,6 @@ if (!require("here", character.only = TRUE, quietly=TRUE)) {
   library("here", character.only = TRUE)
 }
 
-
-options(
-  readr.show_col_types = FALSE # no columns specs warnings
-)
-
 #------------------------------------------------------------------------------
 # 0a. Run the Package Installation and Loading Script
 #------------------------------------------------------------------------------

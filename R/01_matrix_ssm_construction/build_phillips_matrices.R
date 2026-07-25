@@ -101,7 +101,7 @@ initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
   # 2. Build the structural optimization transformation constraints
   manifest <- list(
     # Exogenous Demand and Cost Shifters (Rule 0: Unconstrained Linear space)
-    beta_y    = list(val = parameter_guesses$beta_y,  rule = 0),
+    beta_y    = list(val = parameter_guesses$beta_y,  rule = 1),
     psi_lop   = list(val = parameter_guesses$psi_lop, rule = 0),
     
     # State Persistence Over Time (Rule 2: Logit transformation bounded safely between 0 and 1)
@@ -112,8 +112,8 @@ initialize_my_philips_ssm <- function(Y_data, X_data, parameter_guesses) {
     
     xi_trend           = list(val = parameter_guesses$xi_trend, 
                               rule = 3,       
-                              low  = 0.001,   
-                              high = 0.025
+                              low  = 0.01,   
+                              high = 0.1
     ),
     xi_cycle           = list(val = parameter_guesses$xi_cycle, rule = 1),
     

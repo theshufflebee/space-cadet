@@ -139,8 +139,8 @@ initialize_my_okun_ssm <- function(Y_data, X_data, parameter_guesses) {
     # Cyclical Persistence
     phi                = list(val = parameter_guesses$phi,
                               rule = 3,       
-                              low  = 0.5,  
-                              high = 0.9 
+                              low  = 0.3,  
+                              high = 0.75 
     ),
     
     # Process Noise Standard Deviations (Rule 1: Exponentiated to stay > 0)
@@ -156,7 +156,9 @@ initialize_my_okun_ssm <- function(Y_data, X_data, parameter_guesses) {
                               rule = 1   
     ),
     sigma_unemp       = list(val = parameter_guesses$sigma_unemp,
-                             rule = 1
+                             rule = 3,       
+                             low  = 0.2,   
+                             high = 4 
   ))
   
   # 3. Assemble structural blueprint bundle for the core filter

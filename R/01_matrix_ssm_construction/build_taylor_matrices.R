@@ -148,7 +148,7 @@ initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
     phi          = list(val  = parameter_guesses$phi, 
                         rule = 3,
                         low = 0.6,
-                        high = 0.99
+                        high = 0.90
     ),
     rho_tp       = list(val = parameter_guesses$rho_tp,  rule = 3, low = 0.01, high = 0.99),
     

@@ -51,6 +51,8 @@ result_okun_rw <- creaFcstEval::run_evaluation(
 fcst_eval_okun_rw_df <- result_okun_rw$table
 export_eval_to_latex(fcst_eval_okun_rw_df, output_save_paths$tables$eval_rw_okun)
 
+
+
 # --- AR1 ---
 result_okun_ar1 <- creaFcstEval::run_evaluation(
   df              = Y_okun_eval,

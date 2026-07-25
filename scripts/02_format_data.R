@@ -17,7 +17,7 @@
 # --- SNB POLICY RATE ---
 
 # Load Data
-snb_policy_rate <- read.table(data_save_paths$raw$snb_policy_csv, skip=3, header = TRUE, sep=";")
+snb_policy_rate <- read_delim(data_save_paths$raw$snb_policy_csv, skip=3, col_names = TRUE, delim=";")
 
 # Aggregate SNB Data by firs calculating the mean between upper and lower band of
 # LIBOR which was target until 12.06.2019, after its the SARON (policy rate)
@@ -34,7 +34,7 @@ snb_policy_rate_ts <- snb_policy_rate %>%
 # --- Money Market Data
 
 # Load Data
-mm_data <- read.table(data_save_paths$raw$money_market_csv, skip=3, header = TRUE, sep=";")
+mm_data <- read_delim(data_save_paths$raw$money_market_csv, skip=3, col_names = TRUE, delim =";")
 
 # Format Data
 saron_ts <- snb_api_data_to_ts(mm_data, "SARON", "saron")
@@ -44,7 +44,7 @@ libor_ts <- snb_api_data_to_ts(mm_data, "3M0", "3m_libor")
 # --- Government Bond Data ---
 
 # Load Data
-gb_data <- read.table(data_save_paths$raw$gov_bonds_csv, skip=3, header = TRUE, sep=";")
+gb_data <- read_delim(data_save_paths$raw$gov_bonds_csv, skip=3, col_names = TRUE, delim =";")
 
 # Format Data
 gb_5y_ts <- snb_api_data_to_ts(gb_data, "5J", "5y_bond")
@@ -54,14 +54,14 @@ gb_10y_ts <- snb_api_data_to_ts(gb_data, "10J", "10y_bond")
 # --- Exchange Rate Data ---
 
 # Load Average Rate Data
-ex_av_raw <- read.table(data_save_paths$raw$ex_eur_av_csv, skip=3, header = TRUE, sep=";")
+ex_av_raw <- read_delim(data_save_paths$raw$ex_eur_av_csv, skip=3, col_names = TRUE, delim = ";")
 
 # Format Average Rate Data
 ex_av_ts <- format_time_series_df(ex_av_raw, "Date", "Value",  "ex_av", "%Y-%m")
 
 
 # Load End of Month Data
-ex_eom_raw <- read.table(data_save_paths$raw$ex_eur_eom_csv, skip=3, header = TRUE, sep=";")
+ex_eom_raw <- read_delim(data_save_paths$raw$ex_eur_eom_csv, skip=3, col_names = TRUE, delim = ";")
 
 # Format End of Month Data
 ex_eom_ts  <- format_time_series_df(ex_eom_raw, "Date", "Value",  "ex_eom", "%Y-%m")
@@ -74,13 +74,14 @@ ex_eom_ts  <- format_time_series_df(ex_eom_raw, "Date", "Value",  "ex_eom", "%Y-
 # Load SNB REER DATA
 
 # Use Excel download
-reer_raw <- read_excel(here("data/raw/reer_snb.xlsx"), sheet = 1, skip = 15) 
+print("REER RAW")
+reer_raw <- read_excel(here("data/raw/reer_snb.xlsx"), sheet = 1, skip = 15, .name_repair = "minimal") 
 
 
 # Select the wanted REER Data, sort it and make it year month
 reer_eu_ym <- reer_raw %>%
   rename(
-    Date  = "...1",
+    Date  = 1,
     Value = "Index Euroraum PPI-basiert"
   ) %>%
   select(all_of(c("Value", "Date")))%>%

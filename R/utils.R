@@ -140,7 +140,6 @@ format_time_series_df <- function(data,
     ts_temp <- ts(df[[new_name]], start = c(start_year, start_per), frequency = freq)
     
     adj_model <- seasonal::seas(ts_temp)
-# adj_model <- seasonal::seas(ts_temp,x11.mode = "add",x11.sigmalim=c(1.5,2.5),x11.appendfcst = "yes",transform.function="none",regression.aictest=NULL,    
     df[[new_name]] <- as.numeric(seasonal::final(adj_model))
     
     message(paste("Applied seasonal adjustment to", new_name))

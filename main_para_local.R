@@ -25,15 +25,9 @@ set.seed(42) # Set a seed so the shuffle is reproducible
 DO_TRIAL_RUN <- FALSE
 
 # What Models you Run
-RUN_OKUN_MODEL <- TRUE
+RUN_OKUN_MODEL <- FALSE
 RUN_PHILLIPS_MODEL <- FALSE
-RUN_TAYLOR_MODEL <- FALSE
-
-# Save Folder
-TARGET_FOLDER_OKUN <- "with_constraint_okun" # Output destination folder: output/para/...
-TARGET_FOLDER_PHILLIPS <- "with_constraint_phillips" # Output destination folder: output/para/...
-TARGET_FOLDER_TAYLOR <- "with_constraint_taylor" # Output destination folder: output/para/...
-
+RUN_TAYLOR_MODEL <- TRUE
 
 # --- Estimation Range ---
 START_WINDOW_OKUN  <- zoo::as.yearqtr("2000 Q1")
@@ -202,5 +196,3 @@ if(RUN_TAYLOR_MODEL) {
 
 
 message("SCRIPT FINISHED")
-
-

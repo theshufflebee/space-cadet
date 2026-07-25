@@ -18,10 +18,14 @@ source(here("R", "utils.R")) # Diverse Utility functions
 source(here("R", "model_input_preparation.R")) # Functions to prepare model Data Inputs
 source(here("R", "latex_formatting.R"))
 source(here("R", "02_parallel", "est_ssm_para.R"))
+source(here("R", "latex_formatting.R"))
+
 
 
 # General Kalman Filter Functions
+source(here("R", "crea_fcst_eval_utils.R"))
 source(here("R", "kalman_base.R"))
+
 
 # Specific SSM Settings
 source(here("R", "01_matrix_ssm_construction", "build_okun_matrices.R"))
@@ -44,9 +48,9 @@ source(here("R", "visualizations.R"))
 LOAD_PARA_EST <- TRUE
 
 # To analyze the estimations from the parallel estimations load these folders
-TARGET_FOLDER_OKUN <- "no_BFGS_okun" # Output destination folder: output/para/...
-TARGET_FOLDER_PHILLIPS <- "no_BFGS_phillips" # Output destination folder: output/para/...
-TARGET_FOLDER_TAYLOR <- "no_BFGS_taylor" # Output destination folder: output/para/...
+TARGET_FOLDER_OKUN <- "no_BFGS_okun_2" # Output destination folder: output/para/...
+TARGET_FOLDER_PHILLIPS <- "no_BFGS_phillips_2" # Output destination folder: output/para/...
+TARGET_FOLDER_TAYLOR <- "no_BFGS_taylor_2" # Output destination folder: output/para/...
 
 # ==============================================================================
 # Downloading and Data Prep Settings
@@ -239,7 +243,7 @@ snb_rate_parameter_guess <- list(
   state_init = c(6, 1, 0.1),
   sigma_init = c(1, 0, 0, 
                  0, 1, 0,
-                 0, 0, 11)
+                 0, 0, 1)
 )
 
 # FOr model 2 the SNB data is released with a year delay -> more like 3q due to late release of all other data
@@ -294,6 +298,21 @@ output_save_paths <- list(
     spaghetti_okun      = here(output_base, "plots/spaghetti_okun.png"),
     spaghetti_philips      = here(output_base, "plots/spaghetti_philips.png"),
     spaghetti_taylor      = here(output_base, "plots/spaghetti_taylor.png"),
+    errors_okun = here(output_base, "plots/errors_okun.png"),
+    errors_phillips = here(output_base, "plots/errors_phillips.png"),
+    errors_taylor = here(output_base, "plots/errors_taylor.png"),
+    
+    bench_error_rw_okun = here(output_base, "plots/errors_bench_rw_okun.png"),
+    bench_error_rw_phillips = here(output_base, "plots/errors_bench_rw_phillips.png"),
+    bench_error_rw_taylor = here(output_base, "plots/errors_bench_rw_taylor.png"),
+    
+    bench_error_ar1_okun = here(output_base, "plots/errors_bench_ar1_okun.png"),
+    bench_error_ar1_phillips = here(output_base, "plots/errors_bench_ar1_phillips.png"),
+    bench_error_ar1_taylor = here(output_base, "plots/errors_bench_ar1_taylor.png"),
+    
+    bench_error_auto_arma_okun = here(output_base, "plots/errors_bench_auto_arma_okun.png"),
+    bench_error_auto_arma_phillips = here(output_base, "plots/errors_bench_auto_arma_phillips.png"),
+    bench_error_auto_arma_taylor = here(output_base, "plots/errors_bench_auto_arma_taylor.png"),
     
     benchmark = list(
       okun_rw = here(output_base, "plots/benchmark_spaghetti_okun_rw.png"),
@@ -307,10 +326,7 @@ output_save_paths <- list(
       taylor_rw = here(output_base, "plots/benchmark_spaghetti_taylor_rw.png"),
       taylor_ar1 = here(output_base, "plots/benchmark_spaghetti_taylor_ar1.png"),
       taylor_auto_arma = here(output_base, "plots/benchmark_spaghetti_taylor_auto_arma.png")
-      
-
     )
-    
   ),
   forecasts = list(
     forecast_df_okun    = here(output_base, "forecasts/unemployment_forecasts.csv"),

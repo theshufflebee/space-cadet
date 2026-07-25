@@ -34,6 +34,8 @@ creaFcstEval::spaghetti_plot(
   output_path = output_save_paths$plots$spaghetti_okun
 )
 
+error_plotting_wrapper(fcst_df_fixed, "Okun Model", save_path = output_save_paths$plots$errors_okun)
+
 # --- RW Benchmark Spaghetti Plot ---
 okun_rw_bench_wide <- creaFcstEval::bench_to_wide(result_okun_rw$bench_long)
 okun_rw_bench_wide <- standardize_yq_seq(okun_rw_bench_wide)
@@ -77,6 +79,8 @@ creaFcstEval::spaghetti_plot(
   output_path = output_save_paths$plots$spaghetti_philips
 )
 
+error_plotting_wrapper(fcst_df_inf, "Phillips Model", save_path = output_save_paths$plots$errors_phillips)
+
 # --- RW Benchmark Spaghetti Plot ---
 phillips_rw_bench_wide <- creaFcstEval::bench_to_wide(result_philips_rw$bench_long)
 phillips_rw_bench_wide <- standardize_yq_seq(phillips_rw_bench_wide)
@@ -118,6 +122,8 @@ creaFcstEval::spaghetti_plot(
   fcst_df         = fcst_df_policy_rate,
   output_path     = output_save_paths$plots$spaghetti_taylor
 )
+
+error_plotting_wrapper(fcst_df_policy_rate, "Taylor Model", save_path = output_save_paths$plots$errors_taylor)
 
 # --- RW Benchmark Spaghetti Plot ---
 taylor_rw_bench_wide <- creaFcstEval::bench_to_wide(result_taylor_rw$bench_long)
