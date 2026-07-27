@@ -204,10 +204,13 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
   # can be changed
   cutoff_q  <- vantage_q - snb_reer_delay/4 
   
+  cutoff_q <- max(as.yearqtr("2000 Q4"), cutoff_q)
+  
   # Data prep
   
   # We need the values at the moment the official SNB data ends at the vantage
   # point -> so at the cutoff
+  # Is data from one date only
   anchor_data <- data %>%
     mutate(quarter = as.yearqtr(quarter)) %>%
     filter(quarter == cutoff_q) %>%
@@ -216,7 +219,8 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
   val_snb_T  <- anchor_data$reer_eu_ppi
   val_crea_T <- anchor_data$REER_CREA
   
-  if(is.na(val_crea_T)) {
+  # If the cutoff is same as vantage quarter then we skipp this
+  if (length(val_crea_T) > 0 && is.na(val_crea_T)) {
     message("WARNING: CREA REER IS NA. CALLED FROM splice_snb_series()")
   }
   
@@ -236,33 +240,47 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
     mutate(quarter = as.yearqtr(quarter)) %>%
     select(quarter, reer_simulated)
   
-  
-  # forcast for the h step ahead forecast
-  # vantage point is the start
-  reer_fc_at_vantage <- forecast_reer_components(current_T = vantage_q, h = 8, data = data)
-  
-  # Filter series is full dataframe (goes beyond vantage point) but has replaced snb reer
-  # by proxy at cutoff
-  # so cut off that df at the vantage point and then add the forecasted reer in top of it
-  series_extended <- series_for_filter %>%
-    mutate(quarter = as.yearqtr(quarter)) %>%
-    filter(quarter <= vantage_q) %>% # Keep up to current knowledge in pseudo out of sample forecast
-    bind_rows(
-      reer_fc_at_vantage %>% 
-        mutate(reer_simulated = val_snb_T * (predicted_reer / val_crea_T)
-                                             ) %>%
-        # Ensure forecast_date is also a yearqtr object
-        select(quarter = forecast_date, reer_simulated)
+  if(vantage_q < as.yearqtr("2004 Q1")){
+    
+    series_extended <- series_for_filter %>%
+      mutate(quarter = as.yearqtr(quarter)) %>%
+      filter(quarter <= vantage_q) %>%
+      mutate(
+        log_reer = log(reer_simulated),
+        trend    = as.numeric(mFilter::hpfilter(log_reer, freq = 1600)$trend), 
+        lop_gap  = as.numeric(log_reer - trend)
       )
+  } else {
+    # forcast for the h step ahead forecast
+    # vantage point is the start
+    reer_fc_at_vantage <- forecast_reer_components(current_T = vantage_q, h = 8, data = data)
+    
+    # Filter series is full dataframe (goes beyond vantage point) but has replaced snb reer
+    # by proxy at cutoff
+    # so cut off that df at the vantage point and then add the forecasted reer in top of it
+    series_extended <- series_for_filter %>%
+      mutate(quarter = as.yearqtr(quarter)) %>%
+      filter(quarter <= vantage_q) %>% # Keep up to current knowledge in pseudo out of sample forecast
+      bind_rows(
+        reer_fc_at_vantage %>% 
+          mutate(reer_simulated = val_snb_T * (predicted_reer / val_crea_T)
+          ) %>%
+          # Ensure forecast_date is also a yearqtr object
+          select(quarter = forecast_date, reer_simulated)
+      )
+    
+    # Extract LOP Gap
+    # Apply HP filter on the full simulation + forecasted values
+    series_extended <- series_extended %>%
+      mutate(
+        log_reer = log(reer_simulated),
+        trend    = as.numeric(mFilter::hpfilter(log_reer, freq = 1600)$trend), 
+        lop_gap  = as.numeric(log_reer - trend)                               
+      )
+    
+  }
   
-  # Extract LOP Gap
-  # Apply HP filter on the full simulation + forecasted values
-  series_extended <- series_extended %>%
-    mutate(
-      log_reer = log(reer_simulated),
-      trend    = as.numeric(mFilter::hpfilter(log_reer, freq = 1600)$trend), 
-      lop_gap  = as.numeric(log_reer - trend)                               
-    )
+  
   
   return(series_extended)
 } 
@@ -1007,7 +1025,7 @@ build_data_matrix_philips <- function(T_0 = "1990-01-01",
   
   if(!set_silent){
     message("RAW DATA DEBUG")
-    print(raw_data)
+    print(tail(raw_data))
     
   }
   

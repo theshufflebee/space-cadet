@@ -3,10 +3,13 @@
 #' @param sub_folder Character. Destination directory sub-token.
 #' @param gdp_forecasts_arima Dataframe. Pre-loaded global ARIMA projections.
 #' @export
-run_est_para_okun <- function(target_date_str, sub_folder = "default_okun", gdp_forecasts_arima) {
+run_est_para_okun <- function(target_date_str,
+                              sub_folder = "default_okun",
+                              gdp_forecasts_arima,
+                              val_T1 = "1991-01-01") {
   
   target_date <- zoo::as.yearqtr(target_date_str)
-  val_T1      <- zoo::as.yearqtr("1991-01-01")
+  val_T1      <- zoo::as.yearqtr(val_T1)
   
   # Load dependencies matching configuration paths
   master_okun         <- read_csv(data_save_paths$processed$okun_master_csv, show_col_types = FALSE)
