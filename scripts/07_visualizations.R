@@ -123,6 +123,12 @@ creaFcstEval::spaghetti_plot(
   output_path     = output_save_paths$plots$spaghetti_taylor
 )
 
+creaFcstEval::spaghetti_plot(
+  df              = Y_taylor_rounded,
+  fcst_df         = fcst_df_policy_rate_rounded,
+  output_path     = output_save_paths$plots$spaghetti_taylor_rounded
+)
+
 error_plotting_wrapper(fcst_df_policy_rate, "Taylor Model", save_path = output_save_paths$plots$errors_taylor)
 
 # --- RW Benchmark Spaghetti Plot ---
@@ -307,8 +313,8 @@ print(okun_dashboard)
 # Prepare Data
 # ------------------------------------------------------------------------------
 phillips_data_matrix_full <- build_data_matrix_philips(
-  T_0             = "2005-01-01",  # Or your full sample start preference
-  vantage_quarter = "2025 Q4",     # Up to latest realized history block
+  T_0             = "1990-01-01",  # Or your full sample start preference
+  vantage_quarter = "2026 Q1",     # Up to latest realized history block
   data            = master_philips
 )
 

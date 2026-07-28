@@ -8,6 +8,8 @@ run_est_para_okun <- function(target_date_str,
                               gdp_forecasts_arima,
                               val_T1 = "1991-01-01") {
   
+  # Can set val_T1 to "1981-01-01" to estimate longer
+  
   target_date <- zoo::as.yearqtr(target_date_str)
   val_T1      <- zoo::as.yearqtr(val_T1)
   
@@ -92,7 +94,7 @@ run_est_para_phillips <- function(target_date_str, sub_folder = "default_phillip
   
   # Parse dates using the standards established in the rolling framework
   target_date <- zoo::as.yearqtr(target_date_str)
-  val_T1      <- zoo::as.yearqtr("1990-01-01") 
+  val_T1      <- zoo::as.yearqtr("1982-01-01") 
   
   # Load global master dataframe matching the configuration path keys
   # Assumes master_phillips is stored in data_save_paths$processed$phillips_master_csv
@@ -173,10 +175,10 @@ run_est_para_phillips <- function(target_date_str, sub_folder = "default_phillip
 #' @param sub_folder Character. Destination directory sub-token.
 #' @param gdp_forecasts_arima Dataframe. Pre-loaded global ARIMA projections.
 #' @export
-run_est_para_taylor <- function(target_date_str, sub_folder = "deault_taylor", gdp_forecasts_arima) {
+run_est_para_taylor <- function(target_date_str, sub_folder = "default_taylor", gdp_forecasts_arima) {
   
   target_date <- zoo::as.yearqtr(target_date_str)
-  val_T1      <- zoo::as.yearqtr("1991-01-01")
+  val_T1      <- zoo::as.yearqtr("1989-01-01")
   
   # Load master dataset 
   master_path <- data_save_paths$processed$taylor_master_csv
@@ -213,7 +215,7 @@ run_est_para_taylor <- function(target_date_str, sub_folder = "deault_taylor", g
     dplyr::filter(complete.cases(gdp_gap, inf_gap))
   
   # Safe structural boundary floor checkpoint
-  if (nrow(processed_data) < 20) {
+  if (nrow(processed_data) < 15) {
     stop(sprintf("CRITICAL: Insufficient data rows (%d) after filter window slice for vintage %s", 
                  nrow(processed_data), target_date_str))
   }

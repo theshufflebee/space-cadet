@@ -29,6 +29,13 @@ get_snb_data_wrapper(data_save_paths$raw$gov_bonds_csv,
                      "gov_bonds",
                      c("5J", "10J"))
 
+get_snb_data_wrapper(data_save_paths$raw$spot_gov_bonds_csv,
+                     do_api_call,
+                     cube = "rendeiduebm",
+                     D0 = "CHF",
+                     D1= c("5J", "10J"),
+                     "spot_gov_bonds")
+
 
 # --- REER ---
 get_snb_data_wrapper(data_save_paths$raw$reer_ppi_eu_csv,

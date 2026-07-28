@@ -73,5 +73,11 @@ source(here("scripts", "06_forecast_evaluation.R"))
 #------------------------------------------------------------------------------
 source(here("scripts", "07_visualizations.R"))
 
+source(here("scripts", "08_auxiliary_estimations.R"))
+
+source(here("scripts", "09_generate_current_forecasts.R"))
+
+
+
 message("FULL SCRIPT FINISHED")
 

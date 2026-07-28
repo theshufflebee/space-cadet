@@ -66,6 +66,7 @@ conflict_prefer("last", "dplyr")
 conflict_prefer("yearqtr", "zoo")
 conflict_prefer("index", "zoo")
 conflicts_prefer(lubridate::quarter)
+conflicts_prefer(dplyr::arrange)
 
 
 

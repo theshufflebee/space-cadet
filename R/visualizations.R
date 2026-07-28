@@ -252,5 +252,142 @@ plot_state_space_fit <- function(plot_df,
 
 
 
-
+plot_current_forecasts <- function(fcst_df, title = NULL, save_path = NULL, width = 8, height = 5) {
+  
+  # ----------------------------------------------------------------------------
+  # 0. Format & Type Conversion (Matrix/Data.frame with Rownames)
+  # ----------------------------------------------------------------------------
+  if (is.matrix(fcst_df)) {
+    fcst_mat <- fcst_df
+    fcst_df  <- as.data.frame(fcst_df)
+  } else {
+    fcst_mat <- as.matrix(fcst_df)
+  }
+  
+  target_date_strs  <- rownames(fcst_df)
+  vintage_date_strs <- colnames(fcst_df)
+  
+  if (is.null(target_date_strs) || is.null(vintage_date_strs)) {
+    stop("The forecast matrix/data frame must have valid target dates as rownames and vintage dates as colnames.")
+  }
+  
+  target_dates  <- as.Date(zoo::as.yearqtr(target_date_strs))
+  vintage_dates <- as.Date(zoo::as.yearqtr(vintage_date_strs))
+  
+  # ----------------------------------------------------------------------------
+  # 1. Filter for diagonal in df (realized actuals)
+  # ----------------------------------------------------------------------------
+  common_quarters <- intersect(target_date_strs, vintage_date_strs)
+  
+  diag_actuals <- sapply(common_quarters, function(q) {
+    fcst_mat[q, q]
+  })
+  
+  actuals_df <- data.frame(
+    date   = as.Date(zoo::as.yearqtr(common_quarters)),
+    actual = as.numeric(diag_actuals)
+  ) %>% 
+    filter(!is.na(actual)) %>% 
+    arrange(date)
+  
+  # ----------------------------------------------------------------------------
+  # 2. Select latest column (latest vintage forecast)
+  # ----------------------------------------------------------------------------
+  latest_vintage_str <- tail(vintage_date_strs, 1)
+  
+  latest_fcst_df <- data.frame(
+    date     = target_dates,
+    forecast = as.numeric(fcst_mat[, latest_vintage_str])
+  ) %>% 
+    filter(!is.na(forecast)) %>% 
+    arrange(date)
+  
+  # ----------------------------------------------------------------------------
+  # 3. Check for continuity between latest actual & first forecast
+  # ----------------------------------------------------------------------------
+  last_actual_val <- tail(actuals_df$actual, 1)
+  first_fcst_val  <- head(latest_fcst_df$forecast, 1)
+  
+  if (length(last_actual_val) > 0 && length(first_fcst_val) > 0) {
+    if (!isTRUE(all.equal(last_actual_val, first_fcst_val, tolerance = 1e-4))) {
+      warning(sprintf(
+        "Discontinuity detected! Latest actual: %.4f vs. First forecast origin (%s): %.4f",
+        last_actual_val, latest_vintage_str, first_fcst_val
+      ))
+    }
+  }
+  
+  # Set default title if not supplied
+  plot_title <- if (is.null(title)) "Real-Time Out-of-Sample Forecast Evaluation" else title
+  
+  # ----------------------------------------------------------------------------
+  # 4. Construct Plot
+  # ----------------------------------------------------------------------------
+  p <- ggplot() +
+    # Realized Actuals Line
+    geom_line(
+      data = actuals_df, 
+      aes(x = date, y = actual, color = "Realized Actuals (Diagonal)"), 
+      linewidth = 1
+    ) +
+    geom_point(
+      data = actuals_df, 
+      aes(x = date, y = actual, color = "Realized Actuals (Diagonal)"), 
+      size = 1.8
+    ) +
+    # Latest Vintage Forecast Path
+    geom_line(
+      data = latest_fcst_df, 
+      aes(x = date, y = forecast, color = sprintf("Latest Vintage (%s)", latest_vintage_str)), 
+      linewidth = 1, 
+      linetype = "dashed"
+    ) +
+    geom_point(
+      data = latest_fcst_df, 
+      aes(x = date, y = forecast, color = sprintf("Latest Vintage (%s)", latest_vintage_str)), 
+      size = 1.8
+    ) +
+    # Color Scale & Formatting
+    scale_color_manual(values = setNames(
+      c("#2c3e50", "#e74c3c"),
+      c("Realized Actuals (Diagonal)", sprintf("Latest Vintage (%s)", latest_vintage_str))
+    )) +
+    scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
+    labs(
+      title = plot_title,
+      subtitle = sprintf("Latest Forecast Vintage: %s", latest_vintage_str),
+      x = "Quarter",
+      y = "Value",
+      color = NULL
+    ) +
+    theme_minimal(base_size = 12) +
+    theme(
+      legend.position = "bottom",
+      plot.title = element_text(face = "bold", size = 13),
+      plot.subtitle = element_text(size = 10),
+      panel.grid.minor = element_blank()
+    )
+  
+  # ----------------------------------------------------------------------------
+  # 5. Export / Save Plot Block
+  # ----------------------------------------------------------------------------
+  if (!is.null(save_path)) {
+    # Ensure directory exists if subfolders are specified
+    dir_name <- dirname(save_path)
+    if (dir_name != "." && !dir.exists(dir_name)) {
+      dir.create(dir_name, recursive = TRUE)
+    }
+    
+    ggsave(
+      filename = save_path,
+      plot     = p,
+      width    = width,
+      height   = height,
+      dpi      = 300
+    )
+    message(sprintf("Plot successfully saved to: %s", save_path))
+  }
+  
+  return(p)
+}
 

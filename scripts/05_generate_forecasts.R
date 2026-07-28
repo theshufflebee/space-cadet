@@ -18,20 +18,23 @@ forecast_okun_df <- forecast_okun_ssm(params_df = okun_params_df,
                                       gdp_gap_forecasts_input = gdp_forecasts_arima
 )
 
-# save the results
-write_csv(forecast_okun_df, output_save_paths$forecasts$forecast_df_okun)
+write_csv(as.data.frame(forecast_okun_df), output_save_paths$forecasts$forecast_df_okun)
 
-forecast_okun_df <- read_csv(output_save_paths$forecasts$forecast_df_okun, 
-                             show_col_types = FALSE)
+forecast_okun_df <- read_csv(output_save_paths$forecasts$forecast_df_okun, show_col_types = FALSE) %>% 
+  column_to_rownames(var = names(.)[1])
 
-# Turn the Dataframe into a square where we know the true values
-# (Normal DF has h rows more than columns, we drop them by dropping dates without observations)
 last_origin <- ncol(forecast_okun_df)
 
 okun_eval_square <- forecast_okun_df[1:last_origin, 1:last_origin]
 
-# CheckThe number of rows should now equal the number of columns
 dim(okun_eval_square)
+
+colnames(okun_eval_square) <- format(as.yearqtr(colnames(okun_eval_square)), "%YQ%q")
+rownames(okun_eval_square) <- format(as.yearqtr(rownames(okun_eval_square)), "%YQ%q")
+
+fcst_df_okun <- okun_eval_square %>%
+  rownames_to_column(var = "date") %>%
+  as.data.frame()
 
 
 ################################################################################
@@ -47,31 +50,23 @@ philips_forecast_df <- forecast_philips_ssm(phillips_parmas_df,
                                             forecast_h = 8,
                                             exogenous_gdp_forecast_data = gdp_forecasts_arima)
 
-# Save the Forecasts
 write_csv(as.data.frame(philips_forecast_df), output_save_paths$forecasts$forecast_df_philips)
-philips_forecast_df <- read_csv(output_save_paths$forecasts$forecast_df_philips)
 
+philips_forecast_df <- read_csv(output_save_paths$forecasts$forecast_df_philips, show_col_types = FALSE) %>% 
+  column_to_rownames(var = names(.)[1])
 
 last_origin <- ncol(philips_forecast_df)
 
 philips_eval_square <- philips_forecast_df[1:last_origin, 1:last_origin]
 
-# CheckThe number of rows should now equal the number of columns
 dim(philips_eval_square)
 
-
-# Prepare for use as exog forecast inputs and also Fcst tests
 colnames(philips_eval_square) <- format(as.yearqtr(colnames(philips_eval_square)), "%YQ%q")
-
-rownames(philips_eval_square) <- format(as.yearqtr(colnames(philips_eval_square)), "%YQ%q")
+rownames(philips_eval_square) <- format(as.yearqtr(rownames(philips_eval_square)), "%YQ%q")
 
 fcst_df_inf <- philips_eval_square %>%
   rownames_to_column(var = "date") %>%
   as.data.frame()
-
-
-# Format the date column to expected format
-fcst_df_inf$date <- format(zoo::as.yearqtr(fcst_df_inf$date), format = "%YQ%q")
 
 ################################################################################
 # 
@@ -105,18 +100,23 @@ taylor_forecast_df <- forecast_taylor_ssm(params_df = taylor_params_df,
 
 
 # Save the Forecast df (and reload)
-write_csv(as.data.frame(taylor_forecast_df), output_save_paths$forecasts$forecast_df_taylor)
-taylor_forecast_df <- read_csv(output_save_paths$forecasts$forecast_df_taylor, 
-                               show_col_types = FALSE)
 
-# --- Format df for the Evaluation --- 
-# Make the Dataframe a square
+taylor_forecast_df_rounded <- taylor_forecast_df %>%
+  mutate(across(-1, ~ mround(.x, 0.25)))
+
+write_csv(as.data.frame(taylor_forecast_df), output_save_paths$forecasts$forecast_df_taylor)
+write_csv(as.data.frame(taylor_forecast_df_rounded), output_save_paths$forecasts$forecast_df_taylor_rounded)
+
+taylor_forecast_df <- read_csv(output_save_paths$forecasts$forecast_df_taylor, show_col_types = FALSE) %>% 
+  column_to_rownames(var = names(.)[1])
+
+taylor_forecast_df_rounded <- read_csv(output_save_paths$forecasts$forecast_df_taylor_rounded, show_col_types = FALSE) %>% 
+  column_to_rownames(var = names(.)[1])
+
 last_origin <- ncol(taylor_forecast_df)
 
-taylor_eval_square <- taylor_forecast_df[1:last_origin, 1:last_origin]
+taylor_eval_square         <- taylor_forecast_df[1:last_origin, 1:last_origin]
+taylor_eval_square_rounded <- taylor_forecast_df_rounded[1:last_origin, 1:last_origin]
 
-# Check: the number of rows should now equal the number of columns
 dim(taylor_eval_square)
-
-
-
+dim(taylor_eval_square_rounded)

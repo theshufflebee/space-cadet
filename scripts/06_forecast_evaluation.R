@@ -20,7 +20,7 @@ Y_okun_eval <- Y_okun %>%
          value = unemp_rate) %>%
   mutate(date = format(as.yearqtr(date), "%YQ%q"))%>%
   drop_na()%>%
-  slice(2:n())
+  filter(date >= as.yearqtr("1990 Q1"))
 
 
 okun_eval_square <- as.data.frame(okun_eval_square)
@@ -134,7 +134,6 @@ fcst_eval_philips_auto_arma_df <- result_philips_auto_arma$table
 export_eval_to_latex(fcst_eval_philips_auto_arma_df, output_save_paths$tables$eval_auto_arma_philips)
 
 
-
 # ==============================================================================
 # Taylor Model Evaluation
 # ==============================================================================
@@ -144,10 +143,16 @@ export_eval_to_latex(fcst_eval_philips_auto_arma_df, output_save_paths$tables$ev
 #-------------------------------------------------------------------------------
 
 colnames(taylor_eval_square) <- format(as.yearqtr(colnames(taylor_eval_square)), "%YQ%q")
+colnames(taylor_eval_square_rounded) <- format(as.yearqtr(colnames(taylor_eval_square_rounded)), "%YQ%q")
+
 
 rownames(taylor_eval_square) <- format(as.yearqtr(colnames(taylor_eval_square)), "%YQ%q")
+rownames(taylor_eval_square_rounded) <- format(as.yearqtr(colnames(taylor_eval_square_rounded)), "%YQ%q")
+
 
 taylor_eval_square <- as.data.frame(taylor_eval_square)
+taylor_eval_square_rounded <- as.data.frame(taylor_eval_square_rounded)
+
 
 fcst_df_policy_rate <- taylor_eval_square %>%
   mutate(
@@ -157,11 +162,23 @@ fcst_df_policy_rate <- taylor_eval_square %>%
   # date goes to front
   relocate(date, .before = everything()) 
 
+fcst_df_policy_rate_rounded <- taylor_eval_square_rounded %>%
+  mutate(
+    date = colnames(taylor_eval_square_rounded),
+    date = format(as.yearqtr(date, format = "%Y Q%q"), format = "%YQ%q")
+  ) %>%
+  # date goes to front
+  relocate(date, .before = everything()) 
+
 Y_taylor <- master_taylor %>%
   select(quarter, true_snb_rate) %>%
   rename(date = quarter,
          value = true_snb_rate) %>%
-  mutate(date = format(as.yearqtr(date), "%YQ%q"))
+  mutate(date = format(as.yearqtr(date), "%YQ%q")) %>%
+  drop_na()
+
+Y_taylor_rounded <- Y_taylor
+Y_taylor_rounded$value <- mround(Y_taylor_rounded$value)
 
 
 # Benchmark Evaluation

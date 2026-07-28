@@ -123,7 +123,7 @@ format_time_series_df <- function(data,
   df <- df %>%
     select(all_of(c("date", new_name))) %>%
     drop_na() %>%
-    filter(date >= zoo::as.yearmon(1990)) %>%
+    #filter(date >= zoo::as.yearmon(1990)) %>%
     arrange(date)
   
   if(seasonal_adj) {
@@ -407,13 +407,14 @@ model2param_gen <- function(model_list, ssm) {
 }
 
 
-standardize_yq_seq <- function(df, start_date = "2000-01-01") {
+standardize_yq_seq <- function(df) {
   # 1. Convert the row date labels inside the first column safely
   df[[1]] <- format(zoo::as.yearqtr(df[[1]]), format = "%YQ%q")
   
+  
   # 2. Build a continuous calendar sequence based on the number of vintage columns
   # (ncol(df) - 1) calculates exactly how many vintage columns need headers
-  start_qtr <- zoo::as.yearqtr(as.Date(start_date))
+  start_qtr <- zoo::as.yearqtr(colnames(df)[2])
   col_seq   <- start_qtr + (0:(ncol(df) - 2)) / 4
   
   # 3. Combine the blank first column name with your newly generated calendar sequence
@@ -421,5 +422,10 @@ standardize_yq_seq <- function(df, start_date = "2000-01-01") {
   
   return(df)
 }
+
+
+
+mround <- function(x, step = 0.25) 
+  {round(x / step) * step}
 
 

@@ -192,7 +192,7 @@ forecast_reer_components <- function(current_T, h = 8, data) {
 splice_snb_series <- function(vantage_quarter = "2023 Q2",
                               snb_reer_delay = 3,
                               data = master_philips,
-                              burn_in = "1990 Q1") {
+                              burn_in = "1982 Q1") {
   
   # Define the vantage point and the 'Knowledge Cutoff'
   vantage_q <- zoo::as.yearqtr(vantage_quarter)
@@ -242,14 +242,42 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
   
   if(vantage_q < as.yearqtr("2004 Q1")){
     
-    series_extended <- series_for_filter %>%
-      mutate(quarter = as.yearqtr(quarter)) %>%
-      filter(quarter <= vantage_q) %>%
+    # 1. Historical series up to vintage date
+    hist_part <- series_for_filter %>%
+      mutate(quarter = zoo::as.yearqtr(quarter)) %>%
+      filter(quarter <= vantage_q)
+    
+    # 2. Simple ARMA forecast on reer_simulated (h = 8)
+    arma_fc <- get_arma_forecast(
+      current_T = vantage_q,
+      T_0       = burn_in,
+      h         = 8,
+      data      = hist_part,
+      data_col  = "reer_simulated",
+      date_col  = "quarter"
+    )
+    
+    # Extract predicted values or fallback to flat line if ARMA returns NULL
+    if (!is.null(arma_fc)) {
+      fc_part <- arma_fc %>%
+        select(quarter = forecast_date, reer_simulated = predicted_value)
+    } else {
+      last_val <- tail(hist_part$reer_simulated, 1)
+      fc_part <- tibble(
+        quarter = zoo::as.yearqtr(seq(vantage_q + 0.25, by = 0.25, length.out = 8)),
+        reer_simulated = last_val
+      )
+    }
+    
+    # 3. Combine history + forecast and extract LOP gap via HP filter
+    series_extended <- bind_rows(hist_part, fc_part) %>%
+      arrange(quarter) %>%
       mutate(
         log_reer = log(reer_simulated),
         trend    = as.numeric(mFilter::hpfilter(log_reer, freq = 1600)$trend), 
         lop_gap  = as.numeric(log_reer - trend)
       )
+    
   } else {
     # forcast for the h step ahead forecast
     # vantage point is the start
@@ -279,8 +307,6 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
       )
     
   }
-  
-  
   
   return(series_extended)
 } 
@@ -314,7 +340,7 @@ splice_snb_series <- function(vantage_quarter = "2023 Q2",
 splice_reer_series <- function(vantage_quarter = "2023 Q2",
                                snb_reer_delay = 4,
                                data = master_philips,
-                               burn_in = "2000 Q4") {
+                               burn_in = "1982 Q1") {
   
   vantage_q <- as.yearqtr(vantage_quarter)
   cutoff_q  <- vantage_q - snb_reer_delay/4 
@@ -421,7 +447,7 @@ get_hp_gap <- function(data,
     filter(forecast_data_clean, quarter > vantage_q)
   )
   
-  if (nrow(extended_df) < 20) {
+  if (nrow(extended_df) < 15) {
     stop("Insufficient rows to compute stable Hodrick-Prescott trend extraction matrix.")
   }
   
@@ -995,7 +1021,7 @@ merge_inflation_forecast_vintages <- function(arima_df, ssm_df) {
 #' GDP gap, and ensures alignment between observed inflation and expectations.
 #'
 #' @export
-build_data_matrix_philips <- function(T_0 = "1990-01-01",
+build_data_matrix_philips <- function(T_0 = "1982-01-01",
                                       vantage_quarter,
                                       data = master_philips,
                                       gdp_forecasts = gdp_forecasts_arima,
@@ -1026,6 +1052,7 @@ build_data_matrix_philips <- function(T_0 = "1990-01-01",
   if(!set_silent){
     message("RAW DATA DEBUG")
     print(tail(raw_data))
+    print(head(raw_data))
     
   }
   
@@ -1093,7 +1120,7 @@ build_data_matrix_philips <- function(T_0 = "1990-01-01",
 #' By the corresponding ssm_estimation function. We can specify wether we want a forward or backward
 #' looking taylor rule and also how we want the inf gap to be constructed.
 #' 
-build_data_matrix_taylor <- function(T_0 = "1990-01-01",
+build_data_matrix_taylor <- function(T_0 = "1981-01-01",
                                     vantage_quarter,
                                     data = master_taylor,
                                     gdp_forecasts = gdp_forecasts_arima,

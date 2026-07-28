@@ -48,9 +48,9 @@ source(here("R", "visualizations.R"))
 LOAD_PARA_EST <- TRUE
 
 # To analyze the estimations from the parallel estimations load these folders
-TARGET_FOLDER_OKUN <- "trash_okun" # Output destination folder: output/para/...
-TARGET_FOLDER_PHILLIPS <- "trash_okun" # Output destination folder: output/para/...
-TARGET_FOLDER_TAYLOR <- "trash_okun" # Output destination folder: output/para/...
+TARGET_FOLDER_OKUN <- "longerh_okun" # Output destination folder: output/para/...
+TARGET_FOLDER_PHILLIPS <- "longerh_phillips" # Output destination folder: output/para/...
+TARGET_FOLDER_TAYLOR <- "longerh_taylor" # Output destination folder: output/para/...
 
 # ==============================================================================
 # Downloading and Data Prep Settings
@@ -110,6 +110,9 @@ data_save_paths <- list(
     
     gov_bonds_csv       = here(raw_data_path, "gov_bonds.csv"),
     gov_bonds_json      = here(raw_data_path, "gov_bonds_metadata.json"),
+    
+    spot_gov_bonds_csv  = here(raw_data_path, "spot_gov_bonds.csv"),
+    spot_gov_bonds_json = here(raw_data_path, "spot_gov_bonds_metadata.json"),
     
     reer_ppi_eu_csv     = here(raw_data_path, "reer_ppi_eu.csv"),
     reer_ppi_eu_json    = here(raw_data_path, "reer_ppi_eu_metadata.json"),
@@ -298,6 +301,7 @@ output_save_paths <- list(
     spaghetti_okun      = here(output_base, "plots/spaghetti_okun.png"),
     spaghetti_philips      = here(output_base, "plots/spaghetti_philips.png"),
     spaghetti_taylor      = here(output_base, "plots/spaghetti_taylor.png"),
+    spaghetti_taylor_rounded = here(output_base, "plots/spaghetti_taylor_rounded.png"),
     errors_okun = here(output_base, "plots/errors_okun.png"),
     errors_phillips = here(output_base, "plots/errors_phillips.png"),
     errors_taylor = here(output_base, "plots/errors_taylor.png"),
@@ -326,12 +330,20 @@ output_save_paths <- list(
       taylor_rw = here(output_base, "plots/benchmark_spaghetti_taylor_rw.png"),
       taylor_ar1 = here(output_base, "plots/benchmark_spaghetti_taylor_ar1.png"),
       taylor_auto_arma = here(output_base, "plots/benchmark_spaghetti_taylor_auto_arma.png")
+    ),
+    
+    current_forecasts = list(
+      okun_current_forecasts = here(output_base, "plots/okun_current_forecast.png"),
+      phillips_current_forecasts = here(output_base, "plots/phillips_current_forecast.png"),
+      taylor_current_forecasts = here(output_base, "plots/taylor_current_forecast.png"),
+      taylor_rounded_current_forecasts = here(output_base, "plots/taylor_rounded_current_forecast.png")
     )
   ),
   forecasts = list(
     forecast_df_okun    = here(output_base, "forecasts/unemployment_forecasts.csv"),
     forecast_df_philips = here(output_base, "forecasts/inflation_forecasts.csv"),
     forecast_df_taylor = here(output_base, "forecasts/policy_rate_forecasts.csv"),
+    forecast_df_taylor_rounded = here(output_base, "forecasts/policy_rate_forecasts_rounded.csv"),
     forecast_df_gdp_arima = here(output_base, "forecasts/gdp_arima_forecasts.csv"),
     forecast_df_inf_arima = here(output_base, "forecasts/inf_arima_forecasts.csv")
   ),
@@ -358,6 +370,23 @@ output_save_paths <- list(
     philips_param_table = here(output_base, "tables/philips_param_table.tex"),
     taylor_param_table = here(output_base, "tables/taylor_param_table.tex")
     
+  ),
+  
+  aux_results = list(
+    # Regressions
+    aux_reg_okun = here(output_base, "aux_results/aux_okun_reg_table.tex"),
+    aux_reg_phillips = here(output_base, "aux_results/aux_phillips_reg_table.tex"),
+    aux_reg_taylor = here(output_base, "aux_results/aux_taylor_reg_table.tex"),
+    
+    # Plots
+    aux_plot_okun = here(output_base, "aux_results/aux_okun_plot.png"),
+    aux_plot_phillips = here(output_base, "aux_results/aux_phillips_plot.png"),
+    aux_plot_taylor = here(output_base, "aux_results/aux_taylor_plot.png"),
+    
+    # HP Plot
+    aux_hp_plot_okun = here(output_base, "aux_results/aux_hp_okun_plot.png"),
+    aux_hp_plot_phillips = here(output_base, "aux_results/aux_hp_phillips_plot.png"),
+    aux_hp_plot_taylor = here(output_base, "aux_results/aux_hp_taylor_plot.png")
   )
 )
 
@@ -404,7 +433,7 @@ estimation_settings <- list(
 )
 
 
-forecast_starting_date <- as.yearqtr("2000 Q1")
+forecast_starting_date <- as.yearqtr("1985 Q1")
 
 # For Indexing
 indexing_date <- "2020-12-01"

@@ -45,10 +45,15 @@ libor_ts <- snb_api_data_to_ts(mm_data, "3M0", "3m_libor")
 
 # Load Data
 gb_data <- read_delim(data_save_paths$raw$gov_bonds_csv, skip=3, col_names = TRUE, delim =";")
+gb_spot_data <- read_delim(data_save_paths$raw$spot_gov_bonds_csv, skip=3, col_names = TRUE, delim =";") %>%
+  select(-c("D0"))
+
+
 
 # Format Data
-gb_5y_ts <- snb_api_data_to_ts(gb_data, "5J", "5y_bond")
-gb_10y_ts <- snb_api_data_to_ts(gb_data, "10J", "10y_bond")
+gb_5y_ts <- snb_api_data_to_ts(gb_spot_data, names_column = "D1", "5J", "5y_bond")
+gb_10y_ts <- snb_api_data_to_ts(gb_spot_data, names_column = "D1", "10J", "10y_bond")
+
 
 
 # --- Exchange Rate Data ---

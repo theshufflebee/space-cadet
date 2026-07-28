@@ -22,26 +22,26 @@ source(here("R","02_parallel", "est_ssm_para.R"))
 
 set.seed(42) # Set a seed so the shuffle is reproducible
 
-DO_TRIAL_RUN <- TRUE
+DO_TRIAL_RUN <- FALSE
 
 # What Models you Run
-RUN_OKUN_MODEL <- FALSE
-RUN_PHILLIPS_MODEL <- TRUE
+RUN_OKUN_MODEL <- TRUE
+RUN_PHILLIPS_MODEL <- FALSE
 RUN_TAYLOR_MODEL <- FALSE
 
 # --- Estimation Range ---
 START_WINDOW_OKUN  <- zoo::as.yearqtr("2000 Q1")
-END_WINDOW_OKUN    <- zoo::as.yearqtr("2025 Q4")
+END_WINDOW_OKUN    <- zoo::as.yearqtr("2026 Q1")
 HIST_DATES_OKUN    <- format(seq(START_WINDOW_OKUN, END_WINDOW_OKUN, by = 0.25), format = "%Y Q%q")
 HIST_DATES_OKUN <- sample(HIST_DATES_OKUN) # sampling (mixing up the date vector) no core has only models that are fast to estimate
 
-START_WINDOW_PHILLIPS  <- zoo::as.yearqtr("2000 Q1")
-END_WINDOW_PHILLIPS    <- zoo::as.yearqtr("2025 Q4")
+START_WINDOW_PHILLIPS  <- zoo::as.yearqtr("1990 Q1")
+END_WINDOW_PHILLIPS    <- zoo::as.yearqtr("2026 Q1")
 HIST_DATES_PHILLIPS    <- format(seq(START_WINDOW_PHILLIPS, END_WINDOW_PHILLIPS, by = 0.25), format = "%Y Q%q")
 HIST_DATES_PHILLIPS    <- sample(HIST_DATES_PHILLIPS)
 
-START_WINDOW_TAYLOR  <- zoo::as.yearqtr("2000 Q1")
-END_WINDOW_TAYLOR    <- zoo::as.yearqtr("2025 Q4")
+START_WINDOW_TAYLOR  <- zoo::as.yearqtr("1999 Q1")
+END_WINDOW_TAYLOR    <- zoo::as.yearqtr("2026 Q1")
 HIST_DATES_TAYLOR    <- format(seq(START_WINDOW_TAYLOR, END_WINDOW_TAYLOR, by = 0.25), format = "%Y Q%q")
 HIST_DATES_TAYLOR    <- sample(HIST_DATES_TAYLOR)
 
@@ -67,7 +67,7 @@ if(RUN_OKUN_MODEL) {
     message("\n=== STARTING OKUN MODEL TRIAL RUN ===")
     
     okun_trial_run_result <- run_est_para_okun(
-      target_date_str     = "2000 Q1", 
+      target_date_str     = "2022 Q3", 
       sub_folder          = TARGET_FOLDER_OKUN, 
       gdp_forecasts_arima = gdp_forecasts_arima
     )
@@ -167,7 +167,7 @@ if(RUN_TAYLOR_MODEL) {
     message("\n=== STARTING TAYLOR RULE MODEL TRIAL RUN ===")
     
     taylor_trial_run_result <- run_est_para_taylor(
-      target_date_str     = "2015 Q1", 
+      target_date_str     = "1995 Q1", 
       sub_folder          = TARGET_FOLDER_TAYLOR, 
       gdp_forecasts_arima = gdp_forecasts_arima
     )
