@@ -19,22 +19,7 @@ Y_okun_eval <- Y_okun %>%
   rename(date = quarter,
          value = unemp_rate) %>%
   mutate(date = format(as.yearqtr(date), "%YQ%q"))%>%
-  drop_na()%>%
-  filter(date >= as.yearqtr("1990 Q1"))
-
-
-okun_eval_square <- as.data.frame(okun_eval_square)
-colnames(okun_eval_square) <- format(as.yearqtr(colnames(okun_eval_square)), "%YQ%q")
-
-rownames(okun_eval_square) <- format(as.yearqtr(colnames(okun_eval_square)), "%YQ%q")
-
-fcst_df_fixed <- okun_eval_square %>%
-  as.data.frame() %>%
-  rownames_to_column(var = "date")
-
-# Format the date column to the 'YYYYQX' style the function expects
-fcst_df_fixed$date <- format(as.yearqtr(fcst_df_fixed$date), "%YQ%q")
-
+  drop_na()
 
 # Evaluate Okun Model
 # ------------------------------------------------------------------------------
@@ -42,7 +27,7 @@ fcst_df_fixed$date <- format(as.yearqtr(fcst_df_fixed$date), "%YQ%q")
 # --- Random Walk ---
 result_okun_rw <- creaFcstEval::run_evaluation(
   df              = Y_okun_eval,
-  fcst_df         = fcst_df_fixed,
+  fcst_df         = fcst_df_unemp,
   model_name      = "Okun Model",
   benchmark_model = "RW",
   type = "level"
@@ -56,7 +41,7 @@ export_eval_to_latex(fcst_eval_okun_rw_df, output_save_paths$tables$eval_rw_okun
 # --- AR1 ---
 result_okun_ar1 <- creaFcstEval::run_evaluation(
   df              = Y_okun_eval,
-  fcst_df         = fcst_df_fixed,
+  fcst_df         = fcst_df_unemp,
   model_name      = "Okun Model",
   benchmark_model = "AR1"
   )
@@ -67,7 +52,7 @@ export_eval_to_latex(fcst_eval_okun_ar1_df, output_save_paths$tables$eval_ar1_ok
 # --- AUTO ARMA ---
 result_okun_auto_arma <- creaFcstEval::run_evaluation(
   df              = Y_okun_eval,
-  fcst_df         = fcst_df_fixed,
+  fcst_df         = fcst_df_unemp,
   model_name      = "Okun Model",
   benchmark_model = "AUTO_ARMA",
   max_p = 4,

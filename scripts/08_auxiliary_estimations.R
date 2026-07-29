@@ -39,6 +39,7 @@ df_okun <- df_okun %>%
   )
 
 var_unemp_trend <- var(df_okun$unemp_trend, na.rm = TRUE)
+var_unemp_cycle <- var(df_okun$u_cyclical, na.rm = TRUE)
 
 # ------------------------------------------------------------------------------
 # 1.2 Fit Dynamic Okun Regression Model (with Lagged Unemployment Gap)
@@ -65,15 +66,16 @@ okun_tex <- capture.output(
     type = "latex",
     title = "Auxiliary Regression: Dynamic Okun's Law Model",
     covariate.labels = c(
-      "Lagged Unemp. Gap ($u^c_{t-1}$)", 
-      "Output Gap ($y_t$)", 
-      "Output Gap ($y_{t-1}$)", 
-      "Output Gap ($y_{t-2}$)"
+      "Lagged Unemp. Gap ($\\tilde{u}_{t-1}$)", 
+      "Output Gap ($\\tilde{y_t}$)", 
+      "Output Gap ($\\tilde{y}_{t-1}$)", 
+      "Output Gap ($\\tilde{y}_{t-2}$)"
     ),
-    dep.var.labels = "Cyclical Unemployment ($u^c_t$)",
+    dep.var.labels = "Unemployment Gap ($\\tilde{u}_t$)",
     add.lines = list(
       c("HP Filter Smoothing Parameter ($\\lambda$)", "10,000"),
-      c("Var(Unemployment Trend)", sprintf("%.4f", var_unemp_trend))
+      c("Var($\\bar{u})", sprintf("%.4f", var_unemp_trend)),
+      c("Var($\\tilde{u})", sprintf("%.4f", var_unemp_cycle))
     ),
     notes = "Standard errors in parentheses.",
     align = TRUE,
@@ -307,13 +309,13 @@ phillips_tex <- capture.output(
   stargazer(
     ss_aux_reg,
     type = "latex",
-    title = sprintf("Open-Economy Phillips Curve Auxiliary Regression"),
+    title = sprintf("Phillips Curve Auxiliary Regression"),
     covariate.labels = c(
-      "Inflation Gap ($ \\pi_{t-1}-1 $)",
-      "Output Gap ($ y_t^{gap} $)",
-      "LOP Gap ($ lop_t^{gap} $)"
+      "Inf. Gap ($ \\tilde{\\pi_{t-1}} $)",
+      "Output Gap ($ \tilde{y_t} $)",
+      "LOP Gap ($lop_t^{gap} $)"
     ),
-    dep.var.labels = "Inflation Gap($ \\pi-1 $)",
+    dep.var.labels = "Inflation Gap($\\tilde{\\pi}_t = \\pi_t -1 $)",
     add.lines = list(
       c("HP Filter ($\\lambda$) for independent Var:", as.character(lambda_val))
     ),
@@ -529,9 +531,8 @@ ts_taylor <- ts(
   freq  = 4
 )
 
-# Constrained dynlm model: (i_t - i_bar_{t-1}) ~ i^c_{t-1} + y_gap + pi_gap - 1
 taylor_reg <- dynlm(
-  (interest_rate - L(i_trend, 1)) ~ L(i_gap, 1) + gdp_gap + inf_gap - 1,
+  i_gap ~ L(i_gap, 1) + gdp_gap + inf_gap - 1,
   data = ts_taylor
 )
 
@@ -546,11 +547,6 @@ c_2 <- coefs_tr["inf_gap"]
 gamma_1 <- c_1 / (1 - phi)
 gamma_2 <- c_2 / (1 - phi)
 
-#cat(sprintf("Estimated Inertia Parameter (phi): %.3f\n", phi))
-#cat(sprintf("Constrained Implied Trend Weight (1 - phi): %.3f\n", 1 - phi))
-#cat(sprintf("Long-run Output Gap Reaction (gamma_1): %.3f\n", gamma_1))
-#cat(sprintf("Long-run Inflation Gap Reaction (gamma_2): %.3f\n", gamma_2))
-
 # ------------------------------------------------------------------------------
 # 3.3 Export LaTeX Table
 # ------------------------------------------------------------------------------
@@ -559,22 +555,21 @@ taylor_tex <- capture.output(
   stargazer(
     taylor_reg,
     type = "latex",
-    title = sprintf("Constrained Partial-Adjustment Taylor Rule Auxiliary Regression (\\lambda = %d)", lambda_val),
-    label = "tab:taylor_rule_aux",
+    title = sprintf("Taylor Rule Auxiliary Regression"),
     covariate.labels = c(
-      "Lagged Cyclical Policy Rate ($ i^c_{t-1} $)",
-      "Output Gap ($ y_t^{gap} $)",
-      "Inflation Gap ($ \\pi_t - 1\\% $)"
+      "Lagged Cyclical Policy Rate ($ \\tilde{i}_{t-1} $)",
+      "Output Gap ($ \\tilde{y}_t $)",
+      "Inflation Gap ($ \\tilde{\\pi_t} $)"
     ),
-    dep.var.labels = "Policy Rate Deviation ($i_t - \\bar{i}_{t-1}$)",
+    dep.var.labels = "Cyclical Policy Rate ($ \\tilde{i}_{t} = ($i_t - \\bar{i}_{t}$)",
     add.lines = list(
       c("HP Filter Smoothing Parameter ($\\lambda$)", as.character(lambda_val)),
       c("Var(Interest Rate Trend)", sprintf("%.6f", var_i_trend)),
       c("---", "---"),
-      c("Implied Interest Rate Inertia ($\\hat{\\phi}$)", sprintf("%.4f", phi)),
+      c("Implied Interest Rate Smoothing ($\\hat{\\phi}$)", sprintf("%.4f", phi)),
       c("Implied Trend Weight ($1 - \\hat{\\phi}$)", sprintf("%.4f", 1 - phi)),
-      c("Implied Long-Run Output Gap Reaction ($\\hat{\\gamma}_1$)", sprintf("%.4f", gamma_1)),
-      c("Implied Long-Run Inflation Gap Reaction ($\\hat{\\gamma}_2$)", sprintf("%.4f", gamma_2))
+      c("Implied Output Gap Reaction ($\\hat{\\gamma}_1$)", sprintf("%.4f", gamma_1)),
+      c("Implied Inf Gap Reaction ($\\hat{\\gamma}_2$)", sprintf("%.4f", gamma_2))
     ),
     notes = "Standard errors in parentheses.",
     align = TRUE,

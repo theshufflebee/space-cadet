@@ -30,11 +30,11 @@ taylor_param_plot <- plot_model_parameters(df = taylor_params_df,
 
 creaFcstEval::spaghetti_plot(
   df          = Y_okun_eval,
-  fcst_df     = fcst_df_fixed,
+  fcst_df     = fcst_df_unemp,
   output_path = output_save_paths$plots$spaghetti_okun
 )
 
-error_plotting_wrapper(fcst_df_fixed, "Okun Model", save_path = output_save_paths$plots$errors_okun)
+error_plotting_wrapper(fcst_df_unemp, "Okun Model", save_path = output_save_paths$plots$errors_okun)
 
 # --- RW Benchmark Spaghetti Plot ---
 okun_rw_bench_wide <- creaFcstEval::bench_to_wide(result_okun_rw$bench_long)
@@ -170,7 +170,9 @@ creaFcstEval::spaghetti_plot(
 
 # --- Load Master Df ---
 master_okun <- read_csv(data_save_paths$processed$okun_master_csv, 
-                        show_col_types = FALSE)
+                        show_col_types = FALSE) %>%
+  filter(quarter >= as.yearqtr(val_T1_okun))
+  
 
 # --- Load GDP Forecasts ---
 gdp_forecasts_arima <- read_csv(output_save_paths$forecasts$forecast_df_gdp_arima, 
@@ -313,7 +315,7 @@ print(okun_dashboard)
 # Prepare Data
 # ------------------------------------------------------------------------------
 phillips_data_matrix_full <- build_data_matrix_philips(
-  T_0             = "1990-01-01",  # Or your full sample start preference
+  T_0             = val_T1_phillips,  # Or your full sample start preference
   vantage_quarter = "2026 Q1",     # Up to latest realized history block
   data            = master_philips
 )
@@ -455,6 +457,10 @@ print(philips_fit_plot)
 # --- Select the already Transformed data for the model
 
 # From The Full dataset select the Data needed for the Rolling estimation of the FUll timeline
+master_taylor <- read_csv(data_save_paths$processed$taylor_master_csv, 
+                          show_col_types = FALSE) %>%
+  filter(quarter >= as.yearqtr(val_T1_taylor))
+
 Y_data_taylor <- master_taylor %>%
   select(all_of(c("saron_libor_splice", "forward_rate")))%>%
   slice(4:n())

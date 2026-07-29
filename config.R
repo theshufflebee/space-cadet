@@ -48,9 +48,9 @@ source(here("R", "visualizations.R"))
 LOAD_PARA_EST <- TRUE
 
 # To analyze the estimations from the parallel estimations load these folders
-TARGET_FOLDER_OKUN <- "longerh_okun" # Output destination folder: output/para/...
-TARGET_FOLDER_PHILLIPS <- "longerh_phillips" # Output destination folder: output/para/...
-TARGET_FOLDER_TAYLOR <- "longerh_taylor" # Output destination folder: output/para/...
+TARGET_FOLDER_OKUN <- "final_run_okun_2" # Output destination folder: output/para/...
+TARGET_FOLDER_PHILLIPS <- "final_run_phillips_2" # Output destination folder: output/para/...
+TARGET_FOLDER_TAYLOR <- "final_run_taylor_2" # Output destination folder: output/para/...
 
 # ==============================================================================
 # Downloading and Data Prep Settings
@@ -190,6 +190,12 @@ ts_names <- c(
 # Estimation Settings
 # ==============================================================================
 
+# This is the start of the fit estimation / forst observation
+val_T1_okun <- "1991-01-01"
+val_T1_phillips <- "1982-01-01"
+val_T1_taylor <- "1991-01-01"
+
+
   
 # --- Initial guesses for Okun ---
 okun_parameter_guess <- list(
@@ -263,7 +269,7 @@ SNB_REER_DELAY <- 3
 # ==============================================================================
 
 # Select either the temp or the persisten folder
-store_temp <- TRUE
+store_temp <- FALSE
 
 # Only concerns the output folder
 

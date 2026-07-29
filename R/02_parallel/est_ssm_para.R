@@ -90,11 +90,13 @@ run_est_para_okun <- function(target_date_str,
 #' @param target_date_str Character. The vintage date (e.g., "2020 Q2").
 #' @param sub_folder Character. Destination directory sub-token.
 #' @export
-run_est_para_phillips <- function(target_date_str, sub_folder = "default_phillips") {
+run_est_para_phillips <- function(target_date_str,
+                                  sub_folder = "default_phillips",
+                                  val_T1 = "1982-01-01") {
   
   # Parse dates using the standards established in the rolling framework
   target_date <- zoo::as.yearqtr(target_date_str)
-  val_T1      <- zoo::as.yearqtr("1982-01-01") 
+  val_T1      <- zoo::as.yearqtr(val_T1) 
   
   # Load global master dataframe matching the configuration path keys
   # Assumes master_phillips is stored in data_save_paths$processed$phillips_master_csv
@@ -175,10 +177,13 @@ run_est_para_phillips <- function(target_date_str, sub_folder = "default_phillip
 #' @param sub_folder Character. Destination directory sub-token.
 #' @param gdp_forecasts_arima Dataframe. Pre-loaded global ARIMA projections.
 #' @export
-run_est_para_taylor <- function(target_date_str, sub_folder = "default_taylor", gdp_forecasts_arima) {
+run_est_para_taylor <- function(target_date_str,
+                                sub_folder = "default_taylor",
+                                gdp_forecasts_arima,
+                                val_T1 = "1989-01-01") {
   
   target_date <- zoo::as.yearqtr(target_date_str)
-  val_T1      <- zoo::as.yearqtr("1989-01-01")
+  val_T1      <- zoo::as.yearqtr(val_T1)
   
   # Load master dataset 
   master_path <- data_save_paths$processed$taylor_master_csv

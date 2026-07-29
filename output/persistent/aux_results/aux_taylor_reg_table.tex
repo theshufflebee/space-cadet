@@ -1,0 +1,39 @@
+
+% Table created by stargazer v.5.2.3 by Marek Hlavac, Social Policy Institute. E-mail: marek.hlavac at gmail.com
+% Date and time: Mi, Jul 29, 2026 - 12:08:28
+% Requires LaTeX packages: dcolumn 
+\begin{table}[!htbp] \centering 
+  \caption{Taylor Rule Auxiliary Regression (\lambda = 1600)} 
+  \label{tab:taylor_rule_aux} 
+\begin{tabular}{@{\extracolsep{5pt}}lD{.}{.}{-3} } 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+ & \multicolumn{1}{c}{\textit{Dependent variable:}} \\ 
+\cline{2-2} 
+\\[-1.8ex] & \multicolumn{1}{c}{Policy Rate Deviation ($i_t - \bar{i}_{t-1}$)} \\ 
+\hline \\[-1.8ex] 
+ Lagged Cyclical Policy Rate ($ i^c_{t-1} $) & 0.744^{***} \\ 
+  & (0.041) \\ 
+  Output Gap ($ y_t^{gap} $) & 0.078^{***} \\ 
+  & (0.024) \\ 
+  Inflation Gap ($ \pi_t - 1\% $) & 0.052^{***} \\ 
+  & (0.015) \\ 
+ \hline \\[-1.8ex] 
+HP Filter Smoothing Parameter ($\lambda$) & 1600 \\ 
+Var(Interest Rate Trend) & 6.212753 \\ 
+--- & --- \\ 
+Implied Interest Rate Smoothing ($\hat{\phi}$) & 0.7441 \\ 
+Implied Trend Weight ($1 - \hat{\phi}$) & 0.2559 \\ 
+Implied Output Gap Reaction ($\hat{\gamma}_1$) & 0.3056 \\ 
+Implied Inf Gap Reaction ($\hat{\gamma}_2$) & 0.2016 \\ 
+Observations & \multicolumn{1}{c}{148} \\ 
+R$^{2}$ & \multicolumn{1}{c}{0.793} \\ 
+Adjusted R$^{2}$ & \multicolumn{1}{c}{0.789} \\ 
+Residual Std. Error & \multicolumn{1}{c}{0.316 (df = 145)} \\ 
+F Statistic & \multicolumn{1}{c}{185.469$^{***}$ (df = 3; 145)} \\ 
+\hline 
+\hline \\[-1.8ex] 
+\textit{Note:}  & \multicolumn{1}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+ & \multicolumn{1}{r}{Standard errors in parentheses.} \\ 
+\end{tabular} 
+\end{table} 

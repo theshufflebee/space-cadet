@@ -7,10 +7,12 @@
 
 # Use the estimated parameters from the last step to forecast with the forecasted output gaps
 Y_okun <- master_okun %>%
-  select(quarter, unemp_rate)
+  select(quarter, unemp_rate) %>%
+  filter(quarter >= as.yearqtr(val_T1_okun))
 
 X_okun <- master_okun %>%
-  select(quarter, log_gdp)
+  select(quarter, log_gdp) %>%
+  filter(quarter >= as.yearqtr(val_T1_okun))
 
 forecast_okun_df <- forecast_okun_ssm(params_df = okun_params_df,
                                       Y_data_df = Y_okun,
@@ -32,7 +34,7 @@ dim(okun_eval_square)
 colnames(okun_eval_square) <- format(as.yearqtr(colnames(okun_eval_square)), "%YQ%q")
 rownames(okun_eval_square) <- format(as.yearqtr(rownames(okun_eval_square)), "%YQ%q")
 
-fcst_df_okun <- okun_eval_square %>%
+fcst_df_unemp <- okun_eval_square %>%
   rownames_to_column(var = "date") %>%
   as.data.frame()
 

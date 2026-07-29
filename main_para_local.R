@@ -25,15 +25,15 @@ set.seed(42) # Set a seed so the shuffle is reproducible
 DO_TRIAL_RUN <- FALSE
 
 # What Models you Run
-RUN_OKUN_MODEL <- TRUE
+RUN_OKUN_MODEL <- FALSE
 RUN_PHILLIPS_MODEL <- FALSE
-RUN_TAYLOR_MODEL <- FALSE
+RUN_TAYLOR_MODEL <- TRUE
 
 # --- Estimation Range ---
 START_WINDOW_OKUN  <- zoo::as.yearqtr("2000 Q1")
 END_WINDOW_OKUN    <- zoo::as.yearqtr("2026 Q1")
 HIST_DATES_OKUN    <- format(seq(START_WINDOW_OKUN, END_WINDOW_OKUN, by = 0.25), format = "%Y Q%q")
-HIST_DATES_OKUN <- sample(HIST_DATES_OKUN) # sampling (mixing up the date vector) no core has only models that are fast to estimate
+HIST_DATES_OKUN <- sample(HIST_DATES_OKUN) # sampling (mixing up the date vector)
 
 START_WINDOW_PHILLIPS  <- zoo::as.yearqtr("1990 Q1")
 END_WINDOW_PHILLIPS    <- zoo::as.yearqtr("2026 Q1")
@@ -84,7 +84,8 @@ if(RUN_OKUN_MODEL) {
     run_est_para_okun(
       target_date_str     = date_str, 
       sub_folder          = TARGET_FOLDER_OKUN, 
-      gdp_forecasts_arima = gdp_forecasts_arima
+      gdp_forecasts_arima = gdp_forecasts_arima,
+      val_T1 = val_T1_okun
     )
   })
   message("\n=== FINISHED OKUN MODEL PARALLEL ESTIMATION ===")
@@ -133,7 +134,8 @@ if(RUN_PHILLIPS_MODEL) {
     
     run_est_para_phillips(
       target_date_str     = date_str, 
-      sub_folder          = TARGET_FOLDER_PHILLIPS
+      sub_folder          = TARGET_FOLDER_PHILLIPS,
+      val_T1              = val_T1_phillips
     )
   })
   message("\n=== FINISHED PHILLIPS MODEL PARALLEL ESTIMATION ===")
