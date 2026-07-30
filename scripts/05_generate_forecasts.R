@@ -8,7 +8,8 @@
 # Use the estimated parameters from the last step to forecast with the forecasted output gaps
 Y_okun <- master_okun %>%
   select(quarter, unemp_rate) %>%
-  filter(quarter >= as.yearqtr(val_T1_okun))
+  drop_na()
+  #filter(quarter >= as.yearqtr(val_T1_okun))
 
 X_okun <- master_okun %>%
   select(quarter, log_gdp) %>%
