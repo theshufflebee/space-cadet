@@ -269,7 +269,7 @@ SNB_REER_DELAY <- 3
 # ==============================================================================
 
 # Select either the temp or the persisten folder
-store_temp <- FALSE
+store_temp <- TRUE
 
 # Only concerns the output folder
 
@@ -308,6 +308,7 @@ output_save_paths <- list(
     spaghetti_philips      = here(output_base, "plots/spaghetti_philips.png"),
     spaghetti_taylor      = here(output_base, "plots/spaghetti_taylor.png"),
     spaghetti_taylor_rounded = here(output_base, "plots/spaghetti_taylor_rounded.png"),
+    spaghetti_gdp      = here(output_base, "plots/spaghetti_gdp.png"),
     errors_okun = here(output_base, "plots/errors_okun.png"),
     errors_phillips = here(output_base, "plots/errors_phillips.png"),
     errors_taylor = here(output_base, "plots/errors_taylor.png"),
@@ -335,7 +336,11 @@ output_save_paths <- list(
       
       taylor_rw = here(output_base, "plots/benchmark_spaghetti_taylor_rw.png"),
       taylor_ar1 = here(output_base, "plots/benchmark_spaghetti_taylor_ar1.png"),
-      taylor_auto_arma = here(output_base, "plots/benchmark_spaghetti_taylor_auto_arma.png")
+      taylor_auto_arma = here(output_base, "plots/benchmark_spaghetti_taylor_auto_arma.png"),
+      
+      gdp_rw = here(output_base, "plots/benchmark_spaghetti_gdp_rw.png"),
+      gdp_ar1 = here(output_base, "plots/benchmark_spaghetti_gdp_ar1.png"),
+      gdp_auto_arma = here(output_base, "plots/benchmark_spaghetti_gdp_auto_arma.png")
     ),
     
     current_forecasts = list(
@@ -360,16 +365,20 @@ output_save_paths <- list(
     eval_rw_okun = here(output_base, "tables/okun_eval_rw_table.tex"),
     eval_rw_philips = here(output_base, "tables/philips_eval_rw_table.tex"),
     eval_rw_taylor = here(output_base, "tables/taylor_eval_rw_table.tex"),
+    eval_rw_gdp = here(output_base, "tables/gdp_eval_rw_table.tex"),
+    
     
     # AR1 Benchmark
     eval_ar1_okun = here(output_base, "tables/okun_eval_ar1_table.tex"),
     eval_ar1_philips = here(output_base, "tables/philips_eval_ar1_table.tex"),
     eval_ar1_taylor = here(output_base, "tables/taylor_eval_ar1_table.tex"),
+    eval_ar1_gdp = here(output_base, "tables/gdp_eval_ar1_table.tex"),
     
     # Auto Arma Benchmark
     eval_auto_arma_okun = here(output_base, "tables/okun_eval_auto_arma_table.tex"),
     eval_auto_arma_philips = here(output_base, "tables/philips_eval_auto_arma_table.tex"),
     eval_auto_arma_taylor = here(output_base, "tables/taylor_eval_auto_arma_table.tex"),
+    eval_auto_arma_gdp = here(output_base, "tables/gdp_eval_auto_arma_table.tex"),
     
     # Initial Params & Constraints Tables
     okun_param_table = here(output_base, "tables/okun_param_table.tex"),

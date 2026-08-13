@@ -47,8 +47,7 @@ forecast_okun_ssm <- function(params_df,
     # Extract estimated parameters and latent states from this vintage row
     current_params <- params[i, ]
     
-    # NEW SETTING: Read the optimal filtered/smoothed states from your rolling output matrix
-    # instead of doing (raw_unemployment - trend)
+    # get GDP
     rho_T           <- current_params$natural_rate   # u_bar_{T|T}
     current_u_tilde <- current_params$state_2_trend   # u_tilde_{T|T}
     

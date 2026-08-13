@@ -56,6 +56,20 @@ if (run_rolling_estimation || !file.exists(output_save_paths$forecasts$forecast_
 }
 
 
+
+
+last_origin <- ncol(gdp_forecasts_arima)
+
+gdp_eval_square <- gdp_forecasts_arima[1:last_origin, 1:last_origin]
+
+dim(gdp_eval_square)
+
+fcst_df_gdp <- gdp_eval_square %>%
+  mutate(date = format(zoo::as.yearqtr(date), "%YQ%q")) %>%
+  rename_with(~ format(zoo::as.yearqtr(.x), "%YQ%q"), .cols = -date)
+
+
+
 # --- INFLATION FORECASTS ---
 if (run_rolling_estimation || !file.exists(output_save_paths$forecasts$forecast_df_inf_arima)) {
   

@@ -24,6 +24,54 @@ taylor_param_plot <- plot_model_parameters(df = taylor_params_df,
                                             title = "Taylor Rolling Parameter Estimation Plot",
                                             save_path = output_save_paths$plots$params_taylor)
 
+
+# ==============================================================================
+#  AUX/GDP: Spaghetti Plots for Forecasts and Benchmarks
+# ==============================================================================
+creaFcstEval::spaghetti_plot(
+  df          = Y_gdp_eval,
+  fcst_df     = fcst_df_gdp,
+  output_path = output_save_paths$plots$spaghetti_gdp
+)
+
+error_plotting_wrapper(fcst_df_gdp, "GDP ARIMA Model", save_path = output_save_paths$plots$errors_gdp)
+
+
+# --- RW Benchmark Spaghetti Plot ---
+gdp_rw_bench_wide <- creaFcstEval::bench_to_wide(result_gdp_rw$bench_long)
+gdp_rw_bench_wide <- standardize_yq_seq(gdp_rw_bench_wide)
+
+creaFcstEval::spaghetti_plot(
+  df          = Y_gdp_eval,
+  fcst_df     = gdp_rw_bench_wide,
+  output_path = output_save_paths$plots$benchmark$gdp_rw
+)
+
+# --- AR1 Benchmark Spaghetti Plot ---
+gdp_ar1_bench_wide <- creaFcstEval::bench_to_wide(result_gdp_ar1$bench_long)
+gdp_ar1_bench_wide <- standardize_yq_seq(gdp_ar1_bench_wide)
+
+creaFcstEval::spaghetti_plot(
+  df          = Y_gdp_eval,
+  fcst_df     = gdp_ar1_bench_wide,
+  output_path = output_save_paths$plots$benchmark$gdp_ar1
+)
+
+# --- AUTO ARMA Benchmark Spaghetti Plot ---
+gdp_auto_arma_bench_wide <- creaFcstEval::bench_to_wide(result_gdp_auto_arma$bench_long)
+gdp_auto_arma_bench_wide <- standardize_yq_seq(gdp_auto_arma_bench_wide)
+
+creaFcstEval::spaghetti_plot(
+  df          = Y_gdp_eval,
+  fcst_df     = gdp_auto_arma_bench_wide,
+  output_path = output_save_paths$plots$benchmark$gdp_auto_arma
+)
+
+
+
+
+
+
 # ==============================================================================
 #  OKUN: Spaghetti Plots for Forecasts and Benchmarks
 # ==============================================================================

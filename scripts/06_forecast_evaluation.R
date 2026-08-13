@@ -7,6 +7,67 @@
 message("Starting Forecast Evaluation")
 
 
+Y_gdp_eval <- master_quarterly %>%
+  select(c("quarter", "log_gdp")) %>%
+  rename(date = quarter,
+         value = log_gdp) %>%
+  mutate(date = format(as.yearqtr(date), "%YQ%q"))%>%
+  drop_na()
+
+# Evaluate GDP Forecasts
+# ------------------------------------------------------------------------------
+result_gdp_rw <- creaFcstEval::run_evaluation(
+  df              = Y_gdp_eval,
+  fcst_df         = fcst_df_gdp,
+  model_name      = "GDP Model",
+  benchmark_model = "RW",
+  type = "growth"
+)
+
+fcst_eval_gdp_rw_df <- result_gdp_rw$table
+export_eval_to_latex(fcst_eval_gdp_rw_df, output_save_paths$tables$eval_rw_gdp)
+
+
+# --- AUTO ARMA ---
+result_gdp_auto_arma <- creaFcstEval::run_evaluation(
+  df              = Y_gdp_eval,
+  fcst_df         = fcst_df_gdp,
+  model_name      = "GDP Model",
+  benchmark_model = "AUTO_ARMA",
+  type = "growth",
+  max_p = 4,
+  max_q = 4
+)
+
+fcst_eval_gdp_auto_arma_df <- result_gdp_auto_arma$table
+export_eval_to_latex(fcst_eval_gdp_auto_arma_df, output_save_paths$tables$eval_auto_arma_gdp)
+
+# To make AR eval work
+Y_gdp_eval <- Y_gdp_eval %>%
+  slice(4:n())
+
+
+# --- AR1 ---
+result_gdp_ar1 <- creaFcstEval::run_evaluation(
+  df              = Y_gdp_eval,
+  fcst_df         = fcst_df_gdp,
+  model_name      = "GDP Model",
+  benchmark_model = "AR1",
+  type = "growth"
+)
+
+fcst_eval_gdp_ar1_df <- result_gdp_ar1$table
+export_eval_to_latex(fcst_eval_gdp_ar1_df, output_save_paths$tables$eval_ar1_gdp)
+
+
+
+
+
+
+
+
+
+
 # ==============================================================================
 # OKUN Model Evaluation
 # ==============================================================================
@@ -20,6 +81,8 @@ Y_okun_eval <- Y_okun %>%
          value = unemp_rate) %>%
   mutate(date = format(as.yearqtr(date), "%YQ%q"))%>%
   drop_na()
+
+
 
 # Evaluate Okun Model
 # ------------------------------------------------------------------------------
