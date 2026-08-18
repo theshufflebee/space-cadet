@@ -4,33 +4,32 @@
 #
 ################################################################################
 
+# Note to Self: Roxygen documentation has been generated with AI
 
-
-
-
-#' Plot and Save Model Parameter Evolution (Grid Optimization)
+#' Plot and Save Model Parameter Evolution
 #'
-#' @description
-#' Visualizes the evolution of model parameters over the rolling estimation range.
-#' Parameters are arranged in grids maximizing at 3 rows vertically, appending 
-#' new column stacks to the right with independent y-axes.
+#' Visualizes recursive parameter estimates across expanding or rolling sample windows.
+#' Formats the input data into long form and arranges parameters in a faceted grid 
+#' capped at three vertical rows with free y-axes, scaling export dimensions dynamically.
 #'
-#' @param df A dataframe containing a \code{quarter} column and parameter estimate columns.
-#' @param save_path Character. The file path (including filename and extension) 
-#' where the plot should be saved. If \code{NULL}, the plot is not saved to disk.
-#' @param title Character. The main title for the plot, typically indicating the 
-#' model name (e.g., "Okun Model" or "Phillips Curve").
+#' @param df A data frame containing a \code{quarter} column (parseable via 
+#'   \code{zoo::as.yearqtr} or as \code{Date}) and numeric columns corresponding to 
+#'   individual parameter estimate series.
+#' @param save_path Optional character string. Destination file path (including extension) 
+#'   to save the plot via \code{ggplot2::ggsave}. Subdirectories are created automatically 
+#'   if they do not exist. Defaults to \code{NULL}.
+#' @param title Character. Main chart title, typically indicating the model name. 
+#'   Defaults to \code{"Model Parameter Stability"}.
 #'
-#' @return A ggplot object.
-#'
-#' @import ggplot2
-#' @importFrom tidyr pivot_longer
-#' @importFrom zoo as.yearqtr
+#' @return A \code{ggplot} object containing the faceted parameter stability plots.
 #' @export
+#' @import ggplot2
+#' @importFrom dplyr mutate select %>%
+#' @importFrom tidyr pivot_longer
+#' @importFrom zoo as.yearqtr as.Date
 plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter Stability") {
   
   # Wide to Long Formatting
-  # ----------------------------------------------------------------------------
   plot_data <- df %>%
     mutate(
       # Ensure date class is correctly parsed for plotting
@@ -46,7 +45,6 @@ plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter
     mutate(parameter = gsub("_", " ", toupper(parameter)))
   
   # Build base plot
-  # ----------------------------------------------------------------------------
   p <- ggplot(plot_data, aes(x = date, y = value)) +
     
     # Intercept
@@ -54,22 +52,21 @@ plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter
     # Line for tracking
     geom_line(color = "#34495e", linewidth = 1.0) +
 
-    # FIXED HERE: Constrain to maximum 3 rows vertically, wrap columns to the right
+    # Constrain to maximum 3 rows vertically, wrap columns to the right
     facet_wrap(~parameter, nrow = 3, scales = "free_y") +
     
     # Labeling payload
     labs(
       title    = title,
-      subtitle = "Recursive Rolling Coefficients (Parameter Drift Time-Profile)",
-      x        = "Estimation Vantage Origin (Forecast Date)",
-      y        = "Coefficient Magnitude"
+      subtitle = "Recursive Estimates of Rolling Coefficients",
+      x        = "Last date of Sample",
+      y        = "Coefficient Size"
     ) +
     
     # Native Time Mapping
     scale_x_date(date_labels = "%Y", date_breaks = "2 years") +
     
-    # Clean Academic Theme Styling
-    # ----------------------------------------------------------------------------
+    # Styling
   theme_minimal(base_size = 11) +
     theme(
       # them specs for title and axis names
@@ -89,7 +86,6 @@ plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter
     )
   
   # Export and saving Logic
-  # ----------------------------------------------------------------------------
   if (!is.null(save_path)) {
     dir_name <- dirname(save_path)
     if (!dir.exists(dir_name) && dir_name != ".") {
@@ -98,8 +94,7 @@ plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter
     
     num_params <- length(unique(plot_data$parameter))
     
-    # FIXED HERE: Dynamically calculate dimensions for horizontal grid wrapping
-    # Max rows is fixed at 3. Calculate necessary columns:
+    # Dynamically calculate the dimensions and arrangement of the plots
     num_cols <- ceiling(num_params / 3)
     num_rows <- min(num_params, 3)
     
@@ -123,26 +118,42 @@ plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter
   return(p)
 }
 
-# ==============================================================================
-# Plotting function For the Model Fit
-# ==============================================================================
-
-
-#' Generate Two-Tier Diagnostics Plot for the SSM Model Fit
-#' 
-#' @param plot_df A data frame containing a `date` column (Date or yearqtr) and numeric tracks.
-#' @param title Character. Main chart title.
-#' @param subtitle Character. Chart subtitle.
-#' @param top_metrics A named character vector mapping column names to Legend Titles for the top panel.
-#'                    Format: c("column_name" = "Legend Label")
-#' @param bottom_metrics A named character vector mapping column names to Legend Titles for the bottom panel.
-#' @param top_colors A named vector of hex codes matching the *Legend Labels* specified in top_metrics.
-#' @param bottom_colors A named vector of hex codes matching the *Legend Labels* specified in bottom_metrics.
-#' @param zlb_bounds Optional numeric vector of length 2: c(ymin, ymax). Shades a horizontal band on the top plot (e.g., c(-0.75, 0.00)).
-#' @param y_label_top Character. Y-axis label for top plot. Default "Rate (%)".
-#' @param y_label_bottom Character. Y-axis label for bottom plot. Default "Deviation / Rate (%)".
-#' 
-#' @return A combined patchwork dashboard object.
+#' Generate SSM Fit Plot Including Auxiliary Variables
+#'
+#' Constructs a two-panel stacked dashboard using \code{ggplot2} and \code{patchwork}
+#' to visualize state-space model fits. The top panel displays primary measurement
+#' variables and trend components (with optional zero lower bound shading), while
+#' the bottom panel tracks cyclical deviations and auxiliary regressors.
+#'
+#' @param plot_df A data frame containing a \code{date} column (of class \code{Date}
+#'   or \code{yearqtr}) alongside numeric metric series to plot.
+#' @param title Character. Main chart title for the top panel.
+#' @param subtitle Character. Chart subtitle for the top panel.
+#' @param top_metrics A named character vector mapping column names in \code{plot_df}
+#'   to their corresponding legend labels for the top panel, formatted as
+#'   \code{c("column_name" = "Legend Label")}.
+#' @param bottom_metrics A named character vector mapping column names in \code{plot_df}
+#'   to their corresponding legend labels for the bottom panel, formatted as
+#'   \code{c("column_name" = "Legend Label")}.
+#' @param top_colors A named character vector of color hex codes or names matching
+#'   the legend label values defined in \code{top_metrics}.
+#' @param bottom_colors A named character vector of color hex codes or names matching
+#'   the legend label values defined in \code{bottom_metrics}.
+#' @param zlb_bounds Optional numeric vector of length 2: \code{c(ymin, ymax)}.
+#'   Shades a horizontal band with threshold lines on the top plot (e.g., \code{c(-0.75, 0.00)}).
+#'   Defaults to \code{NULL}.
+#' @param y_label_top Character. Y-axis label for the top panel. Defaults to \code{"Rate (\%)"}.
+#' @param y_label_bottom Character. Y-axis label for the bottom panel. Defaults to \code{"Deviation / Rate (\%)"}.
+#' @param save_path Optional character string. File path where the plot should be exported via
+#'   \code{ggplot2::ggsave}. Directories are created automatically if they do not exist. Defaults to \code{NULL}.
+#'
+#' @return A combined \code{patchwork} object containing the two stacked \code{ggplot} panels.
+#' @export
+#' @import ggplot2
+#' @importFrom dplyr mutate %>%
+#' @importFrom rlang sym !!
+#' @importFrom patchwork plot_layout /
+#' @importFrom zoo as.Date
 plot_state_space_fit <- function(plot_df,
                                  title,
                                  subtitle,
@@ -159,12 +170,10 @@ plot_state_space_fit <- function(plot_df,
   plot_df <- plot_df %>% 
     mutate(date = if(inherits(date, "yearqtr")) zoo::as.Date(date) else as.Date(date))
   
-  # ==============================================================================
-  # PANEL 1: Core Target Space (Top Plot)
-  # ==============================================================================
+  # Build the upper part of the plot with the core measurement variables
   p1 <- ggplot(plot_df, aes(x = date))
   
-  # Render optional ZLB shaded horizontal region
+  # Render ZLB
   if (!is.null(zlb_bounds)) {
     p1 <- p1 + 
       geom_rect(aes(xmin = min(date), xmax = max(date), 
@@ -174,7 +183,7 @@ plot_state_space_fit <- function(plot_df,
       geom_hline(yintercept = zlb_bounds[1], linetype = "dashed", color = "grey50", linewidth = 0.5)
   }
   
-  # FIXED LOOP: Forces instant evaluation of BOTH column name and legend label string
+  # local used for instant evaluation instead of sequention
   for (col_name in names(top_metrics)) {
     local({
       c_name <- col_name
@@ -196,13 +205,11 @@ plot_state_space_fit <- function(plot_df,
       axis.text.x = element_blank()
     )
   
-  # ==============================================================================
-  # PANEL 2: Covariates / Gaps (Bottom Plot)
-  # ==============================================================================
+  # --- Bottom Plot ---
   p2 <- ggplot(plot_df, aes(x = date)) +
     geom_hline(yintercept = 0.00, color = "grey60", linewidth = 0.5)
   
-  # FIXED LOOP: Forces instant evaluation for the bottom tier metrics
+  # Forces instant evaluation for the bottom tier metrics
   for (col_name in names(bottom_metrics)) {
     local({
       c_name <- col_name
@@ -244,19 +251,34 @@ plot_state_space_fit <- function(plot_df,
     )
     message(paste("Successfully Exported Fit Plot for the", title, "to:", save_path))
   }
-  
-  
-  
   return(dashboard)
 }
 
 
-
+#' Plot Current Forecasts
+#'
+#' Generates a ggplot visualising realized actual values along the diagonal of a
+#' forecast matrix against the latest available forecast vintage path.
+#'
+#' @param fcst_df A matrix or data frame representing a lower-triangular forecast
+#'   table. Must contain quarterly date strings parseable by \code{zoo::as.yearqtr}
+#'   as row names (target dates) and column names (vintage dates).
+#' @param title Optional string. Plot title. Defaults to \code{"Real-Time Out-of-Sample Forecast Evaluation"}.
+#' @param save_path Optional string. File path where the plot should be exported.
+#'   Directories are created automatically if they do not exist.
+#' @param width Numeric. Width of exported plot in inches. Defaults to \code{8}.
+#' @param height Numeric. Height of exported plot in inches. Defaults to \code{5}.
+#'
+#' @return A \code{ggplot} object showing realized actuals and the latest forecast trajectory.
+#' @export
+#' @import ggplot2
+#' @importFrom dplyr filter arrange %>%
+#' @importFrom zoo as.yearqtr
+#' @importFrom stats setNames
+#' @importFrom utils head tail
 plot_current_forecasts <- function(fcst_df, title = NULL, save_path = NULL, width = 8, height = 5) {
   
-  # ----------------------------------------------------------------------------
-  # 0. Format & Type Conversion (Matrix/Data.frame with Rownames)
-  # ----------------------------------------------------------------------------
+  # Format & Type Conversion
   if (is.matrix(fcst_df)) {
     fcst_mat <- fcst_df
     fcst_df  <- as.data.frame(fcst_df)
@@ -274,9 +296,7 @@ plot_current_forecasts <- function(fcst_df, title = NULL, save_path = NULL, widt
   target_dates  <- as.Date(zoo::as.yearqtr(target_date_strs))
   vintage_dates <- as.Date(zoo::as.yearqtr(vintage_date_strs))
   
-  # ----------------------------------------------------------------------------
-  # 1. Filter for diagonal in df (realized actuals)
-  # ----------------------------------------------------------------------------
+  # Filter for diagonal in df (realized actuals)
   common_quarters <- intersect(target_date_strs, vintage_date_strs)
   
   diag_actuals <- sapply(common_quarters, function(q) {
@@ -290,9 +310,7 @@ plot_current_forecasts <- function(fcst_df, title = NULL, save_path = NULL, widt
     filter(!is.na(actual)) %>% 
     arrange(date)
   
-  # ----------------------------------------------------------------------------
-  # 2. Select latest column (latest vintage forecast)
-  # ----------------------------------------------------------------------------
+  # Select latest date
   latest_vintage_str <- tail(vintage_date_strs, 1)
   
   latest_fcst_df <- data.frame(
@@ -302,9 +320,7 @@ plot_current_forecasts <- function(fcst_df, title = NULL, save_path = NULL, widt
     filter(!is.na(forecast)) %>% 
     arrange(date)
   
-  # ----------------------------------------------------------------------------
-  # 3. Check for continuity between latest actual & first forecast
-  # ----------------------------------------------------------------------------
+  # Check for continuity between latest actual & first forecast
   last_actual_val <- tail(actuals_df$actual, 1)
   first_fcst_val  <- head(latest_fcst_df$forecast, 1)
   
@@ -320,9 +336,7 @@ plot_current_forecasts <- function(fcst_df, title = NULL, save_path = NULL, widt
   # Set default title if not supplied
   plot_title <- if (is.null(title)) "Real-Time Out-of-Sample Forecast Evaluation" else title
   
-  # ----------------------------------------------------------------------------
-  # 4. Construct Plot
-  # ----------------------------------------------------------------------------
+  # Construct Plot
   p <- ggplot() +
     # Realized Actuals Line
     geom_line(
@@ -368,9 +382,7 @@ plot_current_forecasts <- function(fcst_df, title = NULL, save_path = NULL, widt
       panel.grid.minor = element_blank()
     )
   
-  # ----------------------------------------------------------------------------
-  # 5. Export / Save Plot Block
-  # ----------------------------------------------------------------------------
+  # Export / Save Plot
   if (!is.null(save_path)) {
     # Ensure directory exists if subfolders are specified
     dir_name <- dirname(save_path)

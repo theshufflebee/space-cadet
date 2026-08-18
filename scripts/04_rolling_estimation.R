@@ -46,6 +46,22 @@ if (run_rolling_estimation || !file.exists(output_save_paths$forecasts$forecast_
   write_csv(gdp_forecasts_arima, output_save_paths$forecasts$forecast_df_gdp_arima)
   message("GDP FORECATSTS SAVED SUCCESSFULLY")
   
+  gdp_gap_fcst_list <- get_hp_gap_forecast_matrix(
+    Y_df     = master_philips,
+    fcst_df  = gdp_forecasts_arima,
+    val_col  = "log_gdp", # Actual historical burn-in series column
+    date_col = "quarter",
+    freq     = 1600
+  )
+  
+  output_gap_forecasts <- gdp_gap_fcst_list$forecast_matrix %>%
+    rename(date = quarter)
+  
+  output_gap_full_series <- gdp_gap_fcst_list$full_sample_gap%>%
+    rename(value = full_sample_hp_gap,
+           date = quarter)
+  
+  
 } else {
   # Read from disk and dynamically format matrix structures back into expected shapes
   message("LOADING GDP FORECATSTS...")
@@ -53,6 +69,23 @@ if (run_rolling_estimation || !file.exists(output_save_paths$forecasts$forecast_
   gdp_forecasts_arima <- read_csv(output_save_paths$forecasts$forecast_df_gdp_arima) %>%
     mutate(date = format(zoo::as.yearqtr(date, format = "%Y Q%q"))) %>%
     rename_with(~ format(zoo::as.yearqtr(.x, format = "%Y Q%q")), .cols = -date)
+  
+  gdp_gap_fcst_list <- get_hp_gap_forecast_matrix(
+    Y_df     = master_philips,
+    fcst_df  = gdp_forecasts_arima,
+    val_col  = "log_gdp", # Actual historical burn-in series column
+    date_col = "quarter",
+    freq     = 1600,
+    is_already_logged = TRUE
+  )
+  
+  output_gap_forecasts <- gdp_gap_fcst_list$forecast_matrix %>%
+    rename(date = quarter)
+  
+  output_gap_full_series <- gdp_gap_fcst_list$full_sample_gap%>%
+    rename(value = full_sample_hp_gap,
+           date = quarter)
+  
 }
 
 
@@ -91,6 +124,98 @@ if (run_rolling_estimation || !file.exists(output_save_paths$forecasts$forecast_
     mutate(date = format(zoo::as.yearqtr(date, format = "%Y Q%q"))) %>%
     rename_with(~ format(zoo::as.yearqtr(.x, format = "%Y Q%q")), .cols = -date)
 }
+
+
+# --- LOP FORECATS ---
+last_snb_reer_value <- master_philips %>%
+  filter(!is.na(reer_eu_ppi)) %>%
+  slice_tail(n = 1) %>%
+  pull(reer_eu_ppi)
+
+reer_crea_base <- master_philips %>%
+  filter(!is.na(reer_eu_ppi)) %>%
+  slice_tail(n = 1) %>%
+  pull(REER_CREA)
+
+master_lop <- master_philips %>%
+  mutate(
+    reer_eu_ppi = if_else(
+      !is.na(reer_eu_ppi),
+      reer_eu_ppi,
+      last_snb_reer_value * (REER_CREA / reer_crea_base)
+    )
+  ) %>%
+  select(quarter, reer_eu_ppi, REER_CREA, ex_eoq, ppi_eur_idx, ppi_ch_idx)
+
+if (run_rolling_estimation || !file.exists(output_save_paths$forecasts$forecast_df_snb_reer)) {
+  
+  snb_reer_series_forecasts <- generate_snb_reer_forecasts(data = master_lop,
+                                                           burn_in = "1982 Q1")
+  
+  write_csv(snb_reer_series_forecasts, output_save_paths$forecasts$forecast_df_snb_reer)
+  
+  lop_gap_fcst_list <- get_hp_gap_forecast_matrix(
+    Y_df     = master_lop,
+    fcst_df  = snb_reer_series_forecasts,
+    val_col  = "reer_eu_ppi", # Actual historical burn-in series column
+    date_col = "quarter",
+    freq     = 1600
+  )
+  
+  lop_forecasts <- lop_gap_fcst_list$forecast_matrix %>%
+    rename(date = quarter)
+
+  lop_gap_full_series <- lop_gap_fcst_list$full_sample_gap%>%
+    rename(value = full_sample_hp_gap,
+           date = quarter)
+  
+} else {
+  message("LOADING LOP FORECATSTS...")
+  
+  snb_reer_series_forecasts <- read_csv(output_save_paths$forecasts$forecast_df_snb_reer)
+  
+  lop_gap_fcst_list <- get_hp_gap_forecast_matrix(
+    Y_df     = master_philips,
+    fcst_df  = snb_reer_series_forecasts,
+    val_col  = "reer_eu_ppi", # Actual historical burn-in series column
+    date_col = "quarter",
+    freq     = 1600
+  )
+  
+  lop_forecasts <- lop_gap_fcst_list$forecast_matrix %>%
+    rename(date = quarter
+           ) %>%
+    slice_head(n = -h)
+  
+  last_origin <- ncol(lop_forecasts)
+  lop_gap_fcst_df <- lop_forecasts[1:(last_origin - 4), 1:(last_origin - 3)]
+  dim(lop_gap_fcst_df)
+  
+  
+  
+  lop_gap_full_series <- lop_gap_fcst_list$full_sample_gap%>%
+    rename(date = quarter,
+           value = full_sample_hp_gap)
+}
+
+
+
+last_origin <- ncol(snb_reer_series_forecasts)
+
+snb_reer_eval_square <- snb_reer_series_forecasts[1:(last_origin - 5), 1:(last_origin - 4)]
+dim(snb_reer_eval_square)
+
+fcst_df_lop <- snb_reer_eval_square %>%
+  mutate(date = format(zoo::as.yearqtr(date), "%YQ%q")) %>%
+  rename_with(~ format(zoo::as.yearqtr(.x), "%YQ%q"), .cols = -date)
+
+Y_snb_reer <- master_lop %>%
+  select(quarter, reer_eu_ppi) %>%
+  rename(value = reer_eu_ppi,
+         date = quarter) %>%
+  mutate(date = format(zoo::as.yearqtr(date), "%YQ%q")) %>%
+  drop_na() %>%
+  slice_head(n = -4)
 
 
 ################################################################################

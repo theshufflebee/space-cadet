@@ -1,0 +1,25 @@
+\begin{table}[htbp]
+\centering
+\caption{Out-of-Sample Predictive Evaluation: LOP Gap Model vs. AUTO_ARMA Benchmark}
+\label{tab:lop_gap_model_evaluation}
+\footnotesize
+\begin{tabular}{l cccccccc}
+\hline\hline
+\rule{0pt}{3ex}
+\textbf{H} & \textbf{MSFE} & \textbf{DM MSFE} & \textbf{MAFE} & \textbf{DM MAFE} & \textbf{MZ Test} & \textbf{Unbias} & \textbf{Strong Eff} & \textbf{Weak Eff} \\[0.5ex]
+\hline
+\rule{0pt}{2.5ex}
+1 & 4.09 & 5.3 (1.00) & 2.09 & 7.13 (1.00) & 6.04 (0.00) & 0.58 (0.56) & -3.41 (0.00) & 167.85 (0.00) \\
+2 & 1.99 & 2.67 (1.00) & 1.42 & 3.11 (1.00) & 3.92 (0.02) & 1.12 (0.27) & -2.76 (0.01) & 89.87 (0.00) \\
+3 & 1.67 & 2.08 (0.98) & 1.29 & 2.26 (0.99) & 5.42 (0.01) & 1.14 (0.26) & -3.25 (0.00) & 23.56 (0.01) \\
+4 & 1.53 & 1.87 (0.97) & 1.20 & 1.76 (0.96) & 11.1 (0.00) & 1.22 (0.22) & -4.71 (0.00) & 10.11 (0.52) \\
+5 & 1.43 & 1.56 (0.94) & 1.15 & 1.23 (0.89) & 23.25 (0.00) & 1.31 (0.19) & -6.82 (0.00) & 6.54 (0.83) \\
+6 & 1.36 & 1.37 (0.91) & 1.10 & 0.85 (0.8) & 34.03 (0.00) & 1.36 (0.18) & -7.78 (0.00) & 2.62 (0.99) \\
+7 & 1.28 & 1.32 (0.9) & 1.05 & 0.54 (0.7) & 32.77 (0.00) & 1.41 (0.16) & -5.98 (0.00) & 1.77 (1.00) \\
+8 & 1.36 & 1.44 (0.92) & 1.09 & 1.05 (0.85) & 12.76 (0.00) & 1.49 (0.14) & -4.64 (0.00) & 0.58 (1.00) \\
+\hline\hline
+\end{tabular}%
+% \\
+\par\smallskip
+\parbox{\textwidth}{\scriptsize \textit{Notes:} This table reports rolling pseudo-out-of-sample forecast evaluation metrics for the LOP Gap Model against an unconstrained AUTO_ARMA benchmark. The evaluation period spans 1990-01-01 - 2025-01-01 using a recursive estimation scheme with a benchmark sample start date of 1982-01-01. Columns 2 and 4 present forecast error variance and absolute ratios (values $< 1.00$ denote model outperformance). Tests are as follows: Diebold-Mariano (DM) statistics, Mincer-Zarnowitz (MZ) forecast rationality properties, Systemic over or underprediction (Unbias), if the forecast itself predicts forecast errors (Strong),and serial correlation in forecast errors (Weak). All reported values display calculated test statistics with asymptotic $p$-values provided in parentheses.}
+\end{table}

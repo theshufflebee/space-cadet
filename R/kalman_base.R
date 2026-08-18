@@ -1,3 +1,60 @@
+################################################################################
+#
+# Base Kalman Filter
+#
+################################################################################
+
+# REMARK: All Documentation done with AI
+
+
+#' Core Kalman Filter for Linear State-Space Models
+#'
+#' Evaluates the log-likelihood objective function and extracts filtered state trajectories
+#' via the Kalman filter prediction error decomposition for linear Gaussian state-space models.
+#'
+#' @details
+#' The state-space model is formulated by the following core system equations:
+#'
+#' \bold{State (Transition) Equation:}
+#' \deqn{\rho_t = \nu_t + H \rho_{t-1} + \eta_t, \quad \eta_t \sim \mathcal{N}(0, Q_t)}
+#' where \eqn{Q_t = N N^\top}.
+#'
+#' \bold{Observation (Measurement) Equation:}
+#' \deqn{Y_t = \mu_t + G \rho_t + \varepsilon_t, \quad \varepsilon_t \sim \mathcal{N}(0, R_t)}
+#' where \eqn{R_t = M M^\top}.
+#'
+#' Missing observations in \eqn{Y_t} are handled dynamically via sub-matrix selection 
+#' across the measurement update step.
+#'
+#' @param Y_t Matrix (\eqn{T \times n_y}) of observed series.
+#' @param nu_t Matrix (\eqn{T \times n_\rho}) of state transition intercepts/deterministic shifts.
+#' @param H Matrix (\eqn{n_\rho \times n_\rho}) state transition matrix.
+#' @param N Matrix (\eqn{n_\rho \times \dots}) defining the state innovation covariance \eqn{Q = N N^\top}.
+#' @param mu_t Matrix (\eqn{T \times n_y}) of exogenous observation intercepts.
+#' @param G Matrix (\eqn{n_y \times n_\rho}) measurement mapping matrix.
+#' @param M Matrix (\eqn{n_y \times \dots}) defining the measurement error covariance \eqn{R = M M^\top}.
+#' @param Sigma_0 Matrix (\eqn{n_\rho \times n_\rho}) initial prior state covariance.
+#' @param rho_0 Matrix (\eqn{n_\rho \times 1}) initial prior state vector.
+#' @param indic_pos Vector or integer indicating indices of state variables subject to non-negativity constraints. Defaults to \code{0}.
+#' @param Rfunction Function returning the measurement error covariance matrix \eqn{R_t}. Defaults to \code{Rf}.
+#' @param Qfunction Function returning the state innovation covariance matrix \eqn{Q_t}. Defaults to \code{Qf}.
+#' @param reconciliationf Optional reconciliation function applied after the measurement update step. Defaults to identity.
+#'
+#' @return A list containing:
+#' \item{r}{Filtered posterior state trajectories (\eqn{\rho_{t|t}}).}
+#' \item{Sigma_tt}{Flattened posterior state covariance matrices.}
+#' \item{loglik}{Scalar cumulative log-likelihood value.}
+#' \item{y_tp1_t}{Prior one-step-ahead measurement forecasts (\eqn{Y_{t|t-1}}).}
+#' \item{S_tp1_t}{Flattened prior state covariance matrices (\eqn{\Sigma_{t|t-1}}).}
+#' \item{r_tp1_t}{Prior one-step-ahead state forecasts (\eqn{\rho_{t|t-1}}).}
+#' \item{loglik.vector}{Vector of step-by-step log-likelihood contributions.}
+#' \item{Omega_tp1_t}{Flattened forecast error covariance matrices (\eqn{\Omega_{t|t-1}}).}
+#' \item{M}{The measurement error factor matrix.}
+#' \item{fitted.obs}{Fitted in-sample observation estimates (\eqn{\hat{Y}_{t|t}}).}
+#'
+#' @seealso \code{\link{Rf}}, \code{\link{Qf}}, \code{\link{kalman_filter_taylor}}
+#'
+#' @export
 kalman_filter_core <- function(Y_t, nu_t, H, N, mu_t, G, M, Sigma_0, rho_0,
                           indic_pos = 0,
                           Rfunction = Rf, Qfunction = Qf,
@@ -106,9 +163,18 @@ kalman_filter_core <- function(Y_t, nu_t, H, N, mu_t, G, M, Sigma_0, rho_0,
                  fitted.obs = fitted.obs)
   return(output)
 }
+
+
+#' Compute Measurement Noise Covariance Matrix
+#'
+#' Evaluates the measurement error covariance matrix \eqn{R = M M^\top}.
 Rf <- function(M,RHO,t=0){
   return(M %*% t(M))
 }
+
+#' Compute State Innovation Covariance Matrix
+#'
+#' Evaluates the state transition shock covariance matrix \eqn{Q = N N^\top}.
 Qf <- function(N,RHO,t=0){
   return(N %*% t(N))
 }
@@ -126,13 +192,33 @@ Qf <- function(N,RHO,t=0){
 
 
 
-#' Unified Log-Likelihood Evaluator for State-Space Models
+#' Unified Negative Log-Likelihood Evaluator for State-Space Models
 #'
-#' @param theta Vector of unconstrained optimizer parameters.
-#' @param ssm The standardized structural model list.
-#' @param model_type Character switch: "okun", "philips", or "shadow".
-#' @param return_full_res Logical. If TRUE, returns the full filter history list.
-#' @param set_silent Logical. If FALSE, prints economic-space parameter tables.
+#' Evaluates the objective function (negative log-likelihood) for numerical optimization
+#' across supported structural model types (\code{"okun"}, \code{"philips"}, or \code{"taylor"}).
+#' Maps unconstrained optimizer parameters into structural economic coefficients, constructs
+#' state-space system matrices, and routes computation to the appropriate Kalman filter engine.
+#'
+#' @details
+#' Unconstrained parameter vector \code{theta} is mapped to structural parameter bounds via
+#' \code{\link{param2model_gen}}. Dynamic builders assemble system matrices (\eqn{\mu_t, H, M, N, \nu_t, G}),
+#' routing to \code{\link{kalman_filter_taylor}} for Taylor rule models or \code{\link{kalman_filter_core}}
+#' for Okun and Phillips curve models. If numerical instability or non-finite values occur, a large penalty
+#' value (\eqn{10^{10}}) is returned.
+#'
+#' @param theta Numeric vector of unconstrained parameters passed by the numerical optimizer.
+#' @param ssm A list defining the standardized structural model specification, containing
+#'   \code{name}, initial states (\code{rho_guess}, \code{sigma_guess}), input matrices (\code{data$Y}, \code{data$X}),
+#'   and matrix generator functions (\code{builders}).
+#' @param return_full_res Logical. If \code{FALSE} (default), returns the scalar negative log-likelihood
+#'   for optimization. If \code{TRUE}, returns the complete list of filtered states, covariance matrices, and mapped parameters.
+#' @param set_silent Logical. If \code{TRUE} (default), suppresses diagnostic parameter logs.
+#'
+#' @return If \code{return_full_res = FALSE}, returns a numeric scalar representing the negative log-likelihood
+#'   (or \code{1e10} if estimation fails). If \code{return_full_res = TRUE}, returns the complete Kalman filter output list
+#'   augmented with \code{param_debugs}.
+#'
+#' @seealso \code{\link{kalman_filter_core}}, \code{\link{kalman_filter_taylor}}, \code{\link{param2model_gen}}
 #'
 #' @export
 loglik_ssm_core <- function(theta,
@@ -236,15 +322,32 @@ loglik_ssm_core <- function(theta,
 
 
 
-#' Unified Optimizer Wrapper for Macroeconomic State-Space Models
+#' Multi-Method Optimization Wrapper for Macroeconomic State-Space Models
 #'
-#' @param ssm The standardized structural model blueprint list containing data, manifest entries, and type context.
-#' @param methods Vector of optimization engines. If NULL, dynamically matches against global configuration blueprints.
-#' @param iters Number of sequential optimization macro loops to execute. If NULL, auto-assigned from configuration definitions.
-#' @param start_par Optional vector of unconstrained numeric parameters for initiating warm starts.
-#' @param set_silent Logical. If FALSE, prints descriptive parameters transformations during setup phases.
+#' Executes sequential numerical optimization across specified algorithms (e.g., Nelder-Mead, BFGS)
+#' via \code{optimx::optimx} to estimate structural parameters for macroeconomic state-space models.
+#' Supports warm starts, chaining optimization steps across multiple iterative macro loops,
+#' and mapping between unconstrained optimizer space and economic parameter bounds.
+#'
+#' @param ssm A list defining the standardized structural model specification, containing
+#'   \code{name}, parameter metadata (\code{manifest}), observation/exogenous data (\code{data}),
+#'   and system matrix builders (\code{builders}).
+#' @param methods Character vector of optimization algorithms supported by \code{optimx} (e.g., \code{c("Nelder-Mead", "BFGS")}).
+#' @param iters Integer. Number of sequential optimization loops to execute.
+#' @param start_par Optional numeric vector of initial unconstrained parameters (\eqn{\theta}) for warm starts.
+#'   If \code{NULL}, values are initialized from \code{ssm$manifest}.
+#' @param set_silent Logical. If \code{TRUE} (default), suppresses verbose parameter transformation logs.
+#'
+#' @return A named list containing:
+#' \item{params}{Named list of final estimated parameters transformed into structural economic space.}
+#' \item{theta}{Named numeric vector of final estimated parameters in unconstrained optimizer space.}
+#' \item{fit_summary}{The \code{optimx} convergence and estimation summary table from the final pass.}
+#' \item{ssm}{The structural state-space model blueprint list.}
+#'
+#' @seealso \code{\link{loglik_ssm_core}}, \code{\link{param2model_gen}}, \code{\link{model2param_gen}}
 #'
 #' @export
+#' @importFrom optimx optimx
 ssm_optimizer_wrapper_core <- function(ssm, 
                                        methods = NULL, 
                                        iters = NULL, 

@@ -1,8 +1,36 @@
-#' Run Parallel Single Vintage Okun Estimation
-#' @param target_date_str Character. The vintage date (e.g., "2020 Q2").
-#' @param sub_folder Character. Destination directory sub-token.
-#' @param gdp_forecasts_arima Dataframe. Pre-loaded global ARIMA projections.
+################################################################################
+#
+# Parallel Estimation functions
+#
+################################################################################
+
+# REMARK: All Documentation done with AI
+
+
+#' Run Parallel Single-Vintage Okun State-Space Model Estimation
+#'
+#' Estimates the Okun law state-space model for an isolated real-time quarterly vintage origin,
+#' filtering data up to the target date, evaluating real-time HP output gaps, optimizing
+#' structural parameters via \code{ssm_optimizer_wrapper_core}, and saving the output payload as an \code{.rds} file.
+#'
+#' @param target_date_str Character. Vintage origin quarter (e.g., \code{"2020 Q2"}).
+#' @param sub_folder Character. Destination subdirectory inside \code{output/para/}. Defaults to \code{"default_okun"}.
+#' @param gdp_forecasts_arima A data frame containing real-time rolling GDP forecasts.
+#' @param val_T1 Character or Date. Start date cutoff for the estimation window. Defaults to \code{"1991-01-01"}.
+#'
+#' @return A named list containing:
+#' \item{target_date}{Vintage origin date of class \code{yearqtr}.}
+#' \item{params}{Named list of estimated structural parameters in economic space.}
+#' \item{states}{Complete Kalman filter output list containing filtered latent state trajectories.}
+#'
+#' @seealso \code{\link{get_hp_gap}}, \code{\link{ssm_optimizer_wrapper_core}}, \code{\link{loglik_ssm_core}}
+#'
 #' @export
+#' @importFrom readr read_csv
+#' @importFrom zoo as.yearqtr
+#' @importFrom dplyr rename mutate lag filter left_join %>%
+#' @importFrom stats complete.cases
+#' @importFrom here here
 run_est_para_okun <- function(target_date_str,
                               sub_folder = "default_okun",
                               gdp_forecasts_arima,
@@ -86,10 +114,27 @@ run_est_para_okun <- function(target_date_str,
 
 
 
-#' Run Parallel Single Vintage Phillips Estimation
-#' @param target_date_str Character. The vintage date (e.g., "2020 Q2").
-#' @param sub_folder Character. Destination directory sub-token.
+#' Run Parallel Single-Vintage Phillips Curve State-Space Model Estimation
+#'
+#' Estimates the Open-Economy Phillips curve state-space model for an isolated real-time
+#' quarterly vintage origin, assembling observations and exogenous gap drivers up to the
+#' target date, optimizing structural parameters, and persisting results to disk.
+#'
+#' @param target_date_str Character. Vintage origin quarter (e.g., \code{"2020 Q2"}).
+#' @param sub_folder Character. Destination subdirectory inside \code{output/para/}. Defaults to \code{"default_phillips"}.
+#' @param val_T1 Character or Date. Start date cutoff for the estimation window. Defaults to \code{"1982-01-01"}.
+#'
+#' @return A named list containing:
+#' \item{target_date}{Vintage origin date of class \code{yearqtr}.}
+#' \item{params}{Named list of estimated structural parameters in economic space.}
+#' \item{states}{Complete Kalman filter output list containing filtered latent state trajectories.}
+#'
+#' @seealso \code{\link{build_data_matrix_philips}}, \code{\link{ssm_optimizer_wrapper_core}}, \code{\link{loglik_ssm_core}}
+#'
 #' @export
+#' @importFrom readr read_csv
+#' @importFrom zoo as.yearqtr
+#' @importFrom here here
 run_est_para_phillips <- function(target_date_str,
                                   sub_folder = "default_phillips",
                                   val_T1 = "1982-01-01") {
@@ -172,11 +217,30 @@ run_est_para_phillips <- function(target_date_str,
 
 
 
-#' Run Parallel Single Vintage Taylor Rule Estimation
-#' @param target_date_str Character. The vintage date (e.g., "2020 Q2").
-#' @param sub_folder Character. Destination directory sub-token.
-#' @param gdp_forecasts_arima Dataframe. Pre-loaded global ARIMA projections.
+#' Run Parallel Single-Vintage Taylor Rule State-Space Model Estimation
+#'
+#' Estimates the Taylor rule state-space model for an isolated real-time quarterly vintage
+#' origin, filtering available series up to the vintage threshold, constructing real-time
+#' output and inflation gaps, estimating structural policy parameters, and saving the resulting payload.
+#'
+#' @param target_date_str Character. Vintage origin quarter (e.g., \code{"2020 Q2"}).
+#' @param sub_folder Character. Destination subdirectory inside \code{output/para/}. Defaults to \code{"default_taylor"}.
+#' @param gdp_forecasts_arima A data frame containing real-time rolling GDP forecasts.
+#' @param val_T1 Character or Date. Start date cutoff for the estimation window. Defaults to \code{"1989-01-01"}.
+#'
+#' @return A named list containing:
+#' \item{target_date}{Vintage origin date of class \code{yearqtr}.}
+#' \item{params}{Named list of estimated structural parameters in economic space.}
+#' \item{states}{Complete Kalman filter output list containing filtered latent state trajectories.}
+#'
+#' @seealso \code{\link{get_hp_gap}}, \code{\link{initialize_taylor_ssm}}, \code{\link{ssm_optimizer_wrapper_core}}, \code{\link{loglik_ssm_core}}
+#'
 #' @export
+#' @importFrom readr read_csv
+#' @importFrom zoo as.yearqtr
+#' @importFrom dplyr select all_of left_join filter arrange %>%
+#' @importFrom stats complete.cases
+#' @importFrom here here
 run_est_para_taylor <- function(target_date_str,
                                 sub_folder = "default_taylor",
                                 gdp_forecasts_arima,
@@ -275,21 +339,30 @@ run_est_para_taylor <- function(target_date_str,
 
 
 
-
-
-
-# ==============================================================================
-# LOAD THE ESTINATION DATA
-# ==============================================================================
-
-#' Ingest Parallel Estimation Results
-#' 
-#' @description Scans the target output directory, reads all saved single-vintage 
-#' RDS snapshots, and compiles them into a list keyed by clean target date strings.
+#' Ingest Parallel State-Space Estimation Results
 #'
-#' @param target_folder Character. The directory token name (e.g., "baseline_v1_new_run")
-#' @return A named list containing the model snapshots.
+#' Scans a specified output directory, reads all saved single-vintage State-Space Model
+#' (\code{.rds}) snapshot files, and compiles them into a named list indexed by standardized
+#' quarterly date strings (e.g., \code{"2020 Q2"}).
+#'
+#' @details
+#' Extracts quarterly vintage identifiers from file naming conventions (parsing trailing
+#' tokens like \code{"YYYY_Qq"} into \code{"YYYY Qq"}), loading saved estimation payloads
+#' containing optimized parameter sets and Kalman filter states.
+#'
+#' @param target_folder Character. Subdirectory name inside \code{output/para/} containing
+#'   the serialized \code{.rds} vintage files.
+#'
+#' @return A named list of vintage estimation snapshots, where each element is indexed by
+#'   its corresponding quarterly date string (\code{"YYYY Qq"}). Returns an empty list if
+#'   no \code{.rds} files are found.
+#'
+#' @seealso \code{\link{run_est_para_okun}}, \code{\link{run_est_para_phillips}}, \code{\link{run_est_para_taylor}}
+#'
 #' @export
+#' @importFrom here here
+#' @importFrom tools file_path_sans_ext
+#' @importFrom utils head
 ingest_parallel_results <- function(target_folder) {
   
   message("\n=== LOADING ALL PARALLEL ESTIMATION RESULTS ===")

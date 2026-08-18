@@ -48,9 +48,9 @@ source(here("R", "visualizations.R"))
 LOAD_PARA_EST <- TRUE
 
 # To analyze the estimations from the parallel estimations load these folders
-TARGET_FOLDER_OKUN <- "final_run_okun_3" # Output destination folder: output/para/...
-TARGET_FOLDER_PHILLIPS <- "final_run_phillips_3" # Output destination folder: output/para/...
-TARGET_FOLDER_TAYLOR <- "final_run_taylor_3" # Output destination folder: output/para/...
+TARGET_FOLDER_OKUN <- "thesis_run_okun" # Output destination folder: output/para/...
+TARGET_FOLDER_PHILLIPS <- "thesis_run_phillips" # Output destination folder: output/para/...
+TARGET_FOLDER_TAYLOR <- "thesis_run_taylor" # Output destination folder: output/para/...
 
 # ==============================================================================
 # Downloading and Data Prep Settings
@@ -269,7 +269,7 @@ SNB_REER_DELAY <- 3
 # ==============================================================================
 
 # Select either the temp or the persisten folder
-store_temp <- TRUE
+store_temp <- FALSE
 
 # Only concerns the output folder
 
@@ -309,9 +309,16 @@ output_save_paths <- list(
     spaghetti_taylor      = here(output_base, "plots/spaghetti_taylor.png"),
     spaghetti_taylor_rounded = here(output_base, "plots/spaghetti_taylor_rounded.png"),
     spaghetti_gdp      = here(output_base, "plots/spaghetti_gdp.png"),
+    spaghetti_gdp_gap   = here(output_base, "plots/spaghetti_gdp_gap.png"),
+    spaghetti_lop      = here(output_base, "plots/spaghetti_lop.png"),
+    spaghetti_lop_gap   = here(output_base, "plots/spaghetti_lop_gap.png"),
     errors_okun = here(output_base, "plots/errors_okun.png"),
     errors_phillips = here(output_base, "plots/errors_phillips.png"),
     errors_taylor = here(output_base, "plots/errors_taylor.png"),
+    errors_gdp = here(output_base, "plots/errors_gdp.png"),
+    errors_gdp_gap  = here(output_base, "plots/errors_gdp_gap.png"),
+    errors_lop  = here(output_base, "plots/errors_lop.png"),
+    errors_lop_gap = here(output_base, "plots/errors_lop_gap.png"),
     
     bench_error_rw_okun = here(output_base, "plots/errors_bench_rw_okun.png"),
     bench_error_rw_phillips = here(output_base, "plots/errors_bench_rw_phillips.png"),
@@ -340,7 +347,19 @@ output_save_paths <- list(
       
       gdp_rw = here(output_base, "plots/benchmark_spaghetti_gdp_rw.png"),
       gdp_ar1 = here(output_base, "plots/benchmark_spaghetti_gdp_ar1.png"),
-      gdp_auto_arma = here(output_base, "plots/benchmark_spaghetti_gdp_auto_arma.png")
+      gdp_auto_arma = here(output_base, "plots/benchmark_spaghetti_gdp_auto_arma.png"),
+      
+      gdp_gap_rw = here(output_base, "plots/benchmark_spaghetti_gdp_gap_rw.png"),
+      gdp_gap_ar1 = here(output_base, "plots/benchmark_spaghetti_gdp_gap_ar1.png"),
+      gdp_gap_auto_arma = here(output_base, "plots/benchmark_spaghetti_gdp_gap_auto_arma.png"),
+      
+      lop_rw = here(output_base, "plots/benchmark_spaghetti_lop_rw.png"),
+      lop_ar1 = here(output_base, "plots/benchmark_spaghetti_lop_ar1.png"),
+      lop_auto_arma = here(output_base, "plots/benchmark_spaghetti_lop_auto_arma.png"),
+      
+      lop_gap_rw = here(output_base, "plots/benchmark_spaghetti_lop_gap_rw.png"),
+      lop_gap_ar1 = here(output_base, "plots/benchmark_spaghetti_lop_gap_ar1.png"),
+      lop_gap_auto_arma = here(output_base, "plots/benchmark_spaghetti_lop_gap_auto_arma.png")
     ),
     
     current_forecasts = list(
@@ -356,7 +375,8 @@ output_save_paths <- list(
     forecast_df_taylor = here(output_base, "forecasts/policy_rate_forecasts.csv"),
     forecast_df_taylor_rounded = here(output_base, "forecasts/policy_rate_forecasts_rounded.csv"),
     forecast_df_gdp_arima = here(output_base, "forecasts/gdp_arima_forecasts.csv"),
-    forecast_df_inf_arima = here(output_base, "forecasts/inf_arima_forecasts.csv")
+    forecast_df_inf_arima = here(output_base, "forecasts/inf_arima_forecasts.csv"),
+    forecast_df_snb_reer = here(output_base, "forecasts/snb_reer_forecasts.csv")
   ),
   
   tables = list(
@@ -366,6 +386,9 @@ output_save_paths <- list(
     eval_rw_philips = here(output_base, "tables/philips_eval_rw_table.tex"),
     eval_rw_taylor = here(output_base, "tables/taylor_eval_rw_table.tex"),
     eval_rw_gdp = here(output_base, "tables/gdp_eval_rw_table.tex"),
+    eval_rw_gdp_gap = here(output_base, "tables/gdp_gap_eval_rw_table.tex"),
+    eval_rw_lop = here(output_base, "tables/lop_eval_rw_table.tex"),
+    eval_rw_lop_gap = here(output_base, "tables/lop_gap_eval_rw_table.tex"),
     
     
     # AR1 Benchmark
@@ -373,12 +396,19 @@ output_save_paths <- list(
     eval_ar1_philips = here(output_base, "tables/philips_eval_ar1_table.tex"),
     eval_ar1_taylor = here(output_base, "tables/taylor_eval_ar1_table.tex"),
     eval_ar1_gdp = here(output_base, "tables/gdp_eval_ar1_table.tex"),
+    eval_ar1_gdp_gap = here(output_base, "tables/gdp_gap_eval_ar1_table.tex"),
+    eval_ar1_lop = here(output_base, "tables/lop_eval_ar1_table.tex"),
+    eval_ar1_lop_gap = here(output_base, "tables/lop_gap_eval_ar1_table.tex"),
+    
     
     # Auto Arma Benchmark
     eval_auto_arma_okun = here(output_base, "tables/okun_eval_auto_arma_table.tex"),
     eval_auto_arma_philips = here(output_base, "tables/philips_eval_auto_arma_table.tex"),
     eval_auto_arma_taylor = here(output_base, "tables/taylor_eval_auto_arma_table.tex"),
     eval_auto_arma_gdp = here(output_base, "tables/gdp_eval_auto_arma_table.tex"),
+    eval_auto_arma_gdp_gap = here(output_base, "tables/gdp_eval_auto_arma_table.tex"),
+    eval_auto_arma_lop = here(output_base, "tables/lop_eval_auto_arma_table.tex"),
+    eval_auto_arma_lop_gap = here(output_base, "tables/lop_gap_eval_auto_arma_table.tex"),
     
     # Initial Params & Constraints Tables
     okun_param_table = here(output_base, "tables/okun_param_table.tex"),

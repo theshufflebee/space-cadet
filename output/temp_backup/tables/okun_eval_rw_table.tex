@@ -1,0 +1,25 @@
+\begin{table}[htbp]
+\centering
+\caption{Out-of-Sample Predictive Evaluation: Okun Model vs. RW Benchmark}
+\label{tab:okun_model_evaluation}
+\footnotesize
+\begin{tabular}{l cccccccc}
+\hline\hline
+\rule{0pt}{3ex}
+\textbf{H} & \textbf{MSFE} & \textbf{DM MSFE} & \textbf{MAFE} & \textbf{DM MAFE} & \textbf{MZ Test} & \textbf{Unbias} & \textbf{Strong Eff} & \textbf{Weak Eff} \\[0.5ex]
+\hline
+\rule{0pt}{2.5ex}
+1 & 1.02 & 0.17 (0.57) & 1.13 & 1.63 (0.95) & 1.73 (0.18) & -0.24 (0.81) & -1.85 (0.07) & 95.5 (0.00) \\
+2 & 0.68 & -1.54 (0.06) & 0.90 & -0.83 (0.21) & 2.44 (0.09) & -0.3 (0.76) & -2.21 (0.03) & 48.88 (0.00) \\
+3 & 0.57 & -1.93 (0.03) & 0.80 & -1.52 (0.07) & 2.34 (0.1) & -0.45 (0.65) & -2.13 (0.04) & 16.26 (0.09) \\
+4 & 0.52 & -2.08 (0.02) & 0.74 & -1.89 (0.03) & 2.27 (0.11) & -0.66 (0.51) & -2.09 (0.04) & 4.57 (0.92) \\
+5 & 0.47 & -2.13 (0.02) & 0.67 & -2.3 (0.01) & 2.08 (0.13) & -0.93 (0.36) & -1.99 (0.05) & 5.06 (0.89) \\
+6 & 0.43 & -2.19 (0.02) & 0.64 & -2.48 (0.01) & 1.89 (0.16) & -1.25 (0.21) & -1.87 (0.06) & 6.93 (0.64) \\
+7 & 0.38 & -2.2 (0.02) & 0.61 & -2.56 (0.01) & 1.7 (0.19) & -1.64 (0.11) & -1.63 (0.11) & 5.22 (0.81) \\
+8 & 0.35 & -2.1 (0.02) & 0.57 & -2.53 (0.01) & 1.75 (0.18) & -2.12 (0.04) & -1.19 (0.24) & 2.57 (0.98) \\
+\hline\hline
+\end{tabular}%
+% \\
+\par\smallskip
+\parbox{\textwidth}{\scriptsize \textit{Notes:} This table reports rolling pseudo-out-of-sample forecast evaluation metrics for the Okun Model against an unconstrained RW benchmark. The evaluation period spans 2000-01-01 - 2025-10-01 using a recursive estimation scheme with a benchmark sample start date of 1980-07-01. Columns 2 and 4 present forecast error variance and absolute ratios (values $< 1.00$ denote model outperformance). Tests are as follows: Diebold-Mariano (DM) statistics, Mincer-Zarnowitz (MZ) forecast rationality properties, Systemic over or underprediction (Unbias), if the forecast itself predicts forecast errors (Strong),and serial correlation in forecast errors (Weak). All reported values display calculated test statistics with asymptotic $p$-values provided in parentheses.}
+\end{table}

@@ -25,8 +25,8 @@ set.seed(42) # Set a seed so the shuffle is reproducible
 DO_TRIAL_RUN <- FALSE
 
 # What Models you Run
-RUN_OKUN_MODEL <- TRUE
-RUN_PHILLIPS_MODEL <- TRUE
+RUN_OKUN_MODEL <- FALSE
+RUN_PHILLIPS_MODEL <- FALSE
 RUN_TAYLOR_MODEL <- TRUE
 
 # --- Estimation Range ---

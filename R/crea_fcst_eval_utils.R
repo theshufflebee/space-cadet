@@ -1,11 +1,28 @@
-# This file contains extensions that I'd like to  add to the creaFcstEval package
+################################################################################
+#
+# Functions to tie into the creaFcstEval Package
+#
+################################################################################
 
+# These functions should be refined and then maybe introduced into the Crea Fcst Eval
+# Package
 
+# REMARK: All Documentation done with AI
 
-#' Turn Fcst Df into Long
-#' 
-#' @details From creaFcstEval package
+#' Reshape Forecast Triangle Matrix to Long Format
+#'
+#' Converts a wide lower-triangular forecast data frame (with target dates as rows
+#' and vintage origins as columns) into a tidy long-format data frame.
+#'
+#' @param fcst_df A data frame containing target dates in the first column and
+#'   vintage forecast origins across remaining columns.
+#' @param keep_na Logical. If \code{FALSE} (default), drops missing forecast combinations.
+#'
+#' @return A tibble with columns \code{target_date}, \code{origin_date}, and \code{forecast_value}.
+#'
 #' @export
+#' @importFrom tidyr pivot_longer
+#' @importFrom dplyr filter %>%
 make_fcst_long <- function(fcst_df, keep_na = FALSE) {
   colnames(fcst_df)[1] <- "target_date"
   fcst_long <- fcst_df %>%
@@ -21,11 +38,29 @@ make_fcst_long <- function(fcst_df, keep_na = FALSE) {
   return(fcst_long)
 }
 
-#' Evaluate Forecast Errors (MAE and MSFE)
+
+
+#' Evaluate Mean Absolute and Squared Forecast Errors Across Target Dates
 #'
-#' @param long_fcst_df Long-format forecast data frame containing target_date, origin_date, and forecast_value.
-#' @return A list containing `df_eval` (row-level errors) and `df_summary` (aggregated MAE/MSFE per target date).
+#' Computes realization benchmarks from origin-coincident diagonal observations
+#' (\code{origin_date == target_date}), calculates forecast errors, and aggregates
+#' Mean Absolute Error (MAE) and Mean Squared Forecast Error (MSFE) by target date.
+#'
+#' @param long_fcst_df A data frame in long format containing \code{target_date},
+#'   \code{origin_date}, and \code{forecast_value}.
+#'
+#' @return A tibble aggregated by target date containing:
+#' \item{target_date}{Target dates of class \code{yearqtr}.}
+#' \item{forecast_count}{Number of multi-horizon forecast origins predicting this target date.}
+#' \item{mae}{Mean Absolute Error for the given target date.}
+#' \item{msfe}{Mean Squared Forecast Error for the given target date.}
+#'
+#' @seealso \code{\link{make_fcst_long}}
+#'
 #' @export
+#' @importFrom dplyr left_join filter select mutate group_by summarise %>%
+#' @importFrom rlang .data
+#' @importFrom zoo as.yearqtr
 eval_forecasts <- function(long_fcst_df) {
   
   # 1. Join ground truth and compute forecast errors
@@ -57,10 +92,22 @@ eval_forecasts <- function(long_fcst_df) {
 
 #' Plot Forecast Error Metrics Over Time
 #'
-#' @param df_summary Summary data frame output from `eval_forecasts()$df_summary`.
-#' @param is_yearqtr Logical, if TRUE converts target_date using zoo::as.yearqtr. Default is TRUE.
-#' @return A ggplot object.
+#' Generates a faceted \code{ggplot2} time-series visualization comparing Mean Absolute Error (MAE)
+#' and Mean Squared Forecast Error (MSFE) trajectories across evaluation target dates.
+#'
+#' @param df_summary A summary data frame produced by \code{\link{eval_forecasts}} containing
+#'   \code{target_date}, \code{mae}, and \code{msfe}.
+#' @param model_name Character string specifying the model identifier displayed in the plot title.
+#'
+#' @return A \code{ggplot} object with vertically faceted panels for MAE and MSFE.
+#'
+#' @seealso \code{\link{eval_forecasts}}
+#'
 #' @export
+#' @importFrom tidyr pivot_longer
+#' @importFrom dplyr mutate recode %>%
+#' @importFrom rlang .data
+#' @importFrom ggplot2 ggplot aes geom_line facet_wrap scale_color_manual theme_minimal theme element_text element_blank labs
 plot_forecast_errors <- function(df_summary, model_name) {
   
   plot_title <- paste0(model_name, " Forecast Errors Over Time")
@@ -105,6 +152,24 @@ plot_forecast_errors <- function(df_summary, model_name) {
   return(p)
 }
 
+
+
+#' Wrapper Pipeline for Evaluating and Plotting Forecast Errors
+#'
+#' Executes the complete forecast error diagnostic workflow: reshapes a forecast triangle
+#' into long format, calculates aggregated error metrics (MAE and MSFE), renders the summary plot,
+#' and optionally writes the figure to disk.
+#'
+#' @param fcst_df A data frame formatted as a wide forecast matrix.
+#' @param model_name Character. Descriptive model name used for plot titles. Defaults to \code{""}.
+#' @param save_path Optional character string specifying the file path where the plot should be saved via \code{ggplot2::ggsave}.
+#'
+#' @return Invisibly returns \code{NULL} after printing and optionally saving the plot.
+#'
+#' @seealso \code{\link{make_fcst_long}}, \code{\link{eval_forecasts}}, \code{\link{plot_forecast_errors}}
+#'
+#' @export
+#' @importFrom ggplot2 ggsave
 error_plotting_wrapper <- function(fcst_df, model_name = "", save_path = NULL) {
   long_fcst_df <- make_fcst_long(fcst_df)
   

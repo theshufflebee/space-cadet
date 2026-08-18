@@ -10,9 +10,24 @@
 # --- Matrices ---
 # ==============================================================================
 
-#' Build the H Matrix (State Transition)
-#' @param model_params A named list containing "rho_tp" for the cyclical term premium.
-#' @return A 3 x 3 matrix defining the transition dynamics.
+#' Build State Transition Matrix (H) for Taylor Rule SSM
+#'
+#' Constructs the \eqn{3 \times 3} transition matrix \eqn{H} mapping the latent state vector
+#' \eqn{\rho_t = [\bar{\imath}_t, \bar{\text{TP}}_t, \tilde{\text{TP}}_t]^\top} in the state transition equation:
+#' \deqn{\rho_t = \nu_t + H \rho_{t-1} + \eta_t}
+#'
+#' @details
+#' Matrix representation:
+#' \deqn{H = \begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & \rho_{\text{tp}} \end{bmatrix}}
+#' where the natural interest rate (\eqn{\bar{\imath}_t}) and the trend term premium (\eqn{\bar{\text{TP}}_t})
+#' follow independent random walks, and the cyclical term premium (\eqn{\tilde{\text{TP}}_t}) follows
+#' a stationary AR(1) process with persistence \eqn{\rho_{\text{tp}}}.
+#'
+#' @param model_params A named list containing structural model parameters, including \code{rho_tp}.
+#'
+#' @return A \eqn{3 \times 3} numeric matrix \eqn{H}.
+#'
+#' @export
 build_H_taylor <- function(model_params) {
   # rho_tp determines the persistence of the cyclical term premium component
   rho_tp <- if(!is.null(model_params$rho_tp)) as.numeric(model_params$rho_tp) else 0.9
@@ -23,9 +38,23 @@ build_H_taylor <- function(model_params) {
   return(H)
 }
 
-#' Build the G Matrix (Factor Loadings)
-#' @param model_params A named list containing the smoothing parameter "phi".
-#' @return A 2 x 3 matrix of factor loadings.
+#' Build Observation Factor Loadings Matrix (G) for Taylor Rule SSM
+#'
+#' Constructs the \eqn{2 \times 3} measurement mapping matrix \eqn{G} linking the latent state vector
+#' \eqn{\rho_t = [\bar{\imath}_t, \bar{\text{TP}}_t, \tilde{\text{TP}}_t]^\top} to observed series \eqn{Y_t = [i_t, f_t]^\top} in the observation equation:
+#' \deqn{Y_t = \mu_t + \Phi Y_{t-1} + G \rho_t + \varepsilon_t}
+#'
+#' @details
+#' Matrix representation:
+#' \deqn{G = \begin{bmatrix} 1 - \phi & 0 & 0 \\ 1 & 1 & 1 \end{bmatrix}}
+#' where the policy rate (\eqn{i_t}) loads on the natural interest rate (\eqn{\bar{\imath}_t}) scaled by \eqn{(1 - \phi)},
+#' and the long-term forward rate (\eqn{f_t}) loads unit-for-unit on the natural rate, trend term premium, and cyclical term premium.
+#'
+#' @param model_params A named list containing policy smoothing parameter \code{phi}.
+#'
+#' @return A \eqn{2 \times 3} numeric matrix \eqn{G}.
+#'
+#' @export
 build_G_taylor <- function(model_params) {
   # phi is the interest rate smoothing parameter
   phi_val <- if(!is.null(model_params$phi)) as.numeric(model_params$phi) else 0.8
@@ -43,9 +72,24 @@ build_G_taylor <- function(model_params) {
   return(G)
 }
 
-#' Build the M Matrix (Measurement Noise Standard Deviations)
-#' @param model_params A named list containing "sigma_policy" and optionally "sigma_fwd".
-#' @return A 2 x 2 diagonal matrix of standard deviations.
+#' Build Measurement Noise Factor Matrix (M) for Taylor Rule SSM
+#'
+#' Constructs the \eqn{2 \times 2} diagonal scaling matrix \eqn{M} defining the measurement error
+#' covariance \eqn{R = M M^\top} in the observation equation:
+#' \deqn{Y_t = \mu_t + \Phi Y_{t-1} + G \rho_t + \varepsilon_t, \quad \varepsilon_t \sim \mathcal{N}(0, R)}
+#'
+#' @details
+#' Matrix representation:
+#' \deqn{M = \begin{bmatrix} \sigma_{\text{policy}} & 0 \\ 0 & \sigma_{\text{fwd}} \end{bmatrix}}
+#' resulting in:
+#' \deqn{R = M M^\top = \begin{bmatrix} \sigma_{\text{policy}}^2 & 0 \\ 0 & \sigma_{\text{fwd}}^2 \end{bmatrix}}
+#'
+#' @param model_params A named list containing \code{sigma_policy} and optionally \code{sigma_fwd}.
+#' @param Y_data A matrix or data frame of observed series \eqn{Y_t}.
+#'
+#' @return A \eqn{2 \times 2} numeric diagonal matrix \eqn{M}.
+#'
+#' @export
 build_M_taylor <- function(model_params, Y_data) {
   
   ny <- ncol(Y_data)
@@ -65,7 +109,25 @@ build_M_taylor <- function(model_params, Y_data) {
   return(M)
 }
 
-#' Build the N Matrix (Process Noise Standard Deviations)
+#' Build Process Noise Factor Matrix (N) for Taylor Rule SSM
+#'
+#' Constructs the \eqn{3 \times 3} diagonal standard deviation factor matrix \eqn{N} defining
+#' the state innovation covariance matrix \eqn{Q = N N^\top} in the state transition equation:
+#' \deqn{\rho_t = \nu_t + H \rho_{t-1} + \eta_t, \quad \eta_t \sim \mathcal{N}(0, Q)}
+#'
+#' @details
+#' Matrix representation:
+#' \deqn{N = \begin{bmatrix} \xi_i & 0 & 0 \\ 0 & \xi_{\bar{\text{tp}}} & 0 \\ 0 & 0 & \xi_{\tilde{\text{tp}}} \end{bmatrix}}
+#' resulting in:
+#' \deqn{Q = N N^\top = \begin{bmatrix} \xi_i^2 & 0 & 0 \\ 0 & \xi_{\bar{\text{tp}}}^2 & 0 \\ 0 & 0 & \xi_{\tilde{\text{tp}}}^2 \end{bmatrix}}
+#'
+#' @param model_params A named list containing state shock standard deviations \code{xi_i}, \code{xi_tp_bar}, and \code{xi_tp_cycl}.
+#' @param default_sig_trend Numeric. Fallback value for trend state standard deviations. Defaults to \code{0.1}.
+#' @param default_sig_cycle Numeric. Fallback value for cyclical state standard deviations. Defaults to \code{0.5}.
+#'
+#' @return A \eqn{3 \times 3} numeric diagonal matrix \eqn{N}.
+#'
+#' @export
 build_N_taylor <- function(model_params, default_sig_trend = 0.1, default_sig_cycle = 0.5) {
   xi_i        <- if(!is.null(model_params$xi_i)) as.numeric(model_params$xi_i) else default_sig_trend
   xi_tp_trend <- if(!is.null(model_params$xi_tp_bar)) as.numeric(model_params$xi_tp_bar) else default_sig_trend
@@ -75,8 +137,23 @@ build_N_taylor <- function(model_params, default_sig_trend = 0.1, default_sig_cy
   return(N)
 }
 
-#' Build the External Data Vector (mu_t)
-#' @description Computes the purely exogenous parts of the Taylor rule. 
+#' Build Exogenous Observation Intercept Matrix (mu_t) for Taylor Rule SSM
+#'
+#' Constructs the \eqn{T \times 2} time-varying exogenous intercept matrix \eqn{\mu_t} capturing the
+#' unconstrained macro feedback response in the observation equation:
+#' \deqn{Y_t = \mu_t + \Phi Y_{t-1} + G \rho_t + \varepsilon_t}
+#'
+#' @details
+#' Matrix representation:
+#' \deqn{\mu_t = \begin{bmatrix} (1 - \phi)(\gamma_y \, y^{\text{gap}}_t + \gamma_\pi \, \pi^{\text{gap}}_t) & 0 \end{bmatrix}}
+#' across each row \eqn{t = 1, \dots, T}.
+#'
+#' @param model_params A named list containing structural coefficients (\code{gamma_pi}, \code{gamma_y}, \code{phi}).
+#' @param X_data A \eqn{T \times 2} matrix containing \code{gdp_gap} and \code{inf_gap} series.
+#'
+#' @return A \eqn{T \times 2} numeric matrix \eqn{\mu_t}.
+#'
+#' @export
 build_mu_t_taylor <- function(model_params, X_data) {
   gamma_pi <- as.numeric(model_params$gamma_pi)
   gamma_y  <- as.numeric(model_params$gamma_y)
@@ -92,8 +169,25 @@ build_mu_t_taylor <- function(model_params, X_data) {
   return(cbind(ex_comp, rep(0, nrow(X_data))))
 }
 
-#' Build the Autoregressive Measurement Matrix (ar_mat)
-#' @description Constructs a 2x2 matrix that scales lagged observables.
+
+
+#' Build Autoregressive Measurement Matrix (Phi) for Taylor Rule SSM
+#'
+#' Constructs the \eqn{2 \times 2} autoregressive coefficient matrix \eqn{\Phi = \texttt{ar\_mat}}
+#' capturing interest rate inertia on lagged observables in the observation equation:
+#' \deqn{Y_t = \mu_t + \Phi Y_{t-1} + G \rho_t + \varepsilon_t}
+#'
+#' @details
+#' Matrix representation:
+#' \deqn{\Phi = \begin{bmatrix} \phi & 0 \\ 0 & 0 \end{bmatrix}}
+#' where policy inertia \eqn{\phi} operates exclusively on the lagged policy rate (\eqn{i_{t-1}}).
+#'
+#' @param model_params A named list containing the policy inertia coefficient \code{phi}.
+#' @param Y_data A matrix or data frame of observed series \eqn{Y_t}.
+#'
+#' @return A \eqn{2 \times 2} numeric matrix \eqn{\Phi}.
+#'
+#' @export
 build_AR_matrix <- function(model_params, Y_data) {
   phi <- as.numeric(model_params$phi)
   
@@ -104,12 +198,22 @@ build_AR_matrix <- function(model_params, Y_data) {
   return(ar_mat)
 }
 
-#' Build the Nu_t Matrix (Exogenous State Drift)
-#' @description Returns a matrix of zeros matching the dataset length, 
-#' as the structural state transitions follow pure un-drifted stochastic processes.
-#' @param model_params A named list of economic parameters (unused).
-#' @param X_data The exogenous data matrix used to extract timeline length.
-#' @return A T x 3 matrix filled entirely with zeros.
+#' Build Exogenous Transition Intercept Matrix (nu_t) for Taylor Rule SSM
+#'
+#' Constructs the \eqn{T \times 3} zero-drift matrix \eqn{\nu_t} for the state transition equation:
+#' \deqn{\rho_t = \nu_t + H \rho_{t-1} + \eta_t}
+#'
+#' @details
+#' Matrix representation:
+#' \deqn{\nu_t = \begin{bmatrix} 0 & 0 & 0 \end{bmatrix}}
+#' for all \eqn{t = 1, \dots, T}.
+#'
+#' @param model_params A named list of structural model parameters (unused).
+#' @param X_data A \eqn{T \times k} matrix of exogenous regressors used to determine sample length \eqn{T}.
+#'
+#' @return A \eqn{T \times 3} numeric matrix of zeros.
+#'
+#' @export
 build_nu_t_taylor <- function(model_params, X_data) {
   
   T_len <- nrow(X_data)
@@ -122,12 +226,69 @@ build_nu_t_taylor <- function(model_params, X_data) {
 
 
 
-#' Initialize Taylor Rule State-Space Model
+#' Initialize Taylor Rule State-Space Model Blueprint
 #'
-#' @description
-#' Bundles data, parameters, and builders for Model 3 as defined in 0_technical_note.pdf[cite: 130].
-#' Variables include the natural rate (i_bar), term premium trend (TP_bar), 
-#' and term premium cycle (TP_tilde).
+#' Constructs the structural blueprint and parameter manifest for the trivariate state,
+#' bivariate observation Taylor Rule and Term Premium state-space model used in Kalman filtering
+#' and parameter optimization.
+#'
+#' @details
+#' The underlying state-space model is formulated by the following system equations:
+#'
+#' \bold{State (Transition) Equation:}
+#' \deqn{
+#' \begin{bmatrix} \bar{\imath}_t \\ \bar{\text{TP}}_t \\ \tilde{\text{TP}}_t \end{bmatrix} = 
+#' \begin{bmatrix} 0 \\ 0 \\ 0 \end{bmatrix} + 
+#' \begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & \rho_{\text{tp}} \end{bmatrix} 
+#' \begin{bmatrix} \bar{\imath}_{t-1} \\ \bar{\text{TP}}_{t-1} \\ \tilde{\text{TP}}_{t-1} \end{bmatrix} + 
+#' \begin{bmatrix} \eta_t^i \\ \eta_t^{\bar{\text{tp}}} \\ \eta_t^{\tilde{\text{tp}}} \end{bmatrix}
+#' }
+#' where:
+#' \deqn{
+#' \eta_t \sim \mathcal{N}\left(\mathbf{0}, \, Q = N N^\top = \begin{bmatrix} \xi_i^2 & 0 & 0 \\ 0 & \xi_{\bar{\text{tp}}}^2 & 0 \\ 0 & 0 & \xi_{\tilde{\text{tp}}}^2 \end{bmatrix}\right)
+#' }
+#'
+#' \bold{Observation (Measurement) Equation:}
+#' \deqn{
+#' \begin{bmatrix} i_t \\ f_t \end{bmatrix} = 
+#' \begin{bmatrix} (1 - \phi)(\gamma_y \, y_t^{\text{gap}} + \gamma_\pi \, \pi_t^{\text{gap}}) \\ 0 \end{bmatrix} + 
+#' \begin{bmatrix} \phi & 0 \\ 0 & 0 \end{bmatrix} \begin{bmatrix} i_{t-1} \\ f_{t-1} \end{bmatrix} + 
+#' \begin{bmatrix} 1 - \phi & 0 & 0 \\ 1 & 1 & 1 \end{bmatrix} 
+#' \begin{bmatrix} \bar{\imath}_t \\ \bar{\text{TP}}_t \\ \tilde{\text{TP}}_t \end{bmatrix} + 
+#' \begin{bmatrix} \varepsilon_t^{\text{policy}} \\ \varepsilon_t^{\text{fwd}} \end{bmatrix}
+#' }
+#' where:
+#' \deqn{
+#' \varepsilon_t \sim \mathcal{N}\left(\mathbf{0}, \, R = M M^\top = \begin{bmatrix} \sigma_{\text{policy}}^2 & 0 \\ 0 & \sigma_{\text{fwd}}^2 \end{bmatrix}\right)
+#' }
+#'
+#' @param Y_data A \eqn{T \times 2} matrix containing the policy interest rate (\eqn{i_t}) and forward rate expectations (\eqn{f_t}).
+#' @param X_data A \eqn{T \times 2} matrix containing the output gap (\code{gdp_gap}) and inflation gap (\code{inf_gap}).
+#' @param parameter_guesses A named list of initial structural parameters and priors:
+#'   \itemize{
+#'     \item \code{gamma_pi}: Taylor rule inflation gap response coefficient (unconstrained linear).
+#'     \item \code{gamma_y}: Taylor rule output gap response coefficient (unconstrained linear).
+#'     \item \code{phi}: Policy rate smoothing persistence (bounded in \eqn{[0.60, 0.90]}).
+#'     \item \code{rho_tp}: Cyclical term premium AR(1) persistence (bounded in \eqn{[0.01, 0.99]}).
+#'     \item \code{sigma_policy}: Standard deviation of policy rate residual (exponentially constrained \eqn{>0}).
+#'     \item \code{xi_i}: Standard deviation of natural interest rate shocks (bounded in \eqn{[0.01, 0.20]}).
+#'     \item \code{xi_tp_bar}: Standard deviation of trend term premium innovations (bounded in \eqn{[0.01, 0.50]}).
+#'     \item \code{xi_tp_cycl}: Standard deviation of cyclical term premium innovations (bounded in \eqn{[0.001, 0.50]}).
+#'     \item \code{state_init}: Prior state mean vector \eqn{\rho_0 = [\bar{\imath}_0, \bar{\text{TP}}_0, \tilde{\text{TP}}_0]^\top}.
+#'     \item \code{sigma_init}: Prior state covariance matrix \eqn{\Sigma_0}.
+#'   }
+#'
+#' @return A structural state-space blueprint list containing:
+#' \item{data}{Named list containing observation matrix \code{Y} and exogenous matrix \code{X}.}
+#' \item{manifest}{Named list defining optimization transformations and parameter bounds.}
+#' \item{builders}{List of builder functions for system matrices (\code{mu_t}, \code{nu_t}, \code{H}, \code{G}, \code{M}, \code{N}, \code{ar_mat}).}
+#' \item{name}{Model identifier character string (\code{"taylor"}).}
+#' \item{rho_guess}{Initial state mean prior vector.}
+#' \item{sigma_guess}{Initial state covariance prior matrix.}
+#'
+#' @seealso \code{\link{build_H_taylor}}, \code{\link{build_G_taylor}}, \code{\link{build_M_taylor}}, \code{\link{build_N_taylor}}, \code{\link{build_mu_t_taylor}}, \code{\link{build_AR_matrix}}, \code{\link{build_nu_t_taylor}}
+#'
+#' @export
 initialize_taylor_ssm <- function(Y_data, X_data, parameter_guesses) {
   
   # 1. Define Required Parameters for Taylor Rule and Term Premium [cite: 134, 138, 159]

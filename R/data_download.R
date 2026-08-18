@@ -1,3 +1,14 @@
+################################################################################
+#
+# Data DOwnloading FUnctions / API
+#
+################################################################################
+
+
+
+# REMARK: All Documentation done with AI
+
+
 #' Function to Download Data from SNB API
 #' 
 #' This function transforms the R script on the SNB's website into a reusable function to download Data.
@@ -130,7 +141,6 @@ get_snb_data_wrapper <- function(file,
 }
 
 
-####
 
 # Format to time Series
 #' Format SNB Time Series

@@ -1,31 +1,48 @@
+################################################################################
+#
+# These are the functions to run a rolling estimation
+#
+################################################################################
 
+# REMARK: Roxygen documentation made using AI
 
 #===============================================================================
 # Rolling Estimation Functions
 #===============================================================================
 
-# Okun I can still implement the HP filter function
 
-#' Rolling Okun SSM Estimation
-#' 
-#' Generate Rolling SSM Parameters for Forecasting
-#' 
-#' Estimates model parameters over an expanding window up to a specified end date.
-#' Returns a list of parameters to be used in a separate forecasting step.
-#' 
-#' We have T = 1 as the start of the data, T=T is the end of the data,
-#' T=t as the current date up until we have the data availabe for the pseudo forecast
-#' and t+h would then be the forecast horizon.
-#' What we do here is just get the parameter estimation at time t.
-#' 
-#' At each step we have to reestimate the HP filter to get the gaps. This is done via a burn in
-#' where we start the estimation at the first observation in the dataframe. the dataframe is cut to the burn in start in the preparation
-#' this assures there is no starting point bias.
-#' 
-#' @param data Raw merged dataframe containing log_gdp, unemp_rate, and spf_5y_unemp
-#' @param forecast_start The first date to generate a forecast/parameter set for
-#' @param forecast_end End date of rolling window (optional)
-#' @param val_T1 The start date for the Kalman Filter (e.g., 2015-01-01)
+#' Recursive Expanding-Window Estimation for the Okun State-Space Model
+#'
+#' Estimates the parameters and latent state trajectory of the Okun state-space model
+#' across a recursive sequence of expanding sample windows (vantage points).
+#'
+#' @description
+#' Iterates through historical forecast origins \eqn{t \in [\tau, T]}, restricting
+#' available observations to \eqn{[T_0, t]} to simulate real-time estimation conditions.
+#' At each step, output gaps are recalculated (with burn-in), system matrices are constructed,
+#' and parameters are estimated via Maximum Likelihood using sequential optimization with warm starts.
+#'
+#' @param data A data frame containing quarterly time series for \code{log_gdp},
+#'   \code{unemp_rate}, and \code{spf_5y_unemp}.
+#' @param forecast_start Character or Date parseable by \code{zoo::as.yearqtr}.
+#'   The initial forecast origin/vantage point \eqn{\tau} where recursive estimation begins.
+#' @param forecast_end Optional character or Date parseable by \code{zoo::as.yearqtr}.
+#'   The final vantage point \eqn{T}. If \code{NULL}, defaults to the latest available quarter in \code{data}.
+#' @param date_col Character. Column name identifying quarterly dates in \code{data}. Defaults to \code{"quarter"}.
+#' @param val_T1 Character or Date parseable by \code{zoo::as.yearqtr}. Start date \eqn{T_0}
+#'   of the Kalman filter estimation window. Defaults to \code{"1991-01-01"}.
+#'
+#' @return A named list of estimation results for each quarterly vantage point, where each element contains:
+#' \item{target_date}{The forecast origin date \eqn{t} of class \code{yearqtr}.}
+#' \item{params}{Named list of estimated structural parameters on their economic scale.}
+#' \item{states}{Kalman filter output object containing log-likelihood, filtered states (\code{r}), and covariance matrices.}
+#'
+#' @seealso \code{\link{loglik_ssm_core}}, \code{\link{ssm_optimizer_wrapper_core}}, \code{\link{initialize_my_okun_ssm}}
+#'
+#' @export
+#' @importFrom zoo as.yearqtr as.Date
+#' @importFrom dplyr select mutate filter left_join lag rename all_of %>%
+#' @importFrom stats complete.cases
 rolling_est_okun_ssm <- function(data,
                                  forecast_start,
                                  forecast_end = NULL,
@@ -135,7 +152,7 @@ rolling_est_okun_ssm <- function(data,
     }
     
     
-    # 8. Final Extraction of States
+    # Final Extraction of States
     final_states <- loglik_ssm_core(current_theta,
                                     my_ssm_model,
                                     return_full_res = TRUE)
@@ -157,11 +174,42 @@ rolling_est_okun_ssm <- function(data,
 
 
 
-
 # ==============================================================================
 # Rolling Estimation Loop PHILLIPS
 # ==============================================================================
 
+
+#' Recursive Expanding-Window Estimation for the Phillips Curve State-Space Model
+#'
+#' Estimates the parameters and latent state trajectories of the Open-Economy New Keynesian
+#' Phillips Curve state-space model across a recursive sequence of expanding sample windows.
+#'
+#' @description
+#' Iterates through historical forecast origins \eqn{t \in [\tau, T]}, restricting
+#' available observations to \eqn{[T_0, t]} to simulate real-time estimation conditions.
+#' At each quarterly vantage point, data matrices for headline inflation, survey expectations,
+#' output gaps, and LOP gaps are built, and model parameters are estimated via Maximum Likelihood.
+#'
+#' @param data A data frame containing quarterly time series data for the Phillips curve model.
+#' @param forecast_start Character or Date parseable by \code{zoo::as.yearqtr}.
+#'   The initial forecast origin/vantage point \eqn{\tau} where recursive estimation begins.
+#' @param forecast_end Optional character or Date parseable by \code{zoo::as.yearqtr}.
+#'   The final vantage point \eqn{T}. If \code{NULL}, defaults to the latest available quarter in \code{data}.
+#' @param date_col Character. Column name identifying quarterly dates in \code{data}. Defaults to \code{"quarter"}.
+#' @param val_T1 Character or Date parseable by \code{zoo::as.yearqtr}. Start date \eqn{T_0}
+#'   of the Kalman filter estimation window. Defaults to \code{"1990-01-01"}.
+#' @param break_warm_start Logical. If \code{TRUE}, resets starting parameters to manifest defaults
+#'   at each vantage point instead of carrying forward the prior estimate as a warm start. Defaults to \code{TRUE}.
+#'
+#' @return A named list of estimation results for each quarterly vantage point, where each element contains:
+#' \item{target_date}{The forecast origin date \eqn{t} of class \code{yearqtr}.}
+#' \item{params}{Named list of estimated structural parameters on their natural economic scale.}
+#' \item{states}{Kalman filter output object containing log-likelihood, filtered states (\code{r}), and covariance matrices.}
+#'
+#' @seealso \code{\link{loglik_ssm_core}}, \code{\link{ssm_optimizer_wrapper_core}}, \code{\link{initialize_my_philips_ssm}}
+#'
+#' @export
+#' @importFrom zoo as.yearqtr as.Date
 rolling_est_philips_ssm <- function(data,
                                     forecast_start,
                                     forecast_end = NULL,
@@ -275,7 +323,40 @@ rolling_est_philips_ssm <- function(data,
 
 
 
-
+#' Recursive Expanding-Window Estimation for the Taylor Rule State-Space Model
+#'
+#' Estimates the parameters and latent state trajectories of the Taylor rule
+#' state-space model across a sequence of recursive expanding sample windows (vantage points).
+#'
+#' @description
+#' Iterates through historical forecast origins \eqn{t \in [\tau, T]}, restricting
+#' available data to \eqn{[T_0, t]} to simulate real-time estimation constraints.
+#' At each quarterly vantage point, output and inflation gaps are reconstructed,
+#' observation matrices (\code{saron_libor_splice}, \code{forward_rate}) and exogenous
+#' matrices (\code{gdp_gap}, \code{inf_gap}) are formed, and model parameters are estimated
+#' via Maximum Likelihood using sequential optimization with warm starts.
+#'
+#' @param data A data frame containing quarterly series for \code{log_cpi},
+#'   \code{inf_gap}, \code{saron_libor_splice}, \code{forward_rate}, and \code{yoy_inf}.
+#' @param forecast_start Character or Date parseable by \code{zoo::as.yearqtr}.
+#'   The initial forecast origin/vantage point \eqn{\tau} where recursive estimation begins.
+#' @param forecast_end Optional character or Date parseable by \code{zoo::as.yearqtr}.
+#'   The terminal vantage point \eqn{T}. If \code{NULL}, defaults to the latest available quarter in \code{data}.
+#' @param date_col Character. Column name identifying quarterly dates in \code{data}. Defaults to \code{"quarter"}.
+#' @param val_T1 Character or Date parseable by \code{zoo::as.yearqtr}. Start date \eqn{T_0}
+#'   of the Kalman filter estimation sample. Defaults to \code{"1991-01-01"}.
+#'
+#' @return A named list of estimation results for each quarterly vantage point, where each element contains:
+#' \item{target_date}{The forecast origin date \eqn{t} of class \code{yearqtr}.}
+#' \item{params}{Named list of estimated structural parameters on their economic scale.}
+#' \item{states}{Kalman filter output object containing log-likelihood, filtered states (\code{r}), and covariance matrices.}
+#'
+#' @seealso \code{\link{initialize_taylor_ssm}}, \code{\link{ssm_optimizer_wrapper_core}}, \code{\link{loglik_ssm_core}}, \code{\link{get_hp_gap}}
+#'
+#' @export
+#' @importFrom zoo as.yearqtr as.Date
+#' @importFrom dplyr select arrange left_join filter all_of %>%
+#' @importFrom stats complete.cases
 rolling_est_taylor_ssm <- function(data,
                                    forecast_start,
                                    forecast_end = NULL,
@@ -283,7 +364,6 @@ rolling_est_taylor_ssm <- function(data,
                                    val_T1 = "1991-01-01") {
   
   # Assure correct format
-  
   data <- as.data.frame(data)
   
   data[[date_col]] <- as.yearqtr(data[[date_col]])
@@ -394,7 +474,7 @@ rolling_est_taylor_ssm <- function(data,
     }
     
     
-    # 8. Final Extraction of States
+    # Final Extraction of States
     final_states <- loglik_ssm_core(current_theta,
                                     my_ssm_model,
                                     return_full_res = TRUE)

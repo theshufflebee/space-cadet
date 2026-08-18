@@ -34,6 +34,13 @@ creaFcstEval::spaghetti_plot(
   output_path = output_save_paths$plots$spaghetti_gdp
 )
 
+creaFcstEval::spaghetti_plot(
+  df          = output_gap_full_series,
+  fcst_df     = output_gap_forecasts,
+  output_path = output_save_paths$plots$spaghetti_gdp_gap
+)
+
+
 error_plotting_wrapper(fcst_df_gdp, "GDP ARIMA Model", save_path = output_save_paths$plots$errors_gdp)
 
 
@@ -68,8 +75,74 @@ creaFcstEval::spaghetti_plot(
 )
 
 
+# ==============================================================================
+#  AUX/LOP: Spaghetti Plots for Forecasts and Benchmarks
+# ==============================================================================
+
+# Currently no use, will be needed later
+full_lop_gap <- build_data_matrix_philips(
+  T_0             = val_T1_phillips,  # Or your full sample start preference
+  vantage_quarter = "2026 Q1",     # Up to latest realized history block
+  data            = master_philips
+) %>%
+  select(quarter,lop_gap, reer_eu_ppi)%>%
+  rename(date = quarter,
+         value = lop_gap,
+         snb_reer = reer_eu_ppi)%>%
+  mutate(
+    date = format(zoo::as.yearqtr(date), "%YQ%q")
+  ) %>%
+  slice_head(n = -4)
 
 
+creaFcstEval::spaghetti_plot(
+  df          = Y_snb_reer,
+  fcst_df     = fcst_df_lop,
+  output_path = output_save_paths$plots$spaghetti_lop
+)
+
+creaFcstEval::spaghetti_plot(
+  df          = lop_gap_full_series,
+  fcst_df     = lop_forecasts,
+  output_path = output_save_paths$plots$spaghetti_lop_gap
+)
+
+
+error_plotting_wrapper(fcst_df_lop, "SNB REER Forecast Error", save_path = output_save_paths$plots$errors_lop)
+error_plotting_wrapper(lop_forecasts, "LOP Gap Forecast Error", save_path = output_save_paths$plots$errors_lop_gap)
+
+
+###########################
+
+# --- RW Benchmark Spaghetti Plot ---
+lop_rw_bench_wide <- creaFcstEval::bench_to_wide(result_gdp_rw$bench_long)
+lop_rw_bench_wide <- standardize_yq_seq(gdp_rw_bench_wide)
+
+creaFcstEval::spaghetti_plot(
+  df          = Y_gdp_eval,
+  fcst_df     = gdp_rw_bench_wide,
+  output_path = output_save_paths$plots$benchmark$gdp_rw
+)
+
+# --- AR1 Benchmark Spaghetti Plot ---
+gdp_ar1_bench_wide <- creaFcstEval::bench_to_wide(result_gdp_ar1$bench_long)
+gdp_ar1_bench_wide <- standardize_yq_seq(gdp_ar1_bench_wide)
+
+creaFcstEval::spaghetti_plot(
+  df          = Y_gdp_eval,
+  fcst_df     = gdp_ar1_bench_wide,
+  output_path = output_save_paths$plots$benchmark$gdp_ar1
+)
+
+# --- AUTO ARMA Benchmark Spaghetti Plot ---
+gdp_auto_arma_bench_wide <- creaFcstEval::bench_to_wide(result_gdp_auto_arma$bench_long)
+gdp_auto_arma_bench_wide <- standardize_yq_seq(gdp_auto_arma_bench_wide)
+
+creaFcstEval::spaghetti_plot(
+  df          = Y_gdp_eval,
+  fcst_df     = gdp_auto_arma_bench_wide,
+  output_path = output_save_paths$plots$benchmark$gdp_auto_arma
+)
 
 
 # ==============================================================================

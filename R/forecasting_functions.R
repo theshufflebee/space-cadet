@@ -4,8 +4,41 @@
 #
 ################################################################################
 
+# REMARK: All Documentation done with AI
 
-#' Forecasting Function for Okun SSM
+
+#' Out-of-Sample Forecasting for the Okun State-Space Model
+#'
+#' Generates recursive out-of-sample unemployment rate forecasts across rolling vintage origins
+#' using filtered Okun state-space model estimates and real-time GDP gap projections.
+#'
+#' @details
+#' At each quarterly vintage origin \eqn{T}, the cyclical unemployment rate \eqn{\tilde{u}_{T+h|T}}
+#' is projected recursively by combining autoregressive dynamics with distributed lags of the GDP gap:
+#' \deqn{\tilde{u}_{T+h|T} = \phi \, \tilde{u}_{T+h-1|T} + \beta_1 y_{T+h} + \beta_2 y_{T+h-1} + \beta_3 y_{T+h-2}}
+#' Level forecasts are reconstructed by adding the random-walk natural rate trend state:
+#' \deqn{\hat{u}_{T+h|T} = \bar{u}_{T|T} + \tilde{u}_{T+h|T}}
+#'
+#' @param params_df A data frame containing filtered parameters and state estimates across quarters
+#'   (\code{natural_rate}, \code{state_2_trend}, \code{beta1}, \code{beta2}, \code{beta3}, \code{phi}).
+#' @param date_col Character. Column name identifying quarterly dates. Defaults to \code{"quarter"}.
+#' @param exog_var_col Character. Column name for the exogenous log GDP series in \code{X_data}. Defaults to \code{"log_gdp"}.
+#' @param forecast_h Integer. Out-of-sample forecast horizon in quarters. Defaults to \code{8}.
+#' @param Y_data_df A data frame containing actual historical observations. Defaults to \code{Y_okun}.
+#' @param target_variable Character. Column name of the observed series to forecast. Defaults to \code{"unemp_rate"}.
+#' @param X_data A data frame containing historical exogenous variables. Defaults to \code{X_okun}.
+#' @param gdp_gap_forecasts_input A data frame formatted as a lower-triangular forecast matrix containing real-time GDP projections. Defaults to \code{gdp_gap_forecasts}.
+#' @param use_true_gdp Logical. Retained for interface consistency. Defaults to \code{FALSE}.
+#'
+#' @return A data frame in a triangle forecast matrix layout where the first column is \code{date_col}
+#'   (target quarters) and subsequent columns contain projected values from each vintage origin.
+#'
+#' @export
+#' @importFrom dplyr mutate filter arrange select slice pull bind_rows %>%
+#' @importFrom rlang .data all_of
+#' @importFrom tibble rownames_to_column
+#' @importFrom zoo as.yearqtr
+#' @importFrom mFilter hpfilter
 forecast_okun_ssm <- function(params_df,                  
                               date_col = "quarter",
                               exog_var_col = "log_gdp",
@@ -140,9 +173,37 @@ forecast_okun_ssm <- function(params_df,
   return(eval_df)
 }
 
-################################################################################
 
-#' Forecasting Function for the Phillips SSM
+#' Out-of-Sample Forecasting for the Phillips Curve State-Space Model
+#'
+#' Generates recursive out-of-sample inflation forecasts across rolling vintage origins
+#' using structural Phillips curve state-space estimates, projected HP output gaps,
+#' and spliced Law of One Price (LOP) gaps.
+#'
+#' @details
+#' At each quarterly vintage origin \eqn{T}, headline inflation is projected recursively
+#' using a New Keynesian Hybrid Open-Economy Phillips curve specification:
+#' \deqn{\hat{\pi}_{T+h|T} = \bar{\pi}_{T|T} + \phi (\hat{\pi}_{T+h-1|T} - \bar{\pi}_{T|T}) + \psi_{\text{LOP}} \, \text{gap}^{\text{LOP}}_{T+h} + \beta_y \, y^{\text{gap}}_{T+h}}
+#' where \eqn{\bar{\pi}_{T|T}} is the filtered latent trend inflation rate and \eqn{\hat{\pi}_{T|T}}
+#' is initialized from observed inflation at the vintage boundary.
+#'
+#' @param params_df A data frame containing filtered parameters across quarters
+#'   (\code{natural_rate}, \code{beta_y}, \code{psi_lop}, \code{phi}).
+#' @param date_col Character. Column name identifying quarterly dates. Defaults to \code{"quarter"}.
+#' @param master_df A data frame containing historical quarterly series, including \code{log_inflation_diff}.
+#' @param forecast_h Integer. Out-of-sample forecast horizon in quarters. Defaults to \code{8}.
+#' @param exogenous_gdp_forecast_data A data frame containing real-time GDP forecast vintages.
+#'
+#' @return A data frame formatted as a lower-triangular forecast matrix where the first column
+#'   is \code{date_col} (target quarters) and subsequent columns represent vintage origins.
+#'
+#' @seealso \code{\link{get_hp_gap}}, \code{\link{splice_snb_series}}
+#'
+#' @export
+#' @importFrom dplyr mutate arrange filter pull select rename left_join slice %>%
+#' @importFrom rlang .data
+#' @importFrom tibble rownames_to_column
+#' @importFrom zoo as.yearqtr
 forecast_philips_ssm <- function(params_df,
                                  date_col = "quarter",
                                  master_df,
@@ -275,26 +336,42 @@ forecast_philips_ssm <- function(params_df,
 
 #' Strict Pseudo-Out-of-Sample Taylor Rule State-Space Model Forecasting Engine
 #'
-#' @description Takes estimated latent structural parameter timelines and rolls forward
-#' across matched data vintages. Restricts operations to strict information sets available 
-#' at each origin to calculate pure out-of-sample policy rate forecast trajectories.
-#' Throws a critical error if any requested vintage columns are missing to prevent data leakage.
+#' Generates recursive out-of-sample policy interest rate projections across rolling vintage
+#' origins using estimated Taylor rule parameters, real-time output and inflation gaps, and
+#' explicit regime-dependent zero/effective lower bound (ZLB/ELB) truncation.
 #'
-#' @param params_df Dataframe containing the historical optimized parameter paths.
-#' @param date_col Character. Column name for the time index in params_df (default: "quarter").
-#' @param master_df Dataframe containing observed historical macro values (e.g., true_snb_rate).
-#' @param forecast_h Integer. Forward-looking planning horizon in quarters (default: 8).
-#' @param exogenous_gdp_forecast_data Matrix/DF containing real-time rolling level GDP projections.
-#' @param exogenous_inf_forecast_data Matrix/DF containing real-time rolling inflation projections.
-#' @param hp_inf_gap Logical. If TRUE, runs a rolling HP filter extraction on CPI logs (default: FALSE).
-#' @param inf_target Numeric. Steady-state central bank inflation target (default: 1).
-#' @param zlb_0_start String/yearqtr. Lower bound era threshold marking a 0% floor.
-#' @param zlb_075_start String/yearqtr. Lower bound era threshold marking a -0.75% floor.
-#' @param zlb_end String/yearqtr. The final termination quarter of the negative interest rate regime.
-#' @param use_true_data Logical. If TRUE, sets forecasts using perfect ex-post realizations (cheating benchmark).
+#' @details
+#' At each quarterly vintage origin \eqn{T}, unconstrained policy rate targets are constructed via:
+#' \deqn{i^*_{T+h|T} = \bar{i}_{T|T} + \gamma_\pi (\hat{\pi}_{T+h|T} - \pi^*) + \gamma_y \, y^{\text{gap}}_{T+h|T}}
+#' Latent shadow rates are propagated with interest rate smoothing:
+#' \deqn{s_{T+h|T} = \phi \, s_{T+h-1|T} + (1 - \phi) i^*_{T+h|T}}
+#' Observed rate forecasts are obtained by applying regime-specific effective lower bounds:
+#' \deqn{\hat{\imath}_{T+h|T} = \max(\text{Floor}_t, \, s_{T+h|T})}
 #'
-#' @return A matrix containing the tracking trajectories across target dates (rows) and forecast origins (columns).
+#' @param params_df A data frame containing optimized parameters and states across quarters
+#'   (\code{natural_rate}, \code{gamma_pi}, \code{gamma_y}, \code{phi}, \code{fitted_obs}).
+#' @param date_col Character. Column name identifying quarterly dates in \code{params_df}. Defaults to \code{"quarter"}.
+#' @param master_df A data frame containing historical observed macro series, including \code{true_snb_rate}.
+#' @param forecast_h Integer. Forecast horizon in quarters. Defaults to \code{8}.
+#' @param exogenous_gdp_forecast_data Matrix or data frame containing real-time GDP projections.
+#' @param exogenous_inf_forecast_data Matrix or data frame containing real-time inflation projections. Defaults to \code{fcst_df_inf}.
+#' @param hp_inf_gap Logical. Retained for specification compatibility. Defaults to \code{FALSE}.
+#' @param inf_target Numeric. Central bank inflation target (\eqn{\pi^*}). Defaults to \code{1}.
+#' @param zlb_0_start Character, Date, or \code{yearqtr}. Start date of the 0.00\% lower bound regime. Defaults to \code{"2009 Q2"}.
+#' @param zlb_075_start Character, Date, or \code{yearqtr}. Start date of the -0.75\% negative interest rate regime. Defaults to \code{"2015 Q1"}.
+#' @param zlb_end Character, Date, or \code{yearqtr}. Termination quarter of the lower bound regime. Defaults to \code{"2099 Q4"}.
+#' @param use_true_data Logical. Retained for interface compatibility. Defaults to \code{FALSE}.
+#'
+#' @return A data frame formatted as a lower-triangular forecast matrix with target dates as rows
+#'   and vintage origins as columns.
+#'
+#' @seealso \code{\link{get_hp_gap}}, \code{\link{rolling_est_taylor_ssm}}
+#'
 #' @export
+#' @importFrom dplyr mutate filter pull slice rename left_join arrange %>%
+#' @importFrom rlang sym
+#' @importFrom tibble rownames_to_column
+#' @importFrom zoo as.yearqtr
 forecast_taylor_ssm <- function(params_df,
                                 date_col = "quarter",
                                 master_df,

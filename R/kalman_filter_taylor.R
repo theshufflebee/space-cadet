@@ -1,3 +1,48 @@
+################################################################################
+#
+# Taylor Rule Kalman FIlter
+#
+################################################################################
+
+# REMARK: All Documentation done with AI
+
+
+#' Kalman Filter for the Taylor Rule State-Space Model
+#'
+#' Evaluates the log-likelihood and calculates filtered state trajectories for the
+#' Taylor rule state-space model with lagged observable autoregression.
+#'
+#' @details
+#' The state-space model is formulated by the following core system equations:
+#'
+#' \bold{State (Transition) Equation:}
+#' \deqn{\rho_t = \nu_t + H \rho_{t-1} + \eta_t, \quad \eta_t \sim \mathcal{N}(0, Q_t)}
+#' where \eqn{Q_t = N N^\top}.
+#'
+#' \bold{Observation (Measurement) Equation:}
+#' \deqn{Y_t = \mu_t + \Phi Y_{t-1} + G \rho_t + \varepsilon_t, \quad \varepsilon_t \sim \mathcal{N}(0, R_t)}
+#' where \eqn{\Phi = \texttt{ar\_mat}} is the autoregressive coefficient matrix on lagged observables,
+#' and \eqn{R_t = M M^\top}.
+#'
+#' @param Y_t Matrix (\eqn{T \times n_y}) of observed series.
+#' @param nu_t Matrix (\eqn{T \times n_\rho}) of state intercept/deterministic terms.
+#' @param H Matrix (\eqn{n_\rho \times n_\rho}) state transition matrix.
+#' @param N Matrix (\eqn{n_\rho \times \dots}) defining state shock covariance \eqn{Q = N N^\top}.
+#' @param mu_t Matrix (\eqn{T \times n_y}) of exogenous measurement intercepts.
+#' @param G Matrix (\eqn{n_y \times n_\rho}) observation mapping matrix.
+#' @param M Matrix (\eqn{n_y \times \dots}) defining measurement error covariance \eqn{R = M M^\top}.
+#' @param ar_mat Matrix (\eqn{n_y \times n_y}) autoregressive coefficient matrix \eqn{\Phi} on lagged \eqn{Y_{t-1}}.
+#' @param Sigma_0 Initial state covariance matrix (\eqn{n_\rho \times n_\rho}).
+#' @param rho_0 Initial state vector (\eqn{n_\rho \times 1}).
+#' @param indic_pos Vector indicating non-negativity constraints on state variables. Defaults to \code{0}.
+#' @param Rfunction Function returning measurement noise covariance \eqn{R_t}. Defaults to \code{Rf}.
+#' @param Qfunction Function returning state noise covariance \eqn{Q_t}. Defaults to \code{Qf}.
+#' @param reconciliationf Optional reconciliation function applied after filtering update. Defaults to identity.
+#'
+#' @return A list containing filtered states (\code{r}), posterior covariances (\code{Sigma_tt}),
+#'   total log-likelihood (\code{loglik}), one-step-ahead forecasts (\code{y_tp1_t}), and fitted values (\code{fitted.obs}).
+#'
+#' @export
 kalman_filter_taylor <- function(Y_t, nu_t, H, N, mu_t, G, M, ar_mat, Sigma_0, rho_0,
                                indic_pos = 0,
                                Rfunction = Rf, Qfunction = Qf,
@@ -129,11 +174,4 @@ kalman_filter_taylor <- function(Y_t, nu_t, H, N, mu_t, G, M, ar_mat, Sigma_0, r
   
   return(output)
 }
-Rf <- function(M,RHO,t=0){
-  return(M %*% t(M))
-}
-Qf <- function(N,RHO,t=0){
-  return(N %*% t(N))
-}
-
 

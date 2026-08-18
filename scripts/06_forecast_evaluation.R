@@ -6,6 +6,10 @@
 
 message("Starting Forecast Evaluation")
 
+#===============================================================================
+# Auxiliary FOrecasts
+#===============================================================================
+
 
 Y_gdp_eval <- master_quarterly %>%
   select(c("quarter", "log_gdp")) %>%
@@ -14,8 +18,11 @@ Y_gdp_eval <- master_quarterly %>%
   mutate(date = format(as.yearqtr(date), "%YQ%q"))%>%
   drop_na()
 
+
+# ==============================================================================
 # Evaluate GDP Forecasts
-# ------------------------------------------------------------------------------
+# ==============================================================================
+
 result_gdp_rw <- creaFcstEval::run_evaluation(
   df              = Y_gdp_eval,
   fcst_df         = fcst_df_gdp,
@@ -60,7 +67,80 @@ fcst_eval_gdp_ar1_df <- result_gdp_ar1$table
 export_eval_to_latex(fcst_eval_gdp_ar1_df, output_save_paths$tables$eval_ar1_gdp)
 
 
+# ==============================================================================
+# Evaluate SNB REER Forecasts
+# ==============================================================================
 
+# --- RW - SNB REER LEVEL ---
+result_lop_rw <- creaFcstEval::run_evaluation(
+  df              = Y_snb_reer,
+  fcst_df         = fcst_df_lop,
+  model_name      = "SNB REER Model",
+  benchmark_model = "RW",
+  type = "growth"
+)
+
+fcst_eval_lop_rw_df <- result_lop_rw$table
+export_eval_to_latex(fcst_eval_lop_rw_df, output_save_paths$tables$eval_rw_lop)
+
+result_lop_gap_rw <- creaFcstEval::run_evaluation(
+  df              = lop_gap_full_series,
+  fcst_df         = lop_gap_fcst_df,
+  model_name      = "LOP Gap Model",
+  benchmark_model = "RW",
+  type = "growth"
+)
+
+fcst_eval_lop_gap_rw_df <- result_lop_gap_rw$table
+export_eval_to_latex(fcst_eval_lop_gap_rw_df, output_save_paths$tables$eval_rw_lop_gap)
+
+# --- AR1 - SNB REER Level ---
+result_lop_ar1 <- creaFcstEval::run_evaluation(
+  df              = Y_snb_reer %>% slice(4:n()),
+  fcst_df         = fcst_df_lop,
+  model_name      = "SNB REER Model",
+  benchmark_model = "AR1",
+  type            = "growth"
+)
+fcst_eval_lop_ar1_df <- result_lop_ar1$table
+export_eval_to_latex(fcst_eval_lop_ar1_df, output_save_paths$tables$eval_ar1_lop)
+
+# --- LOP Gap ---
+result_lop_gap_ar1 <- creaFcstEval::run_evaluation(
+  df              = lop_gap_full_series %>% slice(4:n()),
+  fcst_df         = lop_gap_fcst_df,
+  model_name      = "LOP Gap Model",
+  benchmark_model = "AR1",
+  type            = "level"
+)
+fcst_eval_lop_gap_ar1_df <- result_lop_gap_ar1$table
+export_eval_to_latex(fcst_eval_lop_gap_ar1_df, output_save_paths$tables$eval_ar1_lop_gap)
+
+# --- AUTO ARMA - SNB REER Level ---
+result_lop_auto_arma <- creaFcstEval::run_evaluation(
+  df              = Y_snb_reer,
+  fcst_df         = fcst_df_lop,
+  model_name      = "SNB REER Model",
+  benchmark_model = "AUTO_ARMA",
+  type            = "growth",
+  max_p           = 4,
+  max_q           = 4
+)
+fcst_eval_lop_auto_arma_df <- result_lop_auto_arma$table
+export_eval_to_latex(fcst_eval_lop_auto_arma_df, output_save_paths$tables$eval_auto_arma_lop)
+
+# --- LOP Gap ---
+result_lop_gap_auto_arma <- creaFcstEval::run_evaluation(
+  df              = lop_gap_full_series,
+  fcst_df         = lop_gap_fcst_df,
+  model_name      = "LOP Gap Model",
+  benchmark_model = "AUTO_ARMA",
+  type            = "level",
+  max_p           = 4,
+  max_q           = 4
+)
+fcst_eval_lop_gap_auto_arma_df <- result_lop_gap_auto_arma$table
+export_eval_to_latex(fcst_eval_lop_gap_auto_arma_df, output_save_paths$tables$eval_auto_arma_lop_gap)
 
 
 
