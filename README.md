@@ -10,6 +10,32 @@ Further there is the para_main.R in the para_functions folder which runs a paral
 
 The argparse.R file in the working directory doesn't work anymore. Will be updated or deleted later.
 
+#### Generate Plots and Tables
+
+1.  **Configuration:**
+    - In `config.R`, set the source folders to load parameter estimations from (e.g., `TARGET_FOLDER_OKUN`).
+    - Specify the output destination: set `store_temp` to `TRUE` (temporary directory) or `FALSE` (persistent directory).
+2.  **Execution:**
+    - Run `source("main.R")`.
+
+------------------------------------------------------------------------
+
+#### Run Full Project in Parallel
+
+1.  **Configuration & Trial Run:**
+    - In `config.R`, verify the target destination directories (e.g., `TARGET_FOLDER_OKUN`, `TARGET_FOLDER_PHILLIPS`, `TARGET_FOLDER_TAYLOR`).
+    - In `main_para_local.R`, enable the models you want to validate (`RUN_OKUN_MODEL`, `RUN_PHILLIPS_MODEL`, `RUN_TAYLOR_MODEL <- TRUE`).
+    - Set `DO_TRIAL_RUN <- TRUE` to execute a single-vintage test run for validation.
+2.  **Full Estimation:**
+    - Set `DO_TRIAL_RUN <- FALSE`.
+    - Enable models individually or simultaneously via the `RUN_*_MODEL` flags.
+    - Run `source("main_para_local.R")`.
+
+> **Approximate Runtime (Standard Laptop):** \* **Okun Model:** \~1 hour \* **Phillips Model:** \~2 hours \* **Taylor Model:** \~3 hours
+
+3.  **Post-Processing:**
+    - Once parallel estimation completes, run `source("main.R")` to generate the final plots and LaTeX tables.
+
 ## Libraries
 
 ```         
