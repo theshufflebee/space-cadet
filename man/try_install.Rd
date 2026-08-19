@@ -7,7 +7,7 @@
 try_install(pkg)
 }
 \arguments{
-\item{pkg}{Character(String?) the package to be installed}
+\item{pkg}{Character the package to be installed}
 }
 \value{
 None if success, stops process if error

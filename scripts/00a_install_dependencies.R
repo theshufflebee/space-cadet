@@ -55,6 +55,8 @@ install_missing_packages(required_packages)
 # Loads all packages
 load_packages(required_packages)
 
+# IMPORTANT: Install this package before running the script
+library(creaFcstEval)
 #remotes::install_local("C:/Users/jonas/Desktop/repos/creaFcstEval", force = TRUE)
 
 # Resolve conflicts

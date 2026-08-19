@@ -125,12 +125,25 @@
 <p>The API call Downloads two datafiles a CSV with the actual data and the metadata as JSON file.</p>
 <p>The data looks like this: <img src="reference/figures/reer.png" alt="Data structure as of last release date" width="400"></p>
 <p>As the Data is daily, we summarize by monthy by sleecting the last value of every month.</p>
+<p>Missing here are exchange rate for EUR and adn CHF</p>
+</div>
+<div class="section level2">
+<h2 id="eu-ppi-data">EU PPI Data<a class="anchor" aria-label="anchor" href="#eu-ppi-data"></a></h2>
+<p>Downloaded via the <code>eurostat</code> package with the id <code>sts_inppd_m</code>. From the Dataset, we select geographical location EA20, refering to the Euro Area. NACE2 Specification is code B-D. FInally I21 referes to the indexing date being 2021. Link is this: <a href="https://ec.europa.eu/eurostat/databrowser/view/sts_inppd_m/default/table" class="external-link uri">https://ec.europa.eu/eurostat/databrowser/view/sts_inppd_m/default/table</a> here maybe look at derived tiime series for other possibilities?</p>
 </div>
 <div class="section level2">
 <h2 id="models-and-data-used-in-them">Models and Data used in them<a class="anchor" aria-label="anchor" href="#models-and-data-used-in-them"></a></h2>
 <div class="section level3">
 <h3 id="okun-model">Okun Model<a class="anchor" aria-label="anchor" href="#okun-model"></a></h3>
 <p>This model uses GDP Data from the <strong>Swiss State Secretariat for Economic Affairs</strong> (SECO). The Unemployment Data comes from the <strong>Swiss Federal Statistics Department</strong> (BFS). The SPF Data comes from the ETH Zürichs <strong>KOF Institute</strong>.</p>
+</div>
+<div class="section level3">
+<h3 id="phillips-model">Phillips Model<a class="anchor" aria-label="anchor" href="#phillips-model"></a></h3>
+<p>This model uses GDP Data from the <strong>Swiss State Secretariat for Economic Affairs</strong> (SECO). The SPF Data comes from the ETH Zürichs <strong>KOF Institute</strong>. The CPI Data from the <strong>Swiss Federal Statistics Department</strong> (BFS). FOr the REER CREA we use the SNB REER PPI based exchange rate from the SNB, the CHF/EUR Exchange rate from the SNB, REAL PPI Indices for switzerland from the BFS and Real PPI Based INdices from EUROSTAT</p>
+</div>
+<div class="section level3">
+<h3 id="taylor-model">Taylor Model<a class="anchor" aria-label="anchor" href="#taylor-model"></a></h3>
+<p>The interest rates used are both from the SNB. It’s a spliced series between the LIBOR and SARON. We also get the 5y and 10y government bond data from the SNB to calculate the forward rate. we get the GDP data from the SECO and the CPI data from the BFS.</p>
 <pre><code>R version 4.3.3</code></pre>
 </div>
 </div>
@@ -158,7 +171,7 @@ jonas.bruno@unil.ch</p>
 </div>
 
 <div class="pkgdown">
-  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.1.</p>
+  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
       </footer></div>

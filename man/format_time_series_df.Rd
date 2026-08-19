@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils.R
 \name{format_time_series_df}
 \alias{format_time_series_df}
-\title{Create Standardized Time Series Dataframe}
+\title{Create Standardized Time Series Data Frame}
 \usage{
 format_time_series_df(
   data,
@@ -14,30 +14,27 @@ format_time_series_df(
 )
 }
 \arguments{
-\item{data}{Dataframe. The input dataset to be formatted (e.g., raw BFS or SNB output).}
+\item{data}{Data frame containing raw time series data.}
 
-\item{date_col}{String. The name of the original column containing date information.}
+\item{date_col}{Character. Name of the column containing date strings.}
 
-\item{value_col}{String. The name of the original column containing numeric values.}
+\item{value_col}{Character. Name of the column containing numeric values.}
 
-\item{new_name}{String. The final name for the value column in the output.}
+\item{new_name}{Character. Target name for the value column in the output data frame.}
 
-\item{date_format}{String. The format string used to parse the date 
-(e.g., \code{"\%Y-\%m"} for 2024-01, \code{"\%b \%Y"} for Jan 2001, or \code{"\%YQ\%q"} for 2024Q1).}
+\item{date_format}{Character. Date parsing format string passed to \code{zoo::as.yearmon}
+(e.g., \code{"\%Y-\%m"}, \code{"\%b \%Y"}, or \code{"\%YQ\%q"}).}
 
-\item{seasonal_adj}{Set to true if you want data to be seasonally adjusted.
-Detects either quarterly or monthly and adjusts accordingly}
+\item{seasonal_adj}{Logical. If \code{TRUE}, detects quarterly vs. monthly frequency
+and applies X-13ARIMA-SEATS seasonal adjustment via \code{seasonal::seas}. Defaults to \code{FALSE}.}
 }
 \value{
-A tidy dataframe with two columns: \code{date} (class \code{yearmon}) 
-and \code{[new_name]} (class \code{numeric}), sorted chronologically.
+A tidy data frame containing:
+\item{date}{Standardized dates of class \code{zoo::yearmon}.}
+\item{[new_name]}{Numeric time series values (seasonally adjusted if requested).}
 }
 \description{
-Transforms a raw dataframe into a standardized two-column format (date and value). 
-This function converts the date column to \code{zoo::yearmon} and ensures 
-the value column is numeric, sorted, and free of missing data.
-}
-\details{
-The function uses \code{rlang}'s injection operator (\code{!!}) to handle 
-dynamic column naming, allowing you to pass the \code{new_name} as a simple string.
+Standardizes raw data into a tidy two-column format (\code{date} and custom-named value column).
+Parses date strings to \code{zoo::yearmon}, coerces values to numeric, sorts chronologically,
+drops missing values, and optionally performs automated X-13ARIMA-SEATS seasonal adjustment.
 }

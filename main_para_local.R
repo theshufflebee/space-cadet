@@ -22,11 +22,11 @@ source(here("R","02_parallel", "est_ssm_para.R"))
 
 set.seed(42) # Set a seed so the shuffle is reproducible
 
-DO_TRIAL_RUN <- FALSE
+DO_TRIAL_RUN <- TRUE
 
 # What Models you Run
-RUN_OKUN_MODEL <- FALSE
-RUN_PHILLIPS_MODEL <- FALSE
+RUN_OKUN_MODEL <- TRUE
+RUN_PHILLIPS_MODEL <- TRUE
 RUN_TAYLOR_MODEL <- TRUE
 
 # --- Estimation Range ---
@@ -71,8 +71,8 @@ if(RUN_OKUN_MODEL) {
       sub_folder          = TARGET_FOLDER_OKUN, 
       gdp_forecasts_arima = gdp_forecasts_arima
     )
-      stop("STOPPING AFTER OKUN TRIAL RUN")
-  }
+    
+  } else {
   
   # Set up a parallel computing environment
   plan(multisession)
@@ -94,6 +94,7 @@ if(RUN_OKUN_MODEL) {
   
   okun_parmas_df <- extract_params_df(okun_parmas_list)
   rownames(okun_parmas_df) <- NULL
+  }
 }
 
 
@@ -122,8 +123,7 @@ if(RUN_PHILLIPS_MODEL) {
         sub_folder          = TARGET_FOLDER_PHILLIPS
       )
     
-    stop("STOPPING AFTER PHILLIPS TRIAL RUN")
-  }
+  } else {
   
   # Set up a parallel computing environment
   plan(multisession)
@@ -144,6 +144,7 @@ if(RUN_PHILLIPS_MODEL) {
   
   phillips_parmas_df <- extract_params_df(phillips_parmas_list)
   rownames(phillips_parmas_df) <- NULL
+  }
 }
 
 
@@ -173,8 +174,8 @@ if(RUN_TAYLOR_MODEL) {
       sub_folder          = TARGET_FOLDER_TAYLOR, 
       gdp_forecasts_arima = gdp_forecasts_arima
     )
-    stop("STOPPING AFTER TAYLOR RULE TRIAL RUN")
-  }
+    
+  } else {
   
   # Set up a parallel computing environment
   plan(multisession)
@@ -194,6 +195,7 @@ if(RUN_TAYLOR_MODEL) {
   
   taylor_params_df <- extract_params_df(taylor_params_list)
   rownames(taylor_params_df) <- NULL
+  }
 }
 
 

@@ -2,7 +2,7 @@
 % Please edit documentation in R/model_input_preparation.R
 \name{get_hp_gap}
 \alias{get_hp_gap}
-\title{Extract HP Filter Gap at a specific Vantage Point}
+\title{Extract Real-Time and Forecasted HP Output Gaps}
 \usage{
 get_hp_gap(
   data,
@@ -11,49 +11,32 @@ get_hp_gap(
   h = 8,
   gdp_col = "log_gdp",
   date_col = "quarter",
-  return_forecasts = FALSE
+  return_type = c("history", "forecast", "full")
 )
 }
 \arguments{
-\item{data}{A dataframe containing historical observed data.}
+\item{data}{A data frame containing historical observed GDP data.}
 
-\item{gdp_forecast_data}{A dataframe containing forecasted values for the series extension.}
+\item{gdp_forecast_data}{A data frame containing real-time GDP forecast vintages,
+where columns include \code{"date"} and vintage labels in \code{"YYYY Qq"} format.}
 
-\item{vantage_q}{The forecast origin date (as a \code{yearqtr} or character string). 
-Represents "today" in the pseudo out-of-sample context.}
+\item{vantage_q}{Character, Date, or \code{yearqtr}. The forecast origin/vintage quarter.}
 
-\item{h}{Integer. The number of forecast quarters to append as an extension. Default is 8.}
+\item{h}{Integer. Forecast horizon in quarters when returning forecast rows. Defaults to \code{8}.}
 
-\item{gdp_col}{Character. The name of the column containing the series to be filtered (e.g., "log_gdp").}
+\item{gdp_col}{Character. Name of the log GDP column in \code{data}. Defaults to \code{"log_gdp"}.}
 
-\item{date_col}{Character. The name of the column containing dates. Default is "quarter".}
+\item{date_col}{Character. Name of the date column in \code{data}. Defaults to \code{"quarter"}.}
 
-\item{return_forecasts}{Logical. If \code{FALSE} (default), returns the historical 
-gaps up to \eqn{T}. If \code{TRUE}, returns the filtered gaps for the forecast 
-horizon \eqn{T+1} to \eqn{T+h}.}
+\item{return_type}{Character string specifying the subset of the series to return:
+\code{"history"} (observations \eqn{\le} vantage point), \code{"forecast"} (the \eqn{h}-step
+ahead projection), or \code{"full"} (the complete spliced trajectory). Defaults to \code{"history"}.}
 }
 \value{
-A tibble containing the date column and the calculated \code{gap}. 
-Returns \code{NULL} if the fused series contains fewer than 12 observations.
+A tibble containing the date column, the log GDP series, and \code{gap} (the extracted HP cyclical component).
 }
 \description{
-This function calculates the Hodrick-Prescott (HP) cyclical component (gap) by 
-splicing historical observed data untilt valtage point T with forecasted extensions.
-This approach mitigates the "end-point bias" of the HP filter in pseudo out-of-sample 
-forecasting contexts, and also allows to forecast the Output gap
-}
-\details{
-The function constructs an augmented time series \eqn{Y^*} by combining 
-observed data up to the vantage point \eqn{T} and forecasted values up to 
-\eqn{T+h}:
-
-The HP filter is then applied to the entire augmented series to extract the 
-cycle Component representing the Output gap. if \code{return_forecasts = FALSE}
-it returns the oputput gap until the vantage point, where the forecasts serve
-as a stabilizer to mitigate endpoint bias, while if its is set to \code{TRUE}
-then it returns both historical and the full forecasts of the Output gap up
-to horizon \code{T+h}.
-}
-\seealso{
-[build_data_matrix_philips()]
+Extends historical log GDP data at a given forecast origin (\code{vantage_q}) with
+out-of-sample GDP forecasts, applies the Hodrick-Prescott (HP) filter (\eqn{\lambda = 1600})
+across the fused series to mitigate endpoint bias, and extracts the cyclical output gap.
 }

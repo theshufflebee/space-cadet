@@ -2,40 +2,28 @@
 % Please edit documentation in R/utils.R
 \name{extract_params_df}
 \alias{extract_params_df}
-\title{Extract Estimated Parameters and States from Rolling SSM Results}
+\title{Extract Estimated Parameters and States from Recursive SSM Outputs}
 \usage{
-extract_params_df(results_list)
+extract_params_df(results_list, extract_fitted_obs = FALSE)
 }
 \arguments{
-\item{results_list}{A nested list, typically the output from \code{new_forecasting_okun_ssm}. 
-Each element of the list must contain \code{target_date}, \code{params} (a named list of 
-economic scale parameters), and \code{states} (the Kalman Filter output containing the state vector \code{r}).}
+\item{results_list}{A list of estimation vintage objects. Each element must contain
+\code{target_date} (vintage identifier), \code{params} (named list of structural parameters),
+and \code{states} (Kalman filter state outputs including the state trajectory matrix \code{r}).}
+
+\item{extract_fitted_obs}{Logical. If \code{TRUE}, extracts the terminal filtered measurement
+values from \code{states$fitted_obs_t_t}. Defaults to \code{FALSE}.}
 }
 \value{
-A \code{tibble} or \code{data.frame} containing:
-\item{quarter}{The date of the vantage point (estimation end date).}
-\item{natural_rate}{The final filtered estimate of the structural trend (\eqn{\rho_T}).}
-\item{...}{All estimated model parameters (e.g., beta1, beta2, sigma_unemp_rate).}
+A \code{tibble}/\code{data.frame} where each row represents an estimation vintage, containing:
+\item{quarter}{Vantage point date identifying the estimation sample endpoint.}
+\item{natural_rate}{Terminal filtered estimate of the primary latent state (\eqn{\rho_{T,1}}).}
+\item{state_2_trend, state_3_trend}{Terminal estimates of additional latent states, if present.}
+\item{fitted_obs, fitted_spf_survey}{Terminal fitted values for observed measurement series (if \code{extract_fitted_obs = TRUE}).}
+\item{...}{Estimated structural model parameters on their natural economic scale.}
 }
 \description{
-Iterates through the results of a rolling State-Space estimation (pseudo out-of-sample)
-and collapses the estimated parameters and the final latent state into a single, 
-tidy dataframe.
-}
-\details{
-For each vantage point (estimation window), the function:
-\enumerate{
-  \item Converts the list of mapped economic parameters (\eqn{\beta}, \eqn{\sigma}, etc.) into a row.
-  \item Extracts the \bold{final} estimated value of the latent state (\eqn{\rho_T}), which 
-  represents the Natural Rate of unemployment at that specific point in time.
-  \item Appends the specific \code{quarter} to identify the estimation vintage.
-}
-
-This creates a "Vantage Point Dataframe" where each row represents the model's 
-worldview at a specific date in history.
-}
-\seealso{
-\code{\link{loglik_ssm}} for the origin of the \code{params} and \code{states} objects.
-
-[rolling_est_okun_ssm()]
+Iterates across a number of recursive (expanding/rolling) state-space estimation results,
+extracting optimized structural parameters, terminal filtered state estimates (\eqn{\boldsymbol{\rho}_T}),
+and optional contemporaneous fitted observations into a tidy data frame.
 }

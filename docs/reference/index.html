@@ -46,33 +46,21 @@
         </td>
         <td><p>A Wrapper for the BFS Packages download function</p></td>
       </tr><tr><td>
-          <p><code><a href="build_G.html">build_G()</a></code> </p>
+          <p><code><a href="build_data_matrix_philips.html">build_data_matrix_philips()</a></code> </p>
         </td>
-        <td><p>Build the G Matrix (Factor Loadings)</p></td>
+        <td><p>Build Data Matrices for the Phillips Curve State-Space Model</p></td>
       </tr><tr><td>
-          <p><code><a href="build_H.html">build_H()</a></code> </p>
+          <p><code><a href="build_data_matrix_taylor.html">build_data_matrix_taylor()</a></code> </p>
         </td>
-        <td><p>Build the H Matrix (State Transition)</p></td>
+        <td><p>Build Data Matrices for the Taylor Rule State-Space Model</p></td>
       </tr><tr><td>
-          <p><code><a href="build_M.html">build_M()</a></code> </p>
+          <p><code><a href="calculate_forward_rate.html">calculate_forward_rate()</a></code> </p>
         </td>
-        <td><p>Build the M Matrix (Measurement Noise Covariance)</p></td>
+        <td><p>Calculate 5y-5y Forward Interest Rate</p></td>
       </tr><tr><td>
-          <p><code><a href="build_mu_t.html">build_mu_t()</a></code> </p>
+          <p><code><a href="clean_stat_string.html">clean_stat_string()</a></code> </p>
         </td>
-        <td><p>Build the mu_t Matrix (Exogenous Impact)</p></td>
-      </tr><tr><td>
-          <p><code><a href="build_N.html">build_N()</a></code> </p>
-        </td>
-        <td><p>Build the N Matrix (Process Noise Covariance)</p></td>
-      </tr><tr><td>
-          <p><code><a href="calculate_kalman_gain.html">calculate_kalman_gain()</a></code> </p>
-        </td>
-        <td><p>Calculate Kalman Gain</p></td>
-      </tr><tr><td>
-          <p><code><a href="calc_covariance.html">calc_covariance()</a></code> </p>
-        </td>
-        <td><p>Calculate Covariance Matrix from Standard Deviations</p></td>
+        <td><p>Clean Strings for LaTeX</p></td>
       </tr><tr><td>
           <p><code><a href="download_kof_data.html">download_kof_data()</a></code> </p>
         </td>
@@ -94,77 +82,189 @@
         </td>
         <td><p>Wrapper Function for the download_url_csv_function</p></td>
       </tr><tr><td>
+          <p><code><a href="error_plotting_wrapper.html">error_plotting_wrapper()</a></code> </p>
+        </td>
+        <td><p>Wrapper Pipeline for Evaluating and Plotting Forecast Errors</p></td>
+      </tr><tr><td>
+          <p><code><a href="eval_forecasts.html">eval_forecasts()</a></code> </p>
+        </td>
+        <td><p>Evaluate Mean Absolute and Squared Forecast Errors Across Target Dates</p></td>
+      </tr><tr><td>
+          <p><code><a href="export_eval_to_latex.html">export_eval_to_latex()</a></code> </p>
+        </td>
+        <td><p>Export Out-of-Sample Forecast Evaluation Summary to LaTeX</p></td>
+      </tr><tr><td>
+          <p><code><a href="extract_lop_gap.html">extract_lop_gap()</a></code> </p>
+        </td>
+        <td><p>Extract Law of One Price (LOP) Gap from Spliced REER Series</p></td>
+      </tr><tr><td>
           <p><code><a href="extract_params_df.html">extract_params_df()</a></code> </p>
         </td>
-        <td><p>Extract Estimated Parameters and States from Rolling SSM Results</p></td>
+        <td><p>Extract Estimated Parameters and States from Recursive SSM Outputs</p></td>
       </tr><tr><td>
-          <p><code><a href="forecast_measurement_eq.html">forecast_measurement_eq()</a></code> </p>
+          <p><code><a href="forecast_gdp.html">forecast_gdp()</a></code> </p>
         </td>
-        <td><p>Forecast Measurement Equation</p></td>
+        <td><p>Forecast GDP Growth using ARIMA with Pandemic Intervention Dummies</p></td>
+      </tr><tr><td>
+          <p><code><a href="forecast_inflation.html">forecast_inflation()</a></code> </p>
+        </td>
+        <td><p>Forecast Year-on-Year Inflation using ARIMA with Pandemic Intervention Dummies</p></td>
       </tr><tr><td>
           <p><code><a href="forecast_okun_ssm.html">forecast_okun_ssm()</a></code> </p>
         </td>
-        <td><p>Pseudo Out-of-Sample Forecasting for Okun State-Space Model</p></td>
+        <td><p>Out-of-Sample Forecasting for the Okun State-Space Model</p></td>
+      </tr><tr><td>
+          <p><code><a href="forecast_philips_ssm.html">forecast_philips_ssm()</a></code> </p>
+        </td>
+        <td><p>Out-of-Sample Forecasting for the Phillips Curve State-Space Model</p></td>
+      </tr><tr><td>
+          <p><code><a href="forecast_reer_components.html">forecast_reer_components()</a></code> </p>
+        </td>
+        <td><p>Forecast REER via Component ARMA and Random Walk</p></td>
+      </tr><tr><td>
+          <p><code><a href="forecast_taylor_ssm.html">forecast_taylor_ssm()</a></code> </p>
+        </td>
+        <td><p>Strict Pseudo-Out-of-Sample Taylor Rule State-Space Model Forecasting Engine</p></td>
       </tr><tr><td>
           <p><code><a href="format_time_series_df.html">format_time_series_df()</a></code> </p>
         </td>
-        <td><p>Create Standardized Time Series Dataframe</p></td>
+        <td><p>Create Standardized Time Series Data Frame</p></td>
+      </tr><tr><td>
+          <p><code><a href="gdp_forecast_wrapper.html">gdp_forecast_wrapper()</a></code> </p>
+        </td>
+        <td><p>Generate Real-Time Rolling Matrix of GDP Forecasts</p></td>
+      </tr><tr><td>
+          <p><code><a href="generate_param_latex_table.html">generate_param_latex_table()</a></code> </p>
+        </td>
+        <td><p>Generate LaTeX Table of State-Space Model Parameter Specifications</p></td>
+      </tr><tr><td>
+          <p><code><a href="generate_snb_reer_forecasts.html">generate_snb_reer_forecasts()</a></code> </p>
+        </td>
+        <td><p>Generate Rolling Real-Time REER Forecast Matrix for the SNB REER</p></td>
+      </tr><tr><td>
+          <p><code><a href="get_arma_forecast.html">get_arma_forecast()</a></code> </p>
+        </td>
+        <td><p>Generate a Single h-Step Auto-ARIMA Forecast for a Given Origin</p></td>
+      </tr><tr><td>
+          <p><code><a href="get_hp_gap.html">get_hp_gap()</a></code> </p>
+        </td>
+        <td><p>Extract Real-Time and Forecasted HP Output Gaps</p></td>
+      </tr><tr><td>
+          <p><code><a href="get_hp_gap_forecast_matrix.html">get_hp_gap_forecast_matrix()</a></code> </p>
+        </td>
+        <td><p>Construct Real-Time HP Filter Gap Forecast Matrix</p></td>
       </tr><tr><td>
           <p><code><a href="get_snb_data_wrapper.html">get_snb_data_wrapper()</a></code> </p>
         </td>
         <td><p>Wrapper function for download SNB Data</p></td>
       </tr><tr><td>
-          <p><code><a href="initialize_my_okun_ssm.html">initialize_my_okun_ssm()</a></code> </p>
+          <p><code><a href="get_ssm_forecasted_inf_gap.html">get_ssm_forecasted_inf_gap()</a></code> </p>
         </td>
-        <td><p>Initialize the Okun State-Space Blueprint</p></td>
+        <td><p>Build the INf gap using the structural rate of inflation</p></td>
+      </tr><tr><td>
+          <p><code><a href="get_ssm_inf_gap.html">get_ssm_inf_gap()</a></code> </p>
+        </td>
+        <td><p>Extract Historical Inflation Gaps Across State-Space Estimation Vintages</p></td>
+      </tr><tr><td>
+          <p><code><a href="inflation_forecast_wrapper.html">inflation_forecast_wrapper()</a></code> </p>
+        </td>
+        <td><p>Generate Real-Time Rolling Matrix of Inflation Forecasts</p></td>
       </tr><tr><td>
           <p><code><a href="install_missing_packages.html">install_missing_packages()</a></code> </p>
         </td>
         <td><p>Function to install missing packages from a vector</p></td>
       </tr><tr><td>
-          <p><code><a href="kalman_filter.html">kalman_filter()</a></code> </p>
+          <p><code><a href="kalman_filter_core.html">kalman_filter_core()</a></code> </p>
         </td>
-        <td><p>Constrained Kalman Filter for Linear State-Space Models</p></td>
+        <td><p>Core Kalman Filter for Linear State-Space Models</p></td>
+      </tr><tr><td>
+          <p><code><a href="kalman_filter_taylor.html">kalman_filter_taylor()</a></code> </p>
+        </td>
+        <td><p>Kalman Filter for the Taylor Rule State-Space Model</p></td>
       </tr><tr><td>
           <p><code><a href="load_packages.html">load_packages()</a></code> </p>
         </td>
         <td><p>Load all packages from a vector</p></td>
       </tr><tr><td>
-          <p><code><a href="loglik_ssm.html">loglik_ssm()</a></code> </p>
+          <p><code><a href="loglik_ssm_core.html">loglik_ssm_core()</a></code> </p>
         </td>
-        <td><p>State-Space Log-Likelihood Function</p></td>
+        <td><p>Unified Negative Log-Likelihood Evaluator for State-Space Models</p></td>
+      </tr><tr><td>
+          <p><code><a href="make_fcst_long.html">make_fcst_long()</a></code> </p>
+        </td>
+        <td><p>Reshape Forecast Triangle Matrix to Long Format</p></td>
+      </tr><tr><td>
+          <p><code><a href="merge_inflation_forecast_vintages.html">merge_inflation_forecast_vintages()</a></code> </p>
+        </td>
+        <td><p>Merge State-Space Inflation Forecasts into ARIMA Forecast Data Frame</p></td>
       </tr><tr><td>
           <p><code><a href="model2param_gen.html">model2param_gen()</a></code> </p>
         </td>
         <td><p>Map Model Parameters to Optimizer Parameters (Unconstrained Scale)</p></td>
       </tr><tr><td>
+          <p><code><a href="mround.html">mround()</a></code> </p>
+        </td>
+        <td><p>Round Numbers to the Nearest Multiple</p></td>
+      </tr><tr><td>
           <p><code><a href="param2model_gen.html">param2model_gen()</a></code> </p>
         </td>
-        <td><p>Map Optimizer Parameters to Model Parameters (Economic Scale)</p></td>
+        <td><p>Map Optimizer Parameters to Model Parameters (Structural Scale)</p></td>
       </tr><tr><td>
-          <p><code><a href="predict_ssm_path_rw.html">predict_ssm_path_rw()</a></code> </p>
+          <p><code><a href="plot_current_forecasts.html">plot_current_forecasts()</a></code> </p>
         </td>
-        <td><p>Function to predict the random walk ssm with exogenous betas</p></td>
+        <td><p>Plot Current Forecasts</p></td>
       </tr><tr><td>
-          <p><code><a href="project_covariance.html">project_covariance()</a></code> </p>
+          <p><code><a href="plot_forecast_errors.html">plot_forecast_errors()</a></code> </p>
         </td>
-        <td><p>Project Covariance Matrix Forward</p></td>
+        <td><p>Plot Forecast Error Metrics Over Time</p></td>
       </tr><tr><td>
-          <p><code><a href="project_state_forward.html">project_state_forward()</a></code> </p>
+          <p><code><a href="plot_model_parameters.html">plot_model_parameters()</a></code> </p>
         </td>
-        <td><p>Project Latent State Forward</p></td>
+        <td><p>Plot and Save Model Parameter Evolution</p></td>
+      </tr><tr><td>
+          <p><code><a href="plot_state_space_fit.html">plot_state_space_fit()</a></code> </p>
+        </td>
+        <td><p>Generate SSM Fit Plot Including Auxiliary Variables</p></td>
+      </tr><tr><td>
+          <p><code><a href="Qf.html">Qf()</a></code> </p>
+        </td>
+        <td><p>Compute State Innovation Covariance Matrix</p></td>
+      </tr><tr><td>
+          <p><code><a href="Rf.html">Rf()</a></code> </p>
+        </td>
+        <td><p>Compute Measurement Noise Covariance Matrix</p></td>
       </tr><tr><td>
           <p><code><a href="rolling_est_okun_ssm.html">rolling_est_okun_ssm()</a></code> </p>
         </td>
-        <td><p>Rolling Okun SSM Estimation</p></td>
+        <td><p>Recursive Expanding-Window Estimation for the Okun State-Space Model</p></td>
+      </tr><tr><td>
+          <p><code><a href="rolling_est_philips_ssm.html">rolling_est_philips_ssm()</a></code> </p>
+        </td>
+        <td><p>Recursive Expanding-Window Estimation for the Phillips Curve State-Space Model</p></td>
+      </tr><tr><td>
+          <p><code><a href="rolling_est_taylor_ssm.html">rolling_est_taylor_ssm()</a></code> </p>
+        </td>
+        <td><p>Recursive Expanding-Window Estimation for the Taylor Rule State-Space Model</p></td>
       </tr><tr><td>
           <p><code><a href="snb_api_data_to_ts.html">snb_api_data_to_ts()</a></code> </p>
         </td>
         <td><p>Format SNB Time Series</p></td>
       </tr><tr><td>
-          <p><code><a href="ssm_optimizer_wrapper.html">ssm_optimizer_wrapper()</a></code> </p>
+          <p><code><a href="splice_reer_series.html">splice_reer_series()</a></code> </p>
         </td>
-        <td><p>Multi-Step State-Space Model Optimizer Wrapper</p></td>
+        <td><p>Splice SNB REER with CREA Proxy and Component Projections</p></td>
+      </tr><tr><td>
+          <p><code><a href="splice_snb_series.html">splice_snb_series()</a></code> </p>
+        </td>
+        <td><p>Construct Real-Time Spliced REER Series and Extract LOP Gap</p></td>
+      </tr><tr><td>
+          <p><code><a href="ssm_optimizer_wrapper_core.html">ssm_optimizer_wrapper_core()</a></code> </p>
+        </td>
+        <td><p>Multi-Method Optimization Wrapper for Macroeconomic State-Space Models</p></td>
+      </tr><tr><td>
+          <p><code><a href="standardize_yq_seq.html">standardize_yq_seq()</a></code> </p>
+        </td>
+        <td><p>Standardize Year-Quarter Labels and Column Sequences</p></td>
       </tr><tr><td>
           <p><code><a href="try_install.html">try_install()</a></code> </p>
         </td>
@@ -182,7 +282,7 @@
 </div>
 
 <div class="pkgdown">
-  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.1.</p>
+  <p></p><p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.1.</p>
 </div>
 
       </footer></div>

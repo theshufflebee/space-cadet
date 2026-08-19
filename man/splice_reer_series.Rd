@@ -2,35 +2,46 @@
 % Please edit documentation in R/model_input_preparation.R
 \name{splice_reer_series}
 \alias{splice_reer_series}
-\title{Splice Official SNB REER with CREA Proxy and Component Forecasts}
+\title{Splice SNB REER with CREA Proxy and Component Projections}
 \usage{
 splice_reer_series(
   vantage_quarter = "2023 Q2",
-  snb_reer_delay = 4,
+  snb_reer_delay = 3,
   data = master_philips,
-  burn_in = "2010 Q1"
+  burn_in = "1982 Q1"
 )
 }
 \arguments{
-\item{vantage_quarter}{The date of the forecast origin.}
+\item{vantage_quarter}{Character, Date, or \code{yearqtr}. The pseudo-real-time forecast origin. 
+Defaults to \code{"2023 Q2"}.}
 
-\item{snb_reer_delay}{Number of quarters SNB data is assumed to be lagging.}
+\item{snb_reer_delay}{Integer. Publication lag of the official SNB REER in quarters. Defaults to \code{3}.}
 
-\item{data}{Master quarterly dataframe.}
+\item{data}{A data frame containing quarterly series for \code{quarter}, \code{reer_eu_ppi}, 
+\code{REER_CREA}, \code{ppi_ch_idx}, \code{ppi_eur_idx}, and \code{ex_eoq}.}
 
-\item{burn_in}{Start date for the series history.}
+\item{burn_in}{Character or \code{yearqtr}. Historical sample start date. Defaults to \code{"1982 Q1"}.}
 }
 \value{
-A tibble with [quarter, reer_simulated] extended h-steps ahead.
+A tibble with two columns:
+\item{quarter}{Quarterly dates of class \code{yearqtr} spanning \code{burn_in} to \code{vantage_quarter + 2 years}.}
+\item{reer_simulated}{Spliced historical and forecasted REER levels.}
 }
 \description{
-Splice Official SNB REER with CREA Proxy and Component Forecasts
+Constructs a real-time REER level trajectory up to \eqn{T+8} quarters ahead by splicing 
+official historical SNB data with the chained CREA proxy across publication lag periods 
+and appending component-based forecasts.
 }
 \details{
-To run the pseudo out of sample forecasts correctly we need to take into account
-that the SNB REER releases with a delay of 1 year. Therefore we need to remove
-that timeframe from the data and replace it with a proxy. Due to teh release delay
-of data in reality the delay is usually only 3 quarters, as GDP for example releases
-in the middle of the next quarter, at whch point the SNB data is already here.
-To be conservative however we still use 4 quarters
+Official SNB REER data is subject to publication lags. The function determines the last 
+published observation at \code{cutoff_q = vantage_quarter - snb_reer_delay/4} and bridges 
+the gap to the forecast origin (\code{vantage_quarter}) using chained growth rates of the 
+observed CREA proxy. 
+
+From the vantage point forward, 8-quarter-ahead projections are generated via 
+\code{\link{forecast_reer_components}} (Random Walk exchange rates and auto-ARIMA price indices) 
+and chained to the spliced level.
+}
+\seealso{
+\code{\link{forecast_reer_components}}, \code{\link{splice_snb_series}}
 }

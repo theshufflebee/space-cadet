@@ -2,18 +2,29 @@
 % Please edit documentation in R/model_input_preparation.R
 \name{extract_lop_gap}
 \alias{extract_lop_gap}
-\title{Extract Law of One Price (LOP) Gap from Spliced REER}
+\title{Extract Law of One Price (LOP) Gap from Spliced REER Series}
 \usage{
 extract_lop_gap(spliced_df, hp_freq = 1600)
 }
 \arguments{
-\item{spliced_df}{Output from splice_reer_series.}
+\item{spliced_df}{A data frame or tibble output from \code{\link{splice_reer_series}}
+containing \code{quarter} and \code{reer_simulated}.}
 
-\item{hp_freq}{Frequency parameter for HP Filter (default 1600 for quarterly).}
+\item{hp_freq}{Numeric. Smoothing parameter (\eqn{\lambda}) for the HP filter.
+Defaults to \code{1600} for quarterly time series.}
 }
 \value{
-A tibble with [quarter, reer_simulated, log_reer, trend, lop_gap].
+A tibble augmented with HP filter decomposition columns:
+\item{quarter}{Quarterly dates of class \code{yearqtr}.}
+\item{reer_simulated}{Spliced REER series in levels.}
+\item{log_reer}{Natural logarithm of \code{reer_simulated}.}
+\item{trend}{Extracted HP filter trend component.}
+\item{lop_gap}{Cyclical LOP gap (\eqn{\log(\text{REER}) - \text{trend}}).}
 }
 \description{
-Extract Law of One Price (LOP) Gap from Spliced REER
+Applies the Hodrick-Prescott (HP) filter to the natural logarithm of a spliced
+Real Effective Exchange Rate (REER) series to isolate the cyclical LOP gap from its trend.
+}
+\seealso{
+\code{\link{splice_reer_series}}
 }

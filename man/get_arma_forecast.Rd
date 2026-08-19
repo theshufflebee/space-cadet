@@ -2,7 +2,7 @@
 % Please edit documentation in R/model_input_preparation.R
 \name{get_arma_forecast}
 \alias{get_arma_forecast}
-\title{Generate a single h-step ARMA forecast for a rolling window}
+\title{Generate a Single h-Step Auto-ARIMA Forecast for a Given Origin}
 \usage{
 get_arma_forecast(
   current_T,
@@ -14,33 +14,34 @@ get_arma_forecast(
 )
 }
 \arguments{
-\item{current_T}{The forecast origin date (as a `yearqtr` or character string).}
+\item{current_T}{Character, Date, or \code{yearqtr}. The forecast origin/vantage point date.}
 
-\item{T_0}{The start date for the training sample (default is "2000 Q1").}
+\item{T_0}{Optional character or \code{yearqtr}. Start date of the training window (retained for signature compatibility). Defaults to \code{"2000 Q1"}.}
 
-\item{h}{Integer. The number of quarters to forecast ahead (default is 8).}
+\item{h}{Integer. Forecast horizon in quarters. Defaults to \code{8}.}
 
-\item{data}{A dataframe or tibble containing the time series.}
+\item{data}{A data frame or tibble containing the historical time series.}
 
-\item{data_col}{Character. The name of the column to be forecasted.}
+\item{data_col}{Character. Name of the column containing the target series to forecast.}
 
-\item{date_col}{Character. The name of the date column (default is "quarter").}
+\item{date_col}{Character. Name of the date column in \code{data}. Defaults to \code{"quarter"}.}
 }
 \value{
-A tibble with `origin_date`, `forecast_date`, `h_step`, and `predicted_value`. 
-Returns `NULL` if estimation fails or data is insufficient.
+A tibble with \code{h} rows containing:
+\item{origin_date}{The forecast origin date of class \code{yearqtr}.}
+\item{forecast_date}{Target quarterly forecast dates of class \code{yearqtr}.}
+\item{h_step}{Integer forecast steps \eqn{1, \dots, h}.}
+\item{predicted_value}{Point forecasts on the original level scale.}
+Returns \code{NULL} if estimation fails or fewer than 16 valid observations are available.
 }
 \description{
-Estimates an ARIMA model from a dataset with a data and a date column to a
-specific time origin and returns forecast. The data doesn't need to be transformed
-and prepared before running the function, i.e logs and differentiation gets handled in
-the function (logs) and by the auto arima (diff). Only works on quarterly data.
+Estimates an automated ARIMA model on log-transformed quarterly data up to a specified
+forecast origin (\code{current_T}) and returns point forecasts transformed back to original levels.
 }
 \details{
-The function performs a log-transformation of the input data before estimation:
-
-The ARIMA model is selected automatically and model accounts for non-stationarity
-through automatic differencing by the auto.arima function
-
-Forecasts are converted back to levels using the exponential function:
+The input series is trimmed to valid observations up to \code{current_T} and log-transformed:
+\deqn{y_t = \log(x_t)}
+An optimal ARIMA(\eqn{p,d,q}) model is selected via \code{forecast::auto.arima(..., seasonal = FALSE)}.
+Point forecasts \eqn{\hat{y}_{T+h|T}} are generated and mapped back to levels via exponentiation:
+\deqn{\hat{x}_{T+h|T} = \exp(\hat{y}_{T+h|T})}
 }

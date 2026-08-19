@@ -2,50 +2,36 @@
 % Please edit documentation in R/model_input_preparation.R
 \name{forecast_reer_components}
 \alias{forecast_reer_components}
-\title{Forecast REER using Component ARMA and Random Walk}
+\title{Forecast REER via Component ARMA and Random Walk}
 \usage{
 forecast_reer_components(current_T, h = 8, data)
 }
 \arguments{
-\item{current_T}{The origin date (yearqtr object or character convertible to yearqtr).}
+\item{current_T}{Character, Date, or \code{yearqtr}. The forecast origin date \eqn{T}.}
 
-\item{h}{Integer. The forecast horizon in quarters. Default is 8.}
+\item{h}{Integer. Forecast horizon in quarters. Defaults to \code{8}.}
 
-\item{data}{A dataframe containing \code{quarter}, \code{ppi_ch_idx}, \code{ppi_eur_idx}, 
-and \code{ex_eoq}.}
+\item{data}{A data frame containing quarterly series for \code{quarter},
+\code{ppi_ch_idx}, \code{ppi_eur_idx}, and \code{ex_eoq}.}
 }
 \value{
 A tibble containing:
-\itemize{
-  \item \code{origin_date}: The date from which the forecast was made.
-  \item \code{forecast_date}: The target date of the forecast.
-  \item \code{h_step}: The horizon step (1 to \eqn{h}).
-  \item \code{predicted_reer}: The reconstructed REER forecast in levels.
-}
+\item{origin_date}{The forecast origin date \eqn{T} of class \code{yearqtr}.}
+\item{forecast_date}{Target quarterly forecast dates of class \code{yearqtr}.}
+\item{h_step}{Integer forecast steps \eqn{1, \dots, h}.}
+\item{predicted_reer}{Reconstructed point forecasts for the REER level.}
 }
 \description{
-This function generates a forecast for the Real Effective Exchange Rate (REER) 
-by decomposing it into its constituent parts: the domestic Producer Price Index (PPI), 
-the foreign (Euro Area) PPI, and the nominal exchange rate.
+Projects the Real Effective Exchange Rate (REER) forward by decomposing it into
+its constituent series: domestic Swiss PPI, foreign Euro Area PPI, and the nominal
+exchange rate.
 }
 \details{
-The forecast assumes that the nominal exchange rate follows a Random Walk (RW), 
-while the price indices follow independent ARMA processes. The REER forecast is 
-constructed using the following identity:
-
-\deqn{REER_{T+h} = S_{T} \times \left( \frac{PPI^{CH}_{T+h}}{PPI^{EUR}_{T+h}} \right)}
-
-Where:
-\itemize{
-  \item \eqn{S_{T}} is the last observed nominal exchange rate (\code{ex_eoq}) at origin \eqn{T}.
-  \item \eqn{PPI^{CH}_{T+h}} is the \eqn{h}-step ahead ARMA forecast of the Swiss PPI.
-  \item \eqn{PPI^{EUR}_{T+h}} is the \eqn{h}-step ahead ARMA forecast of the Euro Area PPI.
-}
-
-Both price index forecasts are generated via \code{\link{get_arma_forecast}}, 
-which applies a log-transformation and utilizes \code{forecast::auto.arima} for 
-optimal model selection based on unit-root testing and information criteria.
+Assumes the nominal CHF/EUR exchange rate follows a driftless random walk
+(\eqn{S_{T+h|T} = S_T}), while Swiss and Euro Area PPI series are projected
+via independent automated log-ARIMA models. The combined point forecast is:
+\deqn{\widehat{REER}_{T+h|T} = S_T \cdot \left( \frac{\widehat{PPI}^{\text{CH}}_{T+h|T}}{\widehat{PPI}^{\text{EUR}}_{T+h|T}} \right)}
 }
 \seealso{
-\code{\link{get_arma_forecast}} for the underlying ARMA logic.
+\code{\link{get_arma_forecast}}
 }
