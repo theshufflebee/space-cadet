@@ -50,7 +50,7 @@ LOAD_PARA_EST <- TRUE
 # To analyze the estimations from the parallel estimations load these folders
 TARGET_FOLDER_OKUN <- "thesis_run_okun" # Output destination folder: output/para/...
 TARGET_FOLDER_PHILLIPS <- "thesis_run_phillips" # Output destination folder: output/para/...
-TARGET_FOLDER_TAYLOR <- "thesis_run_taylor" # Output destination folder: output/para/...
+TARGET_FOLDER_TAYLOR <- "thesis_run_taylor_non_static" # Output destination folder: output/para/...
 
 # ==============================================================================
 # Downloading and Data Prep Settings
@@ -320,6 +320,8 @@ output_save_paths <- list(
     errors_lop  = here(output_base, "plots/errors_lop.png"),
     errors_lop_gap = here(output_base, "plots/errors_lop_gap.png"),
     
+    current_forecasts =  here(output_base, "plots/current_forecasts_plot.png"),
+    
     bench_error_rw_okun = here(output_base, "plots/errors_bench_rw_okun.png"),
     bench_error_rw_phillips = here(output_base, "plots/errors_bench_rw_phillips.png"),
     bench_error_rw_taylor = here(output_base, "plots/errors_bench_rw_taylor.png"),
@@ -360,14 +362,7 @@ output_save_paths <- list(
       lop_gap_rw = here(output_base, "plots/benchmark_spaghetti_lop_gap_rw.png"),
       lop_gap_ar1 = here(output_base, "plots/benchmark_spaghetti_lop_gap_ar1.png"),
       lop_gap_auto_arma = here(output_base, "plots/benchmark_spaghetti_lop_gap_auto_arma.png")
-    ),
-    
-    current_forecasts = list(
-      okun_current_forecasts = here(output_base, "plots/okun_current_forecast.png"),
-      phillips_current_forecasts = here(output_base, "plots/phillips_current_forecast.png"),
-      taylor_current_forecasts = here(output_base, "plots/taylor_current_forecast.png"),
-      taylor_rounded_current_forecasts = here(output_base, "plots/taylor_rounded_current_forecast.png")
-    )
+      )
   ),
   forecasts = list(
     forecast_df_okun    = here(output_base, "forecasts/unemployment_forecasts.csv"),

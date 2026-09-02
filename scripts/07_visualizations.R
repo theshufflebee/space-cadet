@@ -13,15 +13,15 @@ message("Starting Visualizations")
 
 
 okun_param_plot <- plot_model_parameters(df = okun_params_df,
-                                         title = "Okun Rolling Parameter Estimation Plot",
+                                         title = "Okun's Law Model Recursive Parameter Estimates",
                                          save_path = output_save_paths$plots$params_okun)
 
 philips_param_plot <- plot_model_parameters(df = phillips_parmas_df,
-                                            title = "Philips Rolling Parameter Estimation Plot",
+                                            title = "Philips Curve Model Recursive Parameter Estimates",
                                             save_path = output_save_paths$plots$params_philips)
 
 taylor_param_plot <- plot_model_parameters(df = taylor_params_df,
-                                            title = "Taylor Rolling Parameter Estimation Plot",
+                                            title = "Taylor Rule Model Recursive Parameter Estimates",
                                             save_path = output_save_paths$plots$params_taylor)
 
 
@@ -41,12 +41,13 @@ creaFcstEval::spaghetti_plot(
 )
 
 
-error_plotting_wrapper(fcst_df_gdp, "GDP ARIMA Model", save_path = output_save_paths$plots$errors_gdp)
+error_plotting_wrapper(fcst_df_gdp, "GDP Gap ARIMA Model", save_path = output_save_paths$plots$errors_gdp)
 
 
 # --- RW Benchmark Spaghetti Plot ---
 gdp_rw_bench_wide <- creaFcstEval::bench_to_wide(result_gdp_rw$bench_long)
 gdp_rw_bench_wide <- standardize_yq_seq(gdp_rw_bench_wide)
+gdp_rw_bench_wide <- reduce_diagonal_matrix(mat = gdp_rw_bench_wide, max_h = 8)
 
 creaFcstEval::spaghetti_plot(
   df          = Y_gdp_eval,
@@ -57,6 +58,7 @@ creaFcstEval::spaghetti_plot(
 # --- AR1 Benchmark Spaghetti Plot ---
 gdp_ar1_bench_wide <- creaFcstEval::bench_to_wide(result_gdp_ar1$bench_long)
 gdp_ar1_bench_wide <- standardize_yq_seq(gdp_ar1_bench_wide)
+gdp_ar1_bench_wide <- reduce_diagonal_matrix(mat = gdp_ar1_bench_wide, max_h = 8)
 
 creaFcstEval::spaghetti_plot(
   df          = Y_gdp_eval,
@@ -67,6 +69,7 @@ creaFcstEval::spaghetti_plot(
 # --- AUTO ARMA Benchmark Spaghetti Plot ---
 gdp_auto_arma_bench_wide <- creaFcstEval::bench_to_wide(result_gdp_auto_arma$bench_long)
 gdp_auto_arma_bench_wide <- standardize_yq_seq(gdp_auto_arma_bench_wide)
+gdp_auto_arma_bench_wide <- reduce_diagonal_matrix(mat = gdp_auto_arma_bench_wide, max_h = 8)
 
 creaFcstEval::spaghetti_plot(
   df          = Y_gdp_eval,
@@ -117,6 +120,8 @@ error_plotting_wrapper(lop_forecasts, "LOP Gap Forecast Error", save_path = outp
 # --- RW Benchmark Spaghetti Plot ---
 lop_rw_bench_wide <- creaFcstEval::bench_to_wide(result_gdp_rw$bench_long)
 lop_rw_bench_wide <- standardize_yq_seq(gdp_rw_bench_wide)
+lop_rw_bench_wide <- reduce_diagonal_matrix(mat = lop_rw_bench_wide, max_h = 8)
+
 
 creaFcstEval::spaghetti_plot(
   df          = Y_gdp_eval,
@@ -127,6 +132,7 @@ creaFcstEval::spaghetti_plot(
 # --- AR1 Benchmark Spaghetti Plot ---
 gdp_ar1_bench_wide <- creaFcstEval::bench_to_wide(result_gdp_ar1$bench_long)
 gdp_ar1_bench_wide <- standardize_yq_seq(gdp_ar1_bench_wide)
+gdp_ar1_bench_wide <- reduce_diagonal_matrix(mat = gdp_ar1_bench_wide, max_h = 8)
 
 creaFcstEval::spaghetti_plot(
   df          = Y_gdp_eval,
@@ -137,6 +143,7 @@ creaFcstEval::spaghetti_plot(
 # --- AUTO ARMA Benchmark Spaghetti Plot ---
 gdp_auto_arma_bench_wide <- creaFcstEval::bench_to_wide(result_gdp_auto_arma$bench_long)
 gdp_auto_arma_bench_wide <- standardize_yq_seq(gdp_auto_arma_bench_wide)
+gdp_auto_arma_bench_wide <- reduce_diagonal_matrix(mat = gdp_auto_arma_bench_wide, max_h = 8)
 
 creaFcstEval::spaghetti_plot(
   df          = Y_gdp_eval,
@@ -155,11 +162,12 @@ creaFcstEval::spaghetti_plot(
   output_path = output_save_paths$plots$spaghetti_okun
 )
 
-error_plotting_wrapper(fcst_df_unemp, "Okun Model", save_path = output_save_paths$plots$errors_okun)
+error_plotting_wrapper(fcst_df_unemp, "Error Plot Okun's Law Model", save_path = output_save_paths$plots$errors_okun)
 
 # --- RW Benchmark Spaghetti Plot ---
 okun_rw_bench_wide <- creaFcstEval::bench_to_wide(result_okun_rw$bench_long)
 okun_rw_bench_wide <- standardize_yq_seq(okun_rw_bench_wide)
+okun_rw_bench_wide <- reduce_diagonal_matrix(mat = okun_rw_bench_wide, max_h = 8)
 
 creaFcstEval::spaghetti_plot(
   df          = Y_okun_eval,
@@ -170,6 +178,7 @@ creaFcstEval::spaghetti_plot(
 # --- AR1 Benchmark Spaghetti Plot ---
 okun_ar1_bench_wide <- creaFcstEval::bench_to_wide(result_okun_ar1$bench_long)
 okun_ar1_bench_wide <- standardize_yq_seq(okun_ar1_bench_wide)
+okun_ar1_bench_wide <- reduce_diagonal_matrix(mat = okun_ar1_bench_wide, max_h = 8)
 
 creaFcstEval::spaghetti_plot(
   df          = Y_okun_eval,
@@ -180,6 +189,7 @@ creaFcstEval::spaghetti_plot(
 # --- AUTO ARMA Benchmark Spaghetti Plot ---
 okun_auto_arma_bench_wide <- creaFcstEval::bench_to_wide(result_okun_auto_arma$bench_long)
 okun_auto_arma_bench_wide <- standardize_yq_seq(okun_auto_arma_bench_wide)
+okun_auto_arma_bench_wide <- reduce_diagonal_matrix(mat = okun_auto_arma_bench_wide, max_h = 8)
 
 creaFcstEval::spaghetti_plot(
   df          = Y_okun_eval,
@@ -200,11 +210,12 @@ creaFcstEval::spaghetti_plot(
   output_path = output_save_paths$plots$spaghetti_philips
 )
 
-error_plotting_wrapper(fcst_df_inf, "Phillips Model", save_path = output_save_paths$plots$errors_phillips)
+error_plotting_wrapper(fcst_df_inf, "Error Plot Phillips Curve Model", save_path = output_save_paths$plots$errors_phillips)
 
 # --- RW Benchmark Spaghetti Plot ---
 phillips_rw_bench_wide <- creaFcstEval::bench_to_wide(result_philips_rw$bench_long)
 phillips_rw_bench_wide <- standardize_yq_seq(phillips_rw_bench_wide)
+phillips_rw_bench_wide <- reduce_diagonal_matrix(mat = phillips_rw_bench_wide, max_h = 8)
 
 creaFcstEval::spaghetti_plot(
   df          = Y_philips,
@@ -215,6 +226,7 @@ creaFcstEval::spaghetti_plot(
 # --- AR1 Benchmark Spaghetti Plot ---
 phillips_ar1_bench_wide <- creaFcstEval::bench_to_wide(result_philips_ar1$bench_long)
 phillips_ar1_bench_wide <- standardize_yq_seq(phillips_ar1_bench_wide)
+phillips_ar1_bench_wide <- reduce_diagonal_matrix(mat = phillips_ar1_bench_wide, max_h = 8)
 
 creaFcstEval::spaghetti_plot(
   df          = Y_philips,
@@ -225,6 +237,7 @@ creaFcstEval::spaghetti_plot(
 # --- AUTO ARMA Benchmark Spaghetti Plot ---
 phillips_auto_arma_bench_wide <- creaFcstEval::bench_to_wide(result_philips_auto_arma$bench_long)
 phillips_auto_arma_bench_wide <- standardize_yq_seq(phillips_auto_arma_bench_wide)
+phillips_auto_arma_bench_wide <- reduce_diagonal_matrix(mat = phillips_auto_arma_bench_wide,  max_h = 8)
 
 creaFcstEval::spaghetti_plot(
   df          = Y_philips,
@@ -250,11 +263,13 @@ creaFcstEval::spaghetti_plot(
   output_path     = output_save_paths$plots$spaghetti_taylor_rounded
 )
 
-error_plotting_wrapper(fcst_df_policy_rate, "Taylor Model", save_path = output_save_paths$plots$errors_taylor)
+error_plotting_wrapper(fcst_df_policy_rate, "Error Plot Taylor Rule Model", save_path = output_save_paths$plots$errors_taylor)
 
 # --- RW Benchmark Spaghetti Plot ---
 taylor_rw_bench_wide <- creaFcstEval::bench_to_wide(result_taylor_rw$bench_long)
 taylor_rw_bench_wide <- standardize_yq_seq(taylor_rw_bench_wide)
+taylor_rw_bench_wide <- reduce_diagonal_matrix(mat = taylor_rw_bench_wide, max_h = 8)
+
 
 creaFcstEval::spaghetti_plot(
   df          = Y_taylor,
@@ -266,6 +281,7 @@ creaFcstEval::spaghetti_plot(
 # --- AR1 Benchmark Spaghetti Plot ---
 taylor_ar1_bench_wide <- creaFcstEval::bench_to_wide(result_taylor_ar1$bench_long)
 taylor_ar1_bench_wide <- standardize_yq_seq(taylor_ar1_bench_wide)
+taylor_ar1_bench_wide <- reduce_diagonal_matrix(mat = taylor_ar1_bench_wide, max_h = 8)
 
 creaFcstEval::spaghetti_plot(
   df          = Y_taylor,
@@ -276,6 +292,7 @@ creaFcstEval::spaghetti_plot(
 # --- AUTO ARMA Benchmark Spaghetti Plot ---
 taylor_auto_arma_bench_wide <- creaFcstEval::bench_to_wide(result_taylor_auto_arma$bench_long)
 taylor_auto_arma_bench_wide <- standardize_yq_seq(taylor_auto_arma_bench_wide)
+taylor_auto_arma_bench_wide <- reduce_diagonal_matrix(mat = taylor_auto_arma_bench_wide, max_h = 8)
 
 creaFcstEval::spaghetti_plot(
   df          = Y_taylor,
@@ -320,7 +337,7 @@ ssm_okun <- initialize_my_okun_ssm( # Update function name if it matches your in
 )
 
 generate_param_latex_table(manifest_source = ssm_okun$manifest, 
-                           model_name = "Okun Model",
+                           model_name = "Okun's Law Model",
                            save_path = output_save_paths$tables$okun_param_table)
 
 
@@ -383,11 +400,11 @@ okun_plot_data <- okun_plot_data %>%
 
 okun_top_metrics <- c(
   "fitted_unemp" = "Fitted Unemployment",
-  "obs_unemp"    = "Unemployment",
+  "obs_unemp"    = "Observed Unemployment",
   
-  "latent_trend" = "Natural Rate",
-  "spf_survey"   = "SPF 5-Year Unemp Mean",
-  "natural_rate" = "Last State in Rolling Estimation"
+  "latent_trend" = "Nat. Unemp. Rate",
+  "spf_survey"   = "SPF 5y Unemp",
+  "natural_rate" = "Last State in Recursive Est"
 )
 
 okun_bottom_metrics <- c(
@@ -396,11 +413,11 @@ okun_bottom_metrics <- c(
 
 # HEX Color Codes
 okun_top_colors <- c(
-  "Unemployment"         = "#34495e", # Dark Slate
-  "Fitted Unemployment"     = "pink", # Deep Blue
-  "Natural Rate" = "#e74c3c", # Natural Rate Red
-  "SPF 5-Year Unemp Mean"  = "#f1c40f",  # Gold Yellow
-  "Last State in Rolling Estimation" = "green"
+  "Observed Unemployment"   = "#34495e", # Dark Slate
+  "Fitted Unemployment"     = "#2980b9", # Deep Blue
+  "Nat. Unemp. Rate" = "#e74c3c", # Natural Rate Red
+  "SPF 5y Unemp"  = "#f1c40f",  # Gold Yellow
+  "Last State in Recursive Est" = "green"
 )
 
 okun_bottom_colors <- c(
@@ -412,14 +429,14 @@ okun_bottom_colors <- c(
 # ============================================================================
 okun_dashboard <- plot_state_space_fit(
   plot_df        =  okun_plot_data,
-  title          = "Swiss Okun's Law State-Space Estimation",
-  subtitle       = "Okun Specification: Latent Natural Rate, Exogenous Lagged Output Gap and Long-Term SPF Anchors",
+  title          = "Okun's Law Model",
+  subtitle       = "Fit Plot for Full Sample Estimation",
   top_metrics    = okun_top_metrics,
   bottom_metrics =  okun_bottom_metrics,
   top_colors     = okun_top_colors,
   bottom_colors  =  okun_bottom_colors,
   zlb_bounds     = NULL, # Left NULL since this is unemployment
-  y_label_top    = "Unemployment Rate / Expectations (%)",
+  y_label_top    = "Unemployment Rate (%)",
   y_label_bottom = "Output Gap (%)",
   save_path      = output_save_paths$plots$fit_okun
 )
@@ -525,43 +542,45 @@ philips_plot_data <- philips_plot_data %>%
 # Set up column-to-legend text properties arrays
 philips_top_metrics <- c(
   "obs_cpi"      = "Observed CPI Inflation",
-  "fitted_inf"   = "Model Fitted Inflation",
-  "latent_trend" = "Unobserved Core Trend (pi_bar)",
-  "spf_survey"   = "SPF 5-Year Expectation Survey",
-  "natural_rate" = "Rolling Est Natural Rate"
+  "fitted_inf"   = "Fitted Inflation",
+  "latent_trend" = "Natural Rate of Inflation",
+  "spf_survey"   = "SPF 5y Inf Forecast",
+  "natural_rate" = "Last State in Recursive Est"
 )
 
 philips_bottom_metrics <- c(
-  "gdp_gap" = "Swiss Output Gap (GDP)",
-  "lop_gap" = "Law of One Price (LOP) Gap"
+  "gdp_gap" = "Output Gap",
+  "lop_gap" = "LOP Gap"
 )
 
 # Define exact high-contrast academic HEX color mappings
 philips_top_colors <- c(
   "Observed CPI Inflation"         = "#34495e", # Dark Slate
-  "Model Fitted Inflation"         = "#2980b9", # Deep Blue
-  "Unobserved Core Trend (pi_bar)" = "#e74c3c", # Core Trend Red
-  "SPF 5-Year Expectation Survey"  = "#f1c40f",  # Gold Yellow
-  "Rolling Est Natural Rate" = "green"
+  "Fitted Inflation"         = "#2980b9", # Deep Blue
+  "Natural Rate of Inflation" = "#e74c3c", # Core Trend Red
+  "SPF 5y Inf Forecast"  = "#f1c40f",  # Gold Yellow
+  "Last State in Recursive Est" = "green"
 )
 
 philips_bottom_colors <- c(
-  "Swiss Output Gap (GDP)"         = "#16a085", # Teal
-  "Law of One Price (LOP) Gap"     = "#9b59b6"  # Amethyst Purple
+  "Output Gap"         = "#16a085", # Teal
+  "LOP Gap"     = "#9b59b6"  # Amethyst Purple
 )
+
+
 
 
 philips_fit_plot <- plot_state_space_fit(
   plot_df        = philips_plot_data,
-  title          = "Swiss Phillips Curve State-Space Estimation",
-  subtitle       = "Hybrid PC Specification: Latent Core Trend with Professional Survey Anchoring",
+  title          = "Phillips Curve Model",
+  subtitle       = "Fit Plot for Full Sample Estimation",
   top_metrics    = philips_top_metrics,
   bottom_metrics = philips_bottom_metrics,
   top_colors     = philips_top_colors,
   bottom_colors  = philips_bottom_colors,
   zlb_bounds     = NULL, # Set to NULL because inflation parameters are unconstrained by a ZLB floor
-  y_label_top    = "Inflation Rate / Expectations (%)",
-  y_label_bottom = "Macroeconomic Cycle Gaps (%)",
+  y_label_top    = "Inflation (%)",
+  y_label_bottom = "Output and LOP Gaps (%)",
   save_path      = output_save_paths$plots$fit_philips
 )
 
@@ -617,7 +636,7 @@ ssm_taylor <- initialize_taylor_ssm(Y_data = Y_data_taylor,
                                     parameter_guesses = snb_rate_parameter_guess)
 
 generate_param_latex_table(manifest_source = ssm_taylor$manifest, 
-                           model_name = "Taylor Model",
+                           model_name = "Taylor Rule Model",
                            save_path = output_save_paths$tables$taylor_param_table)
 
 last_params_list_taylor <- taylor_params_df %>% 
@@ -663,26 +682,26 @@ taylor_plot_data <- taylor_plot_data %>%
   left_join(rolling_natural_rate_taylor, by = c("date" = "quarter"))
 
 # Define structure arrays
-taylor_top_cols    <- c("observed_rate" = "Observed LIBOR / SARON",
+taylor_top_cols    <- c("forward_rate" = "Forward Rate",
+                        "observed_rate" = "Observed Policy Rate",
                         "fitted_shadow" = "Fitted (Shadow) Rate",
-                        "natural_interest_rate" = "Natural Rate (i*)",
-                        "natural_rate" = "Rolling Estimation Natural Rate"
+                        "natural_interest_rate" = "Natural Interest Rate",
+                        "natural_rate" = "Last State in Recursive Est"
 )
 
-taylor_bottom_cols <- c("forward_rate" = "Forward Rate",
-                        "inflation_gap" = "Inflation Gap",
+taylor_bottom_cols <- c("inflation_gap" = "Inf. Gap",
                         "gdp_gap" = "GDP Gap",
                         "tp_trend"      = "TP Trend",
                         "tp_cycle"      = "TP Cycle")
 
-taylor_top_colors    <- c("Observed LIBOR / SARON" = "#2ecc71",
+taylor_top_colors    <- c("Observed Policy Rate" = "#2ecc71",
                           "Fitted (Shadow) Rate" = "#2980b9",
-                          "Natural Rate (i*)" = "#e74c3c",
-                          "Rolling Estimation Natural Rate" = "orange"
+                          "Forward Rate" = "#e67e22",
+                          "Natural Interest Rate" = "#e74c3c",
+                          "Last State in Rolling Estimation" = "green"
 )
 
-taylor_bottom_colors <- c("Forward Rate" = "#e67e22",
-                          "Inflation Gap" = "#9b59b6",
+taylor_bottom_colors <- c("Inflation Gap" = "#9b59b6",
                           "GDP Gap" = "#16a085",
                           "TP Trend" = "pink",
                           "TP Cycle" = "violet")
@@ -690,8 +709,8 @@ taylor_bottom_colors <- c("Forward Rate" = "#e67e22",
 # Generate
 snb_chart <- plot_state_space_fit(
   plot_df        = taylor_plot_data, # Tibble with all the Plotted Data
-  title          = "SNB Policy Rate Fit",
-  subtitle       = "Taylor Rule Specification: Constant Inflation Gap (Inflation -1)",
+  title          = "Taylor Rule Model Fit",
+  subtitle       = "Fit Plot for Full Sample Estimation",
   top_metrics    = taylor_top_cols,
   bottom_metrics = taylor_bottom_cols,
   top_colors     = taylor_top_colors,
@@ -701,4 +720,36 @@ snb_chart <- plot_state_space_fit(
 )
 print(snb_chart)
 
+
+#===============================================================================
+# Plot Live Forecasts
+#===============================================================================
+
+
+# Define your models and corresponding titles
+fcst_inputs <- list(
+  forecast_okun_df,
+  philips_forecast_df_current,
+  taylor_forecast_df,
+  taylor_forecast_df_rounded
+)
+
+plot_titles <- c(
+  "Unemployment Rate Forecast",
+  "CPI Inflation Forecast)",
+  "Policy Rate Forecast",
+  "Rounded Policy Rate Forecast"
+)
+
+# Run and save the 2x2 plot (truncated from 2010 onwards)
+combined_fig <- plot_combined_current_forecasts(
+  forecast_list = fcst_inputs,
+  titles        = plot_titles,
+  start_year    = "2010 Q1",
+  save_path     = output_save_paths$plots$current_forecasts, 
+  width         = 12,
+  height        = 8
+)
+
+print(combined_fig)
 

@@ -1343,91 +1343,22 @@ inflation_forecast_wrapper <- function(fcast_start,
 
 
 
-#' Merge State-Space Inflation Forecasts into ARIMA Forecast Data Frame
-#'
-#' Overlays an advanced state-space model (SSM) forecast triangle onto a baseline ARIMA
-#' forecast triangle matrix, matching target dates across rows and vintage origins across columns.
-#'
-#' @details
-#' Standardizes date formats across headers and row identifiers (\code{"YYYY Qq"}), detects
-#' overlapping vintage columns, and performs coordinate-wise overwriting of non-missing SSM
-#' forecast values into the baseline ARIMA container.
-#'
-#' @param arima_df A data frame containing baseline ARIMA forecast vintages, structured
-#'   as a lower-triangular matrix with a \code{date} column and quarterly vintage column names.
-#' @param ssm_df A data frame containing State-Space model forecast vintages to overlay.
-#'
-#' @return A data frame retaining the dimensional layout of \code{arima_df}, updated with
-#'   non-missing values from \code{ssm_df} across shared vintage-horizon coordinates.
-#'
-#' @seealso \code{\link{inflation_forecast_wrapper}}
-#'
-#' @export
-#' @importFrom zoo as.yearqtr
-merge_inflation_forecast_vintages <- function(arima_df, ssm_df) {
+prepare_inflation_forecast_taylor <- function(df, phillips_params_df = phillips_parmas_df) {
+  # Format quarter to "YYYYQq" (e.g., "1999Q1") using zoo::yearqtr
+  phillips_params_df$quarter <- format(zoo::as.yearqtr(phillips_params_df$quarter), "%YQ%q")
   
-  message("=== STARTING CROSS-VINTAGE FORECAST CONSOLIDATION ===")
-  
-  # Standardize tracking structures to prevent formatting drops
-  arima_df$date <- format(zoo::as.yearqtr(arima_df$date), format = "%Y Q%q")
-  ssm_df$date   <- format(zoo::as.yearqtr(ssm_df$date), format = "%Y Q%q")
-  
-  colnames(arima_df)[colnames(arima_df) != "date"] <- format(zoo::as.yearqtr(colnames(arima_df)[colnames(arima_df) != "date"]), format = "%Y Q%q")
-  
-  colnames(ssm_df)[colnames(ssm_df) != "date"] <- format(zoo::as.yearqtr(colnames(ssm_df)[colnames(ssm_df) != "date"]), format = "%Y Q%q")
-                               
-  
-  # Extract shared operational coordinates
-  # We find the intersection of vintage points (columns) present in both datasets
-  shared_vintages <- intersect(colnames(arima_df), colnames(ssm_df))
-  shared_vintages <- shared_vintages[shared_vintages != "date"]
-  
-  if (length(shared_vintages) == 0) {
-    stop("CRITICAL ERROR: No overlapping vintage columns found between ARIMA and SSM data frames.")
-  }
-  
-  message(sprintf("Found %d overlapping real-time vintage columns (from %s to %s).", 
-                  length(shared_vintages), min(shared_vintages), max(shared_vintages)))
-  
-  # Create a deep mutable copy of the baseline ARIMA layout
-  consolidated_df <- arima_df
-  
-  # Convert target dates to explicit row keys for matrix address operations
-  rownames(consolidated_df) <- consolidated_df$date
-  rownames(ssm_df)           <- ssm_df$date
-  
-  # Count modified entries for diagnostic verification logging
-  update_counter <- 0
-  
-  # Execute the Asymmetric Cell Overwrite Loop
-  for (v_col in shared_vintages) {
+  # Subtract each vintage's natural_rate directly from its matching column
+  for (i in seq_len(nrow(phillips_params_df))) {
+    col_name <- phillips_params_df$quarter[i]
+    nat_rate <- phillips_params_df$natural_rate[i]
     
-    # Identify target dates populated within the State-Space vintage column
-    # We filter out NAs to make sure we only copy real, generated model projections
-    valid_ssm_rows <- ssm_df$date[!is.na(ssm_df[[v_col]])]
-    
-    for (t_row in valid_ssm_rows) {
-      if (t_row %in% rownames(consolidated_df)) {
-        
-        # Extract the advanced state-space forecast point value
-        ssm_value <- ssm_df[t_row, v_col]
-        
-        # Splice the point value directly into the corresponding coordinates
-        consolidated_df[t_row, v_col] <- ssm_value
-        update_counter <- update_counter + 1
-      }
+    if (col_name %in% names(df)) {
+      df[[col_name]] <- df[[col_name]] - nat_rate
     }
   }
   
-  # Clean up row indices to return standard tibble layouts
-  rownames(consolidated_df) <- NULL
-  
-  message(sprintf("SUCCESS: Consolidation complete. Spliced %d point values into the target matrix.", update_counter))
-  cat(rep("=", 50), "\n\n")
-  
-  return(consolidated_df)
+  return(df)
 }
-
 
 #' Build Data Matrices for the Phillips Curve State-Space Model
 #'
@@ -1547,6 +1478,78 @@ build_data_matrix_philips <- function(T_0 = "1982-01-01",
 }
 
 
+
+
+get_phillips_inflation_gap <- function(vantage_date = "2020Q2",
+                                       phillips_folder = TARGET_FOLDER_PHILLIPS,
+                                       inflation_df = master_phillips,
+                                       inf_col = "log_inflation_diff",
+                                       date_col = "quarter") {
+  
+  # Parse input (e.g. "2020Q2") safely
+  vantage_qtr <- zoo::as.yearqtr(vantage_date)
+  
+  # Format target file suffix (e.g. "2020_Q2") and output dates (e.g. "2020Q2")
+  file_suffix <- format(vantage_qtr, "%Y_Q%q")
+  to_qtr_str  <- function(dates) format(zoo::as.yearqtr(dates), "%YQ%q")
+  
+  # ----------------------------------------------------------------------------
+  # 1. Locate and Load the Target Vantage RDS File
+  # ----------------------------------------------------------------------------
+  all_files    <- list.files(here("output", "para", phillips_folder), pattern = "\\.rds$", full.names = TRUE)
+  pattern      <- paste0(file_suffix, "\\.rds$")
+  matched_file <- grep(pattern, all_files, value = TRUE)
+  
+  if (length(matched_file) == 0) {
+    stop(sprintf("No RDS file ending in '%s.rds' found in folder: %s", file_suffix, phillips_folder))
+  }
+  
+  vantage_obj <- readRDS(matched_file[1])
+  
+  # ----------------------------------------------------------------------------
+  # 2. Extract Natural Rate Vector (First Column of states$r)
+  # ----------------------------------------------------------------------------
+  r_matrix <- vantage_obj[["states"]][["r"]]
+  natural_rate_vals <- as.numeric(if (is.matrix(r_matrix) || is.data.frame(r_matrix)) r_matrix[, 1] else r_matrix)
+  
+  # ----------------------------------------------------------------------------
+  # 3. Clean Historical Inflation Data up to Vantage Date
+  # ----------------------------------------------------------------------------
+  input_date_var <- if (date_col %in% colnames(inflation_df)) date_col else "date"
+  
+  actual_inf <- inflation_df %>%
+    mutate(quarter_obj = zoo::as.yearqtr(.data[[input_date_var]]),
+           date        = to_qtr_str(quarter_obj),
+           inf_actual  = as.numeric(.data[[inf_col]])) %>%
+    filter(!is.na(inf_actual)) %>%
+    filter(quarter_obj <= vantage_qtr) %>%
+    arrange(quarter_obj)
+  
+  # ----------------------------------------------------------------------------
+  # 4. Tail-Align: Match Newest Values Backwards
+  # ----------------------------------------------------------------------------
+  n_match <- min(nrow(actual_inf), length(natural_rate_vals))
+  
+  actual_inf_sub <- tail(actual_inf, n_match)
+  natural_rate_sub <- tail(natural_rate_vals, n_match)
+  
+  # ----------------------------------------------------------------------------
+  # 5. Compute Inflation Gap
+  # ----------------------------------------------------------------------------
+  gap_df <- data.frame(
+    quarter    = as.yearqtr(actual_inf_sub$date),
+    inf_gap = actual_inf_sub$inf_actual - natural_rate_sub
+  )
+  
+  return(gap_df)
+}
+
+
+
+
+
+
+
 #' Build Data Matrices for the Taylor Rule State-Space Model
 #'
 #' Constructs and aligns the observation and exogenous regressor time series
@@ -1565,7 +1568,7 @@ build_data_matrix_philips <- function(T_0 = "1982-01-01",
 #' @param quarterly Logical. Frequency flag for quarterly tracking. Defaults to \code{TRUE}.
 #' @param taylor_rule_spec Character string specifying the policy rule formulation:
 #'   \code{"backward"} (realized/lagged macro variables) or \code{"forward"} (forecast/survey expectations). Defaults to \code{"backward"}.
-#' @param if_gap_spec Character string defining the inflation gap construction:
+#' @param inf_gap_spec Character string defining the inflation gap construction:
 #'   \code{"minus_1"} (deviations from a 1\% target benchmark) or \code{"ssm_gap"} (deviations from latent trend estimates). Defaults to \code{"minus_1"}.
 #'
 #' @return A data frame aligned over \code{[T_0, vantage_quarter]} containing:
@@ -1590,7 +1593,7 @@ build_data_matrix_taylor <- function(T_0 = "1981-01-01",
                                     set_silent = TRUE,
                                     quarterly = TRUE,
                                     taylor_rule_spec = "backward",
-                                    if_gap_spec = "minus_1") {
+                                    inf_gap_spec = "minus_1") {
   
   # Make sure it's yearquarter object
   T_0 <- as.yearqtr(T_0)
@@ -1600,7 +1603,7 @@ build_data_matrix_taylor <- function(T_0 = "1981-01-01",
     if(inf_gap_spec == "minus_1") {
       
       # Slice Data available "Today"
-      data_t <- data[data[[quarter]] <= vantage_quarter, ]
+      data_t <- data[data[["quarter"]] <= vantage_quarter, ]
       
       # Process Exogenous Data
       # HP Filter is estimated inclduing the burn in period before the start of the information set
@@ -1618,7 +1621,6 @@ build_data_matrix_taylor <- function(T_0 = "1981-01-01",
       )
       gdp_gap_data$gap <- gdp_gap_data$gap * 100
       
-      
       inf_gap_data <- data_t %>%
         select(all_of(c("quarter", "inf_gap")))
       
@@ -1633,13 +1635,39 @@ build_data_matrix_taylor <- function(T_0 = "1981-01-01",
         # Filter to return the specific estimation sample
         filter(quarter >= as.yearqtr(T_0))
       
-    } else if(if_gap_spec == "ssm_gap") {
+    } else if(inf_gap_spec == "ssm_gap") {
       
-      # Need to extract all states from each of the estimations then format them into a df and subtract from observed data
-      # then take the state at t minus observed value at t
-      # maybe use fitted obs instead
-      # also use long format for this
-      # quarter, vantage_quarter, variable, value should be all i need, then filter for specific set
+      # Slice Data available "Today"
+      data_t <- data[data[["quarter"]] <= vantage_quarter, ]
+      
+      # Process Exogenous Data
+      # HP Filter is estimated inclduing the burn in period before the start of the information set
+      
+      # Error if there ar not enough valid gdp obs 
+      valid_inf_indices <- which(!is.na(data_t$log_cpi))
+      
+      # select GDP series
+      first_obs_idx <- valid_inf_indices[1]
+      inf_series    <- data_t$log_cpi[first_obs_idx:nrow(data_t)]
+      
+      gdp_gap_data <- get_hp_gap(data = data_t,
+                                 gdp_forecast_data = gdp_forecasts, # forecast data
+                                 vantage_q = target_date
+      )
+      gdp_gap_data$gap <- gdp_gap_data$gap * 100
+      
+      inf_gap_data <- get_phillips_inflation_gap(vantage_date = vantage_quarter)
+      
+      
+      processed_data <- data_t %>%
+        select(quarter, saron_libor_splice, forward_rate, yoy_inf) %>%
+        left_join(gdp_gap_data %>% select(quarter, gdp_gap = gap), by = "quarter") %>%
+        left_join(inf_gap_data %>% select(quarter, inf_gap), by = "quarter") %>%
+        filter(quarter >= as.yearqtr(val_T1)) %>%
+        arrange(quarter) %>%
+        filter(complete.cases(gdp_gap, inf_gap))%>%
+        # Filter to return the specific estimation sample
+        filter(quarter >= as.yearqtr(T_0))
       
     } else {
       message("NO VALID INF GAP SPECIFICATION GIVEN. ABORTING...")
@@ -1656,7 +1684,7 @@ build_data_matrix_taylor <- function(T_0 = "1981-01-01",
       
       # USE SPF forecasts minus 1
       
-    } else if(if_gap_spec == "ssm_gap") {
+    } else if(inf_gap_spec == "ssm_gap") {
       
       # USE SPF FORECASTS MINUS 1
       

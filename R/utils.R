@@ -417,6 +417,33 @@ standardize_yq_seq <- function(df) {
 #' @return A numeric vector rounded to the nearest multiple of \code{step}.
 #' @export
 mround <- function(x, step = 0.25) 
-  {round(x / step) * step}
+{round(x / step) * step}
 
+
+
+
+reduce_diagonal_matrix <- function(mat, max_h) {
+  # mat: data frame or matrix where
+  #      col 1 = forecast origin date
+  #      cols 2:ncol = target dates
+  #      diagonal (row i, col 1 + i) = observed actuals (h = 0)
+  #      rows i > j = forecast horizon steps h = row - col + 1
+  # max_h: maximum allowed forecast horizon (e.g., 4 or 8)
+  
+  mat_out <- mat
+  n_rows <- nrow(mat_out)
+  n_cols <- ncol(mat_out)
+  
+  # Forecast columns start at index 2
+  for (col_idx in 2:n_cols) {
+    origin_idx <- col_idx - 1  # Row index of the origin on the diagonal (h = 0)
+    cutoff_row <- origin_idx + max_h + 1
+    
+    if (cutoff_row <= n_rows) {
+      mat_out[cutoff_row:n_rows, col_idx] <- NA
+    }
+  }
+  
+  return(mat_out)
+}
 

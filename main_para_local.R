@@ -22,11 +22,11 @@ source(here("R","02_parallel", "est_ssm_para.R"))
 
 set.seed(42) # Set a seed so the shuffle is reproducible
 
-DO_TRIAL_RUN <- TRUE
+DO_TRIAL_RUN <- FALSE
 
 # What Models you Run
-RUN_OKUN_MODEL <- TRUE
-RUN_PHILLIPS_MODEL <- TRUE
+RUN_OKUN_MODEL <- FALSE
+RUN_PHILLIPS_MODEL <- FALSE
 RUN_TAYLOR_MODEL <- TRUE
 
 # --- Estimation Range ---
@@ -172,7 +172,8 @@ if(RUN_TAYLOR_MODEL) {
     taylor_trial_run_result <- run_est_para_taylor(
       target_date_str     = "1995 Q1", 
       sub_folder          = TARGET_FOLDER_TAYLOR, 
-      gdp_forecasts_arima = gdp_forecasts_arima
+      gdp_forecasts_arima = gdp_forecasts_arima,
+      static_gap = FALSE
     )
     
   } else {
@@ -186,7 +187,8 @@ if(RUN_TAYLOR_MODEL) {
     run_est_para_taylor(
       target_date_str     = date_str, 
       sub_folder          = TARGET_FOLDER_TAYLOR, 
-      gdp_forecasts_arima = gdp_forecasts_arima
+      gdp_forecasts_arima = gdp_forecasts_arima,
+      static_gap = FALSE
     )
   })
   message("\n=== FINISHED TAYLOR RULE MODEL PARALLEL ESTIMATION ===")

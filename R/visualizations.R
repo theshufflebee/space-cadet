@@ -58,9 +58,9 @@ plot_model_parameters <- function(df, save_path = NULL, title = "Model Parameter
     # Labeling payload
     labs(
       title    = title,
-      subtitle = "Recursive Estimates of Rolling Coefficients",
-      x        = "Last date of Sample",
-      y        = "Coefficient Size"
+      subtitle = "Recursive Parameter Estimates Across Evaluation Windows",
+      x        = "Forecast Origin (Sample End Date)",
+      y        = "Estimate Coefficient Value"
     ) +
     
     # Native Time Mapping
@@ -255,136 +255,139 @@ plot_state_space_fit <- function(plot_df,
 }
 
 
-#' Plot Current Forecasts
+#' Plot Combined Current Forecasts
 #'
-#' Generates a ggplot visualising realized actual values along the diagonal of a
-#' forecast matrix against the latest available forecast vintage path.
+#' Generates a 2x2 faceted/grid layout visualizing realized actual values along the diagonal
+#' of multiple forecast matrices against their respective latest forecast trajectories,
+#' truncated to start from 2010 Q1.
 #'
-#' @param fcst_df A matrix or data frame representing a lower-triangular forecast
-#'   table. Must contain quarterly date strings parseable by \code{zoo::as.yearqtr}
-#'   as row names (target dates) and column names (vintage dates).
-#' @param title Optional string. Plot title. Defaults to \code{"Real-Time Out-of-Sample Forecast Evaluation"}.
-#' @param save_path Optional string. File path where the plot should be exported.
-#'   Directories are created automatically if they do not exist.
-#' @param width Numeric. Width of exported plot in inches. Defaults to \code{8}.
-#' @param height Numeric. Height of exported plot in inches. Defaults to \code{5}.
+#' @param forecast_list A named or unnamed list of forecast data frames/matrices.
+#' @param titles A character vector of subplot titles matching `forecast_list`.
+#' @param start_year Numeric or Character. Cutoff starting point for realized actuals. Defaults to \code{"2010 Q1"}.
+#' @param save_path Optional string. File path where the combined plot should be exported.
+#' @param width Numeric. Width of exported plot in inches. Defaults to \code{12}.
+#' @param height Numeric. Height of exported plot in inches. Defaults to \code{8}.
 #'
-#' @return A \code{ggplot} object showing realized actuals and the latest forecast trajectory.
+#' @return A \code{patchwork} composite ggplot object.
 #' @export
 #' @import ggplot2
+#' @importFrom patchwork wrap_plots plot_layout
 #' @importFrom dplyr filter arrange %>%
 #' @importFrom zoo as.yearqtr
-#' @importFrom stats setNames
-#' @importFrom utils head tail
-plot_current_forecasts <- function(fcst_df, title = NULL, save_path = NULL, width = 8, height = 5) {
+#' @importFrom tibble column_to_rownames
+plot_combined_current_forecasts <- function(forecast_list,
+                                            titles = NULL,
+                                            start_year = "2010 Q1",
+                                            save_path = NULL,
+                                            width = 12,
+                                            height = 8) {
   
-  # Format & Type Conversion
-  if (is.matrix(fcst_df)) {
-    fcst_mat <- fcst_df
-    fcst_df  <- as.data.frame(fcst_df)
-  } else {
-    fcst_mat <- as.matrix(fcst_df)
+  if (!requireNamespace("patchwork", quietly = TRUE)) {
+    stop("Package 'patchwork' is required for the 2x2 layout. Please install it with: install.packages('patchwork')")
   }
   
-  target_date_strs  <- rownames(fcst_df)
-  vintage_date_strs <- colnames(fcst_df)
+  start_date_cutoff <- as.Date(zoo::as.yearqtr(start_year))
   
-  if (is.null(target_date_strs) || is.null(vintage_date_strs)) {
-    stop("The forecast matrix/data frame must have valid target dates as rownames and vintage dates as colnames.")
+  # Default titles if not provided
+  if (is.null(titles)) {
+    titles <- if (!is.null(names(forecast_list))) names(forecast_list) else paste("Forecast", seq_along(forecast_list))
   }
   
-  target_dates  <- as.Date(zoo::as.yearqtr(target_date_strs))
-  vintage_dates <- as.Date(zoo::as.yearqtr(vintage_date_strs))
-  
-  # Filter for diagonal in df (realized actuals)
-  common_quarters <- intersect(target_date_strs, vintage_date_strs)
-  
-  diag_actuals <- sapply(common_quarters, function(q) {
-    fcst_mat[q, q]
-  })
-  
-  actuals_df <- data.frame(
-    date   = as.Date(zoo::as.yearqtr(common_quarters)),
-    actual = as.numeric(diag_actuals)
-  ) %>% 
-    filter(!is.na(actual)) %>% 
-    arrange(date)
-  
-  # Select latest date
-  latest_vintage_str <- tail(vintage_date_strs, 1)
-  
-  latest_fcst_df <- data.frame(
-    date     = target_dates,
-    forecast = as.numeric(fcst_mat[, latest_vintage_str])
-  ) %>% 
-    filter(!is.na(forecast)) %>% 
-    arrange(date)
-  
-  # Check for continuity between latest actual & first forecast
-  last_actual_val <- tail(actuals_df$actual, 1)
-  first_fcst_val  <- head(latest_fcst_df$forecast, 1)
-  
-  if (length(last_actual_val) > 0 && length(first_fcst_val) > 0) {
-    if (!isTRUE(all.equal(last_actual_val, first_fcst_val, tolerance = 1e-4))) {
-      warning(sprintf(
-        "Discontinuity detected! Latest actual: %.4f vs. First forecast origin (%s): %.4f",
-        last_actual_val, latest_vintage_str, first_fcst_val
-      ))
+  # Helper to process a single data frame into a subplot
+  build_subplot <- function(fcst_input, plot_title) {
+    
+    # 1. Handle rownames if input is a tibble with a 'date' / 'quarter' column
+    df_raw <- as.data.frame(fcst_input)
+    if ("date" %in% names(df_raw)) {
+      df_raw <- tibble::column_to_rownames(df_raw, var = "date")
+    } else if ("quarter" %in% names(df_raw)) {
+      df_raw <- tibble::column_to_rownames(df_raw, var = "quarter")
     }
+    
+    fcst_mat <- as.matrix(df_raw)
+    
+    target_date_strs  <- rownames(fcst_mat)
+    vintage_date_strs <- colnames(fcst_mat)
+    
+    # Convert dates
+    target_dates  <- as.Date(zoo::as.yearqtr(target_date_strs))
+    vintage_dates <- as.Date(zoo::as.yearqtr(vintage_date_strs))
+    
+    # 2. Extract Realized Actuals along the diagonal & filter from 2010
+    common_quarters <- intersect(target_date_strs, vintage_date_strs)
+    diag_actuals    <- sapply(common_quarters, function(q) fcst_mat[q, q])
+    
+    actuals_df <- data.frame(
+      date   = as.Date(zoo::as.yearqtr(common_quarters)),
+      actual = as.numeric(diag_actuals)
+    ) %>%
+      dplyr::filter(!is.na(actual) & date >= start_date_cutoff) %>%
+      dplyr::arrange(date)
+    
+    # 3. Extract Latest Vintage Forecast
+    latest_vintage_str <- utils::tail(vintage_date_strs, 1)
+    
+    latest_fcst_df <- data.frame(
+      date     = target_dates,
+      forecast = as.numeric(fcst_mat[, latest_vintage_str])
+    ) %>%
+      dplyr::filter(!is.na(forecast)) %>%
+      dplyr::arrange(date)
+    
+    # 4. Construct Subplot
+    p_sub <- ggplot() +
+      geom_line(
+        data = actuals_df,
+        aes(x = date, y = actual, color = "Realized Actuals"),
+        linewidth = 0.9
+      ) +
+      geom_point(
+        data = actuals_df,
+        aes(x = date, y = actual, color = "Realized Actuals"),
+        size = 1.4
+      ) +
+      geom_line(
+        data = latest_fcst_df,
+        aes(x = date, y = forecast, color = "Model Forecast"),
+        linewidth = 0.9,
+        linetype = "dashed"
+      ) +
+      geom_point(
+        data = latest_fcst_df,
+        aes(x = date, y = forecast, color = "Model Forecast"),
+        size = 1.4
+      ) +
+      scale_color_manual(
+        name   = NULL,
+        values = c("Realized Actuals" = "#2c3e50", "Model Forecast" = "#e74c3c")
+      ) +
+      scale_x_date(date_breaks = "3 years", date_labels = "%Y") +
+      labs(
+        title    = plot_title,
+        subtitle = sprintf("Forecast Origin: %s", latest_vintage_str),
+        x        = NULL,
+        y        = "Percent / Index"
+      ) +
+      theme_minimal(base_size = 11) +
+      theme(
+        plot.title       = element_text(face = "bold", size = 12),
+        plot.subtitle    = element_text(size = 9, color = "grey40"),
+        panel.grid.minor = element_blank()
+      )
+    
+    return(p_sub)
   }
   
-  # Set default title if not supplied
-  plot_title <- if (is.null(title)) "Real-Time Out-of-Sample Forecast Evaluation" else title
+  # Generate individual plots
+  plot_list <- mapply(build_subplot, forecast_list, titles, SIMPLIFY = FALSE)
   
-  # Construct Plot
-  p <- ggplot() +
-    # Realized Actuals Line
-    geom_line(
-      data = actuals_df, 
-      aes(x = date, y = actual, color = "Realized Actuals (Diagonal)"), 
-      linewidth = 1
-    ) +
-    geom_point(
-      data = actuals_df, 
-      aes(x = date, y = actual, color = "Realized Actuals (Diagonal)"), 
-      size = 1.8
-    ) +
-    # Latest Vintage Forecast Path
-    geom_line(
-      data = latest_fcst_df, 
-      aes(x = date, y = forecast, color = sprintf("Latest Vintage (%s)", latest_vintage_str)), 
-      linewidth = 1, 
-      linetype = "dashed"
-    ) +
-    geom_point(
-      data = latest_fcst_df, 
-      aes(x = date, y = forecast, color = sprintf("Latest Vintage (%s)", latest_vintage_str)), 
-      size = 1.8
-    ) +
-    # Color Scale & Formatting
-    scale_color_manual(values = setNames(
-      c("#2c3e50", "#e74c3c"),
-      c("Realized Actuals (Diagonal)", sprintf("Latest Vintage (%s)", latest_vintage_str))
-    )) +
-    scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
-    labs(
-      title = plot_title,
-      subtitle = sprintf("Latest Forecast Vintage: %s", latest_vintage_str),
-      x = "Quarter",
-      y = "Value",
-      color = NULL
-    ) +
-    theme_minimal(base_size = 12) +
-    theme(
-      legend.position = "bottom",
-      plot.title = element_text(face = "bold", size = 13),
-      plot.subtitle = element_text(size = 10),
-      panel.grid.minor = element_blank()
-    )
+  # Combine into 2x2 layout with a unified bottom legend
+  combined_plot <- patchwork::wrap_plots(plot_list, ncol = 2, nrow = 2) +
+    patchwork::plot_layout(guides = "collect") &
+    theme(legend.position = "bottom")
   
-  # Export / Save Plot
+  # Save if requested
   if (!is.null(save_path)) {
-    # Ensure directory exists if subfolders are specified
     dir_name <- dirname(save_path)
     if (dir_name != "." && !dir.exists(dir_name)) {
       dir.create(dir_name, recursive = TRUE)
@@ -392,14 +395,13 @@ plot_current_forecasts <- function(fcst_df, title = NULL, save_path = NULL, widt
     
     ggsave(
       filename = save_path,
-      plot     = p,
+      plot     = combined_plot,
       width    = width,
       height   = height,
       dpi      = 300
     )
-    message(sprintf("Plot successfully saved to: %s", save_path))
+    message(sprintf("Live Forecast Plots Saved to: %s", save_path))
   }
   
-  return(p)
+  return(combined_plot)
 }
-

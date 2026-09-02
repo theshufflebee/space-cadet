@@ -28,7 +28,6 @@
 #' @param target_variable Character. Column name of the observed series to forecast. Defaults to \code{"unemp_rate"}.
 #' @param X_data A data frame containing historical exogenous variables. Defaults to \code{X_okun}.
 #' @param gdp_gap_forecasts_input A data frame formatted as a lower-triangular forecast matrix containing real-time GDP projections. Defaults to \code{gdp_gap_forecasts}.
-#' @param use_true_gdp Logical. Retained for interface consistency. Defaults to \code{FALSE}.
 #'
 #' @return A data frame in a triangle forecast matrix layout where the first column is \code{date_col}
 #'   (target quarters) and subsequent columns contain projected values from each vintage origin.
@@ -46,8 +45,8 @@ forecast_okun_ssm <- function(params_df,
                               Y_data_df = Y_okun,
                               target_variable = "unemp_rate",
                               X_data = X_okun,
-                              gdp_gap_forecasts_input = gdp_gap_forecasts,
-                              use_true_gdp = FALSE) {
+                              gdp_gap_forecasts_input = gdp_gap_forecasts
+                              ) {
   
   # Clean and prepare params_df
   params <- params_df %>%
@@ -360,7 +359,6 @@ forecast_philips_ssm <- function(params_df,
 #' @param zlb_0_start Character, Date, or \code{yearqtr}. Start date of the 0.00\% lower bound regime. Defaults to \code{"2009 Q2"}.
 #' @param zlb_075_start Character, Date, or \code{yearqtr}. Start date of the -0.75\% negative interest rate regime. Defaults to \code{"2015 Q1"}.
 #' @param zlb_end Character, Date, or \code{yearqtr}. Termination quarter of the lower bound regime. Defaults to \code{"2099 Q4"}.
-#' @param use_true_data Logical. Retained for interface compatibility. Defaults to \code{FALSE}.
 #'
 #' @return A data frame formatted as a lower-triangular forecast matrix with target dates as rows
 #'   and vintage origins as columns.
@@ -382,8 +380,7 @@ forecast_taylor_ssm <- function(params_df,
                                 inf_target = 1,
                                 zlb_0_start = "2009 Q2",
                                 zlb_075_start = "2015 Q1",
-                                zlb_end = "2099 Q4",
-                                use_true_data = FALSE) {
+                                zlb_end = "2021 Q2") {
   
   # 1. Parse structural boundary time coordinates safely
   zlb_0_start   <- zoo::as.yearqtr(zlb_0_start)
@@ -463,9 +460,13 @@ forecast_taylor_ssm <- function(params_df,
     colnames(future_inf) <- c("quarter", "inf")
     
     future_inf <- future_inf %>%
-      mutate(quarter = zoo::as.yearqtr(quarter),
-             inf = inf - 1) %>% 
+      mutate(quarter = zoo::as.yearqtr(quarter)) %>% 
       filter(!is.na(inf))
+    
+    #future_inf <- future_inf %>%
+    #  mutate(quarter = zoo::as.yearqtr(quarter),
+    #         inf = inf - 1) %>% 
+    #  filter(!is.na(inf))
     
     # Pull out structural output gaps directly via your helper function
     gdp_forecasts <- get_hp_gap(vantage_q = forecast_origin,
@@ -506,12 +507,10 @@ forecast_taylor_ssm <- function(params_df,
         new_shadow_rate <- (phi * current_shadow_rate) + (1 - phi) * target_rate
         
         # Bind floor rules by chronological policy regimes
-        if (fdate >= zlb_075_start && fdate <= zlb_end) {
-          active_floor <- -0.75
-        } else if (fdate >= zlb_0_start && fdate < zlb_075_start) {
+        if (fdate >= zlb_0_start && fdate < zlb_075_start) {
           active_floor <- 0.00
-        } else {
-          active_floor <- -Inf
+        } else{
+          active_floor <- -0.75
         }
         
         observed_forecast   <- max(active_floor, new_shadow_rate)

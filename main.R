@@ -69,13 +69,15 @@ source(here("scripts", "05_generate_forecasts.R"))
 source(here("scripts", "06_forecast_evaluation.R"))
 
 #------------------------------------------------------------------------------
-# z. Create Visualizations
+# 7. Create Visualizations
 #------------------------------------------------------------------------------
 source(here("scripts", "07_visualizations.R"))
 
+#------------------------------------------------------------------------------
+# 8. Create Auxiliary Estimations
+#------------------------------------------------------------------------------
 source(here("scripts", "08_auxiliary_estimations.R"))
 
-source(here("scripts", "09_generate_current_forecasts.R"))
 
 
 

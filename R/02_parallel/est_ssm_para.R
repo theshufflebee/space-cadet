@@ -244,15 +244,20 @@ run_est_para_phillips <- function(target_date_str,
 run_est_para_taylor <- function(target_date_str,
                                 sub_folder = "default_taylor",
                                 gdp_forecasts_arima,
-                                val_T1 = "1989-01-01") {
+                                val_T1 = "1989-01-01",
+                                static_gap = TRUE) { # static gap is minus 1 gap
   
   target_date <- zoo::as.yearqtr(target_date_str)
   val_T1      <- zoo::as.yearqtr(val_T1)
   
   # Load master dataset 
-  master_path <- data_save_paths$processed$taylor_master_csv
-  master_taylor <- readr::read_csv(master_path, show_col_types = FALSE)
+  master_path_taylor <- data_save_paths$processed$taylor_master_csv
+  master_taylor <- readr::read_csv(master_path_taylor, show_col_types = FALSE)
   master_taylor$quarter <- zoo::as.yearqtr(master_taylor$quarter)
+  
+  master_path_phillips <- data_save_paths$processed$philips_master_csv
+  master_phillips <- readr::read_csv(master_path_phillips, show_col_types = FALSE)
+  master_phillips$quarter <- zoo::as.yearqtr(master_phillips$quarter)
   
   # 2. Filter historical information slice up to "Today"
   data_t <- master_taylor[master_taylor$quarter <= target_date, ]
@@ -271,8 +276,14 @@ run_est_para_taylor <- function(target_date_str,
   )
   gdp_gap_data$gap <- gdp_gap_data$gap * 100
   
-  inf_gap_data <- data_t %>%
-    dplyr::select(dplyr::all_of(c("quarter", "inf_gap")))
+  if(static_gap){
+    inf_gap_data <- data_t %>%
+      dplyr::select(dplyr::all_of(c("quarter", "inf_gap")))
+  } else {
+    inf_gap_data <- get_phillips_inflation_gap(vantage_date = target_date,
+                                               inflation_df = master_phillips)
+  }
+  
   
   # 5. Compile Structural Matrix Space Alignment Window
   processed_data <- data_t %>%

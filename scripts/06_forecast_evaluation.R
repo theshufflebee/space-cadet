@@ -122,7 +122,7 @@ result_lop_auto_arma <- creaFcstEval::run_evaluation(
   fcst_df         = fcst_df_lop,
   model_name      = "SNB REER Model",
   benchmark_model = "AUTO_ARMA",
-  type            = "growth",
+  type            = "level",
   max_p           = 4,
   max_q           = 4
 )
@@ -155,12 +155,13 @@ export_eval_to_latex(fcst_eval_lop_gap_auto_arma_df, output_save_paths$tables$ev
 
 # Data Preparation
 # ------------------------------------------------------------------------------
-Y_okun_eval <- Y_okun %>%
+Y_okun_eval <- master_quarterly %>%
   select(c("quarter", "unemp_rate")) %>%
   rename(date = quarter,
          value = unemp_rate) %>%
   mutate(date = format(as.yearqtr(date), "%YQ%q"))%>%
-  drop_na()
+  drop_na() %>%
+  slice(10:n())
 
 
 
@@ -173,20 +174,19 @@ result_okun_rw <- creaFcstEval::run_evaluation(
   fcst_df         = fcst_df_unemp,
   model_name      = "Okun Model",
   benchmark_model = "RW",
-  type = "level"
+  type = "growth"
 )
 
 fcst_eval_okun_rw_df <- result_okun_rw$table
 export_eval_to_latex(fcst_eval_okun_rw_df, output_save_paths$tables$eval_rw_okun)
-
-
 
 # --- AR1 ---
 result_okun_ar1 <- creaFcstEval::run_evaluation(
   df              = Y_okun_eval,
   fcst_df         = fcst_df_unemp,
   model_name      = "Okun Model",
-  benchmark_model = "AR1"
+  benchmark_model = "AR1",
+  type = "growth"
   )
 
 fcst_eval_okun_ar1_df <- result_okun_ar1$table
@@ -198,6 +198,7 @@ result_okun_auto_arma <- creaFcstEval::run_evaluation(
   fcst_df         = fcst_df_unemp,
   model_name      = "Okun Model",
   benchmark_model = "AUTO_ARMA",
+  type = "growth",
   max_p = 4,
   max_q = 4
   )

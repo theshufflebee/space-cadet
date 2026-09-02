@@ -93,17 +93,16 @@ export_eval_to_latex <- function(eval_df, output_path = NULL) {
       "\\end{tabular}%%\n",
       "%% \\\\\n",
       "\\par\\smallskip\n",
-      "\\parbox{\\textwidth}{\\scriptsize \\textit{Notes:} This table reports rolling ",
+      "\\parbox{\\textwidth}{\\scriptsize \\textit{Notes:} This table reports ",
       "pseudo-out-of-sample forecast evaluation metrics for the %s against an ",
       "unconstrained %s benchmark. The evaluation period spans %s using a %s ",
       "estimation scheme with a benchmark sample start date of %s. Columns 2 and 4 ",
-      "present forecast error variance and absolute ratios (values $< 1.00$ denote ",
+      "present absolute and squared forecast error ratios (values $< 1.00$ denote ",
       "model outperformance). Tests are as follows: Diebold-Mariano (DM) statistics, ",
-      "Mincer-Zarnowitz (MZ) forecast rationality properties, Systemic over or ",
+      "Mincer-Zarnowitz (MZ) forecast optimality, Systemic over or ",
       "underprediction (Unbias), if the forecast itself predicts forecast errors (Strong),",
       "and serial correlation in forecast errors (Weak). ",
-      "All reported values display calculated test statistics with asymptotic ",
-      "$p$-values provided in parentheses.}"
+      "All $p$-values provided in parentheses}"
     ),
     model_name, benchmark, eval_period, scheme, est_start
   )

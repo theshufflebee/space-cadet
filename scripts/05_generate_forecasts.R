@@ -58,6 +58,8 @@ write_csv(as.data.frame(philips_forecast_df), output_save_paths$forecasts$foreca
 philips_forecast_df <- read_csv(output_save_paths$forecasts$forecast_df_philips, show_col_types = FALSE) %>% 
   column_to_rownames(var = names(.)[1])
 
+philips_forecast_df_current <- philips_forecast_df
+
 last_origin <- ncol(philips_forecast_df)
 
 philips_eval_square <- philips_forecast_df[1:last_origin, 1:last_origin]
@@ -66,6 +68,13 @@ dim(philips_eval_square)
 
 colnames(philips_eval_square) <- format(as.yearqtr(colnames(philips_eval_square)), "%YQ%q")
 rownames(philips_eval_square) <- format(as.yearqtr(rownames(philips_eval_square)), "%YQ%q")
+
+colnames(philips_forecast_df) <- format(as.yearqtr(colnames(philips_forecast_df)), "%YQ%q")
+rownames(philips_forecast_df) <- format(as.yearqtr(rownames(philips_forecast_df)), "%YQ%q")
+
+philips_forecast_df <- philips_forecast_df %>%
+  rownames_to_column(var = "date") %>%
+  as.data.frame()
 
 fcst_df_inf <- philips_eval_square %>%
   rownames_to_column(var = "date") %>%
@@ -83,9 +92,8 @@ inf_arima_fcst_df <- read_csv(output_save_paths$forecasts$forecast_df_inf_arima)
   rename_with(~ format(zoo::as.yearqtr(.x, format = "%Y Q%q")), .cols = -date)
 
 
-final_inflation_vintages <- merge_inflation_forecast_vintages(
-  arima_df = inf_arima_fcst_df, # Your baseline output
-  ssm_df   = fcst_df_inf        # Your state space data starting in 2010
+final_inflation_vintages <- prepare_inflation_forecast_taylor(
+  df   = philips_forecast_df        # Your state space data starting in 2010
 )
 
 
@@ -104,8 +112,10 @@ taylor_forecast_df <- forecast_taylor_ssm(params_df = taylor_params_df,
 
 # Save the Forecast df (and reload)
 
+
 taylor_forecast_df_rounded <- taylor_forecast_df %>%
   mutate(across(-1, ~ mround(.x, 0.25)))
+
 
 write_csv(as.data.frame(taylor_forecast_df), output_save_paths$forecasts$forecast_df_taylor)
 write_csv(as.data.frame(taylor_forecast_df_rounded), output_save_paths$forecasts$forecast_df_taylor_rounded)
